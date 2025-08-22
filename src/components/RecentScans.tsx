@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Home, Recycle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, Home, Recycle, Trash2 } from "lucide-react";
 
 interface WasteItem {
   id: string;
@@ -16,9 +17,10 @@ interface WasteItem {
 interface RecentScansProps {
   scans: WasteItem[];
   onSelectScan: (scan: WasteItem) => void;
+  onClearHistory: () => void;
 }
 
-export const RecentScans = ({ scans, onSelectScan }: RecentScansProps) => {
+export const RecentScans = ({ scans, onSelectScan, onClearHistory }: RecentScansProps) => {
   if (scans.length === 0) {
     return null;
   }
@@ -38,9 +40,19 @@ export const RecentScans = ({ scans, onSelectScan }: RecentScansProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center">
-        <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Seneste scanninger</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Seneste scanninger</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClearHistory}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="space-y-3">

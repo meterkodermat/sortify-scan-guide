@@ -164,34 +164,16 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="p-4 text-center bg-gradient-card shadow-soft">
-            <Recycle className="h-8 w-8 mx-auto mb-2 text-accent" />
-            <p className="font-medium text-sm">AI-drevet</p>
-            <p className="text-xs text-muted-foreground">Præcis identifikation</p>
-          </Card>
-          <Card className="p-4 text-center bg-gradient-card shadow-soft">
-            <Leaf className="h-8 w-8 mx-auto mb-2 text-success" />
-            <p className="font-medium text-sm">Miljøvenlig</p>
-            <p className="text-xs text-muted-foreground">Bedre sortering</p>
-          </Card>
-        </div>
 
         {/* Recent Scans */}
         {recentScans.length > 0 && (
           <RecentScans
             scans={recentScans}
             onSelectScan={handleSelectRecentScan}
+            onClearHistory={() => setRecentScans([])}
           />
         )}
 
-        {/* Footer */}
-        <div className="text-center pt-8">
-          <p className="text-sm text-muted-foreground">
-            Udviklet for Renosyd
-          </p>
-        </div>
       </div>
     </div>
   );
