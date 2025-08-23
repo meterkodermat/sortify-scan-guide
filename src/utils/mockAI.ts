@@ -75,7 +75,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   return {
     id: Date.now().toString(),
     name: randomItem.name,
-    image: imageData.base64,
+    image: imageData,
     homeCategory: randomItem.homeCategory,
     recyclingCategory: randomItem.recyclingCategory,
     description: randomItem.description,
