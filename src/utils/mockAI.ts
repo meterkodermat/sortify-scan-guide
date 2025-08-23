@@ -1,5 +1,5 @@
-// Mock AI service for waste identification
-// In a real app, this would connect to an actual AI service
+// AI service for waste identification using Google Vision API
+import { supabase } from "@/integrations/supabase/client";
 
 interface WasteItem {
   id: string;
@@ -12,74 +12,120 @@ interface WasteItem {
   timestamp: Date;
 }
 
-const wasteDatabase = [
+interface VisionLabel {
+  description: string;
+  score: number;
+}
+
+interface VisionResponse {
+  success: boolean;
+  labels?: VisionLabel[];
+  error?: string;
+}
+
+// Fallback database for unknown items
+const fallbackItems = [
   {
-    keywords: ['mælk', 'karton', 'tetrapak', 'juice', 'saft'],
-    name: 'Mælkekarton',
-    homeCategory: 'Mad- & drikkekartoner',
-    recyclingCategory: 'Pap',
-    description: 'Tetrapak karton til mælk, juice eller andre drikkevarer. Skal tømmes og skylles før sortering.'
-  },
-  {
-    keywords: ['dåse', 'konserves', 'tomat', 'bønner', 'metal'],
-    name: 'Konservesdåse',
-    homeCategory: 'Metal & glas',
-    recyclingCategory: 'Metal',
-    description: 'Metal konservesdåse. Skal tømmes og skylles før sortering i metal containeren.'
-  },
-  {
-    keywords: ['æble', 'frugt', 'mad', 'kompost', 'organisk'],
-    name: 'Æbleskrog',
-    homeCategory: 'Madaffald',
-    recyclingCategory: 'Madaffald/Kompost',
-    description: 'Organisk madaffald som kan komposteres eller bruges til biogas produktion.'
-  },
-  {
-    keywords: ['glas', 'flaske', 'øl', 'vin', 'sodavand'],
-    name: 'Glasflaske',
-    homeCategory: 'Metal & glas',
-    recyclingCategory: 'Glas',
-    description: 'Glasflaske der kan genanvendes. Fjern låg og etiketter hvis muligt.'
-  },
-  {
-    keywords: ['plastik', 'flaske', 'vand', 'sodavand', 'pet'],
-    name: 'Plastikflaske',
-    homeCategory: 'Plast',
-    recyclingCategory: 'Plastik',
-    description: 'PET plastikflaske. Tøm og skyl før sortering. Låget kan blive siddende på.'
-  },
-  {
-    keywords: ['papir', 'avis', 'magasin', 'katalog'],
-    name: 'Avis/Magasin',
-    homeCategory: 'Papir',
-    recyclingCategory: 'Papir',
-    description: 'Trykt papir som aviser og magasiner. Skal være tør og ren.'
-  },
-  {
-    keywords: ['banan', 'skræl', 'frugt', 'organisk'],
-    name: 'Bananskræl',
-    homeCategory: 'Madaffald',
-    recyclingCategory: 'Madaffald/Kompost',
-    description: 'Organisk madaffald som egner sig perfekt til kompostering.'
+    name: 'Ukendt genstand',
+    homeCategory: 'Restaffald',
+    recyclingCategory: 'Restaffald',
+    description: 'Genstanden kunne ikke identificeres. Sortér som restaffald eller kontakt din lokale genbrugsplads for vejledning.'
   }
 ];
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
-  // Simulate AI processing time
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
+    // Call vision-proxy edge function
+    const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
+      body: { image: imageData }
+    });
 
-  // In a real implementation, this would send the image to an AI service
-  // For now, we'll randomly select an item from our database
-  const randomItem = wasteDatabase[Math.floor(Math.random() * wasteDatabase.length)];
-  
-  return {
-    id: Date.now().toString(),
-    name: randomItem.name,
-    image: imageData,
-    homeCategory: randomItem.homeCategory,
-    recyclingCategory: randomItem.recyclingCategory,
-    description: randomItem.description,
-    confidence: Math.floor(Math.random() * 20) + 80, // 80-99% confidence
-    timestamp: new Date()
-  };
+    if (visionError) {
+      console.error('Vision proxy error:', visionError);
+      throw new Error('Kunne ikke analysere billedet');
+    }
+
+    if (!visionData?.success || !visionData?.labels?.length) {
+      console.error('No labels returned from vision API');
+      throw new Error('Ingen objekter fundet i billedet');
+    }
+
+    // Get the top labels from Vision API
+    const topLabels = visionData.labels.slice(0, 5);
+    console.log('Vision API labels:', topLabels);
+
+    // Search database for matches
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const label of topLabels) {
+      const searchTerms = label.description.toLowerCase();
+      
+      // Search in demo table
+      const { data: matches, error: dbError } = await supabase
+        .from('demo')
+        .select('*')
+        .or(`navn.ilike.%${searchTerms}%,synonymer.ilike.%${searchTerms}%`);
+
+      if (dbError) {
+        console.error('Database search error:', dbError);
+        continue;
+      }
+
+      if (matches && matches.length > 0) {
+        // Use the first match and combine with Vision confidence
+        const match = matches[0];
+        const combinedScore = label.score * 100; // Convert to percentage
+        
+        if (combinedScore > bestScore) {
+          bestMatch = {
+            id: Date.now().toString(),
+            name: match.navn || 'Ukendt genstand',
+            image: imageData,
+            homeCategory: match.hjem || 'Restaffald',
+            recyclingCategory: match.genbrugsplads || 'Restaffald',
+            description: `${match.variation || match.navn || 'Ukendt genstand'}. ${match.materiale ? `Materiale: ${match.materiale}. ` : ''}`,
+            confidence: Math.round(combinedScore),
+            timestamp: new Date()
+          };
+          bestScore = combinedScore;
+        }
+      }
+    }
+
+    // If no match found, use fallback
+    if (!bestMatch) {
+      const fallback = fallbackItems[0];
+      const topLabel = topLabels[0];
+      
+      bestMatch = {
+        id: Date.now().toString(),
+        name: topLabel?.description || fallback.name,
+        image: imageData,
+        homeCategory: fallback.homeCategory,
+        recyclingCategory: fallback.recyclingCategory,
+        description: `Identificeret som: ${topLabel?.description || 'ukendt genstand'}. ${fallback.description}`,
+        confidence: Math.round((topLabel?.score || 0.5) * 100),
+        timestamp: new Date()
+      };
+    }
+
+    return bestMatch;
+
+  } catch (error) {
+    console.error('Error in identifyWaste:', error);
+    
+    // Return fallback item on error
+    const fallback = fallbackItems[0];
+    return {
+      id: Date.now().toString(),
+      name: fallback.name,
+      image: imageData,
+      homeCategory: fallback.homeCategory,
+      recyclingCategory: fallback.recyclingCategory,
+      description: `Fejl ved analyse: ${error.message}. ${fallback.description}`,
+      confidence: 50,
+      timestamp: new Date()
+    };
+  }
 };
