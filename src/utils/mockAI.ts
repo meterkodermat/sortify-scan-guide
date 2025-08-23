@@ -20,15 +20,15 @@ interface VisionLabel {
   type?: 'label' | 'object';
 }
 
-// Semantic category groups for validation
+// Enhanced semantic category groups with Danish terms for aggressive filtering
 const semanticCategories = {
-  animals: ['bird', 'animal', 'mammal', 'wildlife', 'pet', 'cat', 'dog', 'horse', 'cow', 'fish', 'flamingo', 'swan', 'duck'],
-  people: ['person', 'human', 'face', 'people', 'man', 'woman', 'child', 'baby'],
-  kitchen: ['lid', 'pot', 'pan', 'cookware', 'kitchen', 'utensil', 'bowl', 'plate', 'spoon', 'fork', 'knife'],
-  containers: ['box', 'container', 'package', 'packaging', 'bottle', 'jar', 'can', 'bag'],
-  materials: ['plastic', 'glass', 'metal', 'paper', 'cardboard', 'wood', 'fabric', 'textile'],
-  electronics: ['electronic', 'device', 'phone', 'computer', 'battery', 'cable', 'appliance'],
-  organic: ['food', 'fruit', 'vegetable', 'organic', 'plant', 'flower', 'leaf', 'tree']
+  animals: ['bird', 'animal', 'mammal', 'wildlife', 'pet', 'cat', 'dog', 'horse', 'cow', 'fish', 'flamingo', 'swan', 'duck', 'fugl', 'dyr', 'pattedyr', 'kæledyr', 'kat', 'hund', 'hest', 'ko', 'fisk', 'flamingo', 'svane', 'and'],
+  people: ['person', 'human', 'face', 'people', 'man', 'woman', 'child', 'baby', 'menneske', 'ansigt', 'mennesker', 'mand', 'kvinde', 'barn', 'baby'],
+  kitchen: ['lid', 'pot', 'pan', 'cookware', 'kitchen', 'utensil', 'bowl', 'plate', 'spoon', 'fork', 'knife', 'låg', 'grydelåg', 'gryde', 'pande', 'køkkenting', 'køkken', 'redskab', 'skål', 'tallerken', 'ske', 'gaffel', 'kniv'],
+  containers: ['box', 'container', 'package', 'packaging', 'bottle', 'jar', 'can', 'bag', 'kasse', 'beholder', 'pakke', 'emballage', 'flaske', 'krukke', 'dåse', 'pose'],
+  materials: ['plastic', 'glass', 'metal', 'paper', 'cardboard', 'wood', 'fabric', 'textile', 'plastik', 'glas', 'metal', 'papir', 'karton', 'træ', 'stof', 'tekstil'],
+  electronics: ['electronic', 'device', 'phone', 'computer', 'battery', 'cable', 'appliance', 'elektronik', 'enhed', 'telefon', 'computer', 'batteri', 'kabel', 'apparat'],
+  organic: ['food', 'fruit', 'vegetable', 'organic', 'plant', 'flower', 'leaf', 'tree', 'mad', 'frugt', 'grøntsag', 'organisk', 'plante', 'blomst', 'blad', 'træ']
 };
 
 // Incompatible category combinations (animals should never match kitchen items)
@@ -136,9 +136,41 @@ const validateSemanticCompatibility = (labels: VisionLabel[]): { compatible: boo
   return { compatible: true };
 };
 
-// Enhanced search terms with semantic awareness
+// AGGRESSIVE semantic blocking - completely stop incompatible searches
+const shouldBlockSearch = (labelCategories: string[], globalSemanticContext: string[]): { blocked: boolean; reason?: string } => {
+  // Block if we detect animals/people trying to match kitchen/container items
+  if ((labelCategories.includes('animals') || labelCategories.includes('people')) && 
+      (globalSemanticContext.includes('kitchen') || globalSemanticContext.includes('containers'))) {
+    return { 
+      blocked: true, 
+      reason: `Blokeret: ${labelCategories.join('+')} kan ikke være ${globalSemanticContext.filter(c => c === 'kitchen' || c === 'containers').join('+')}`
+    };
+  }
+  
+  // Block obvious mismatches early
+  for (const [cat1, cat2] of incompatibleCategories) {
+    if (labelCategories.includes(cat1) && globalSemanticContext.includes(cat2)) {
+      return { 
+        blocked: true, 
+        reason: `Blokeret: ${cat1} og ${cat2} er inkompatible kategorier`
+      };
+    }
+  }
+  
+  return { blocked: false };
+};
+
+// Enhanced search terms with aggressive semantic filtering
 const getSearchTerms = (label: VisionLabel, semanticContext: string[]): string[] => {
   const searchTerms: string[] = [];
+  const labelCategories = getSemanticCategory(label);
+  
+  // EARLY SEMANTIC BLOCKING
+  const blockCheck = shouldBlockSearch(labelCategories, semanticContext);
+  if (blockCheck.blocked) {
+    console.log(`🚫 BLOCKED search for "${label.description}": ${blockCheck.reason}`);
+    return []; // Return empty array to completely skip database search
+  }
   
   // Primary: Use Google Cloud Translation API result if available
   if (label.translatedText) {
@@ -147,28 +179,36 @@ const getSearchTerms = (label: VisionLabel, semanticContext: string[]): string[]
     searchTerms.push(...words);
   }
   
-  // Secondary: Use category fallbacks, but filter by semantic context
+  // Secondary: Use category fallbacks with enhanced semantic filtering
   const englishTerm = label.description.toLowerCase();
-  const labelCategories = getSemanticCategory(label);
   
-  // Only add fallback terms if they're semantically compatible
+  // Aggressive filtering - skip fallbacks for incompatible categories
   for (const [category, terms] of Object.entries(categoryFallbacks)) {
     if (englishTerm.includes(category)) {
-      // Check if this category makes sense given the semantic context
-      const isCompatible = labelCategories.length === 0 || 
-        labelCategories.some(cat => !incompatibleCategories.some(([c1, c2]) => 
-          (cat === c1 && semanticContext.includes(c2)) || 
-          (cat === c2 && semanticContext.includes(c1))
-        ));
+      // Enhanced compatibility check
+      const isSemanticallySafe = labelCategories.length === 0 || 
+        !incompatibleCategories.some(([c1, c2]) => 
+          (labelCategories.includes(c1) && (category === c2 || semanticContext.includes(c2))) ||
+          (labelCategories.includes(c2) && (category === c1 || semanticContext.includes(c1)))
+        );
       
-      if (isCompatible) {
+      if (isSemanticallySafe) {
         searchTerms.push(...terms);
+      } else {
+        console.log(`🚫 Skipping fallback "${category}" for semantic safety`);
       }
     }
   }
   
-  // Tertiary: Add original English term with caution
-  searchTerms.push(englishTerm);
+  // Tertiary: Add original English term only if semantically safe
+  if (!labelCategories.some(cat => 
+    incompatibleCategories.some(([c1, c2]) => 
+      (cat === c1 && semanticContext.includes(c2)) ||
+      (cat === c2 && semanticContext.includes(c1))
+    )
+  )) {
+    searchTerms.push(englishTerm);
+  }
   
   return [...new Set(searchTerms.filter(term => term.trim().length > 0))];
 };
@@ -219,7 +259,7 @@ const searchDatabase = async (searchTerms: string[], semanticCategories: string[
       });
     }
     
-    // Strategy 3: Material match (lower priority for semantic conflicts)
+    // Strategy 3: Material match (heavily penalized for semantic conflicts)  
     const { data: materialMatches } = await supabase
       .from('demo')
       .select('*')
@@ -228,8 +268,8 @@ const searchDatabase = async (searchTerms: string[], semanticCategories: string[
     if (materialMatches?.length) {
       materialMatches.forEach(match => {
         const fuzzyScore = calculateFuzzyScore(term, match.materiale || '');
-        // Penalize material matches if semantic categories conflict
-        const semanticPenalty = semanticCategories.includes('animals') || semanticCategories.includes('people') ? 0.3 : 1.0;
+        // AGGRESSIVE penalty for semantic conflicts (nearly eliminates them)
+        const semanticPenalty = semanticCategories.includes('animals') || semanticCategories.includes('people') ? 0.01 : 1.0;
         allMatches.push({ 
           ...match, 
           matchType: 'material', 
@@ -345,7 +385,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     
     aiThoughtProcess += `Primær genstand: '${identifiedObject}' (kategorier: ${primarySemanticCategories.join(', ')}). `;
 
-    // Process each label with semantic awareness
+    // Process each label with aggressive semantic filtering
     for (const label of prioritizedLabels) {
       const englishTerm = label.description.toLowerCase();
       
@@ -354,9 +394,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       
       const labelSemanticCategories = getSemanticCategory(label);
       
-      // Get search terms with semantic context
+      // Get search terms with semantic context (may return empty if blocked)
       const searchTerms = getSearchTerms(label, globalSemanticContext);
-      console.log(`Search terms for "${label.description}" (${labelSemanticCategories.join(', ')}): ${searchTerms.join(', ')}`);
+      
+      // Enhanced logging for blocked searches
+      if (searchTerms.length === 0) {
+        aiThoughtProcess += `🚫 BLOKERET: '${label.description}' (${labelSemanticCategories.join(',')}) - semantisk konflikt. `;
+        console.log(`🚫 Search blocked for "${label.description}" due to semantic conflict`);
+        continue; // Skip to next label
+      }
+      
+      console.log(`✅ Search terms for "${label.description}" (${labelSemanticCategories.join(', ')}): ${searchTerms.join(', ')}`);
       
       // Enhanced database search with semantic awareness
       const matches = await searchDatabase(searchTerms, globalSemanticContext);
@@ -378,6 +426,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             bestMatch = match;
           }
         }
+      } else {
+        aiThoughtProcess += `Ingen match for '${label.description}'. `;
       }
     }
 
