@@ -23,6 +23,77 @@ interface VisionResponse {
   error?: string;
 }
 
+// English to Danish translation dictionary for Vision API results
+const englishToDanish = {
+  // Fruits and food
+  'apple': ['æble', 'frugt'],
+  'fruit': ['frugt'],
+  'banana': ['banan', 'frugt'],
+  'orange': ['appelsin', 'citrus', 'frugt'],
+  'food': ['mad', 'fødevarer', 'organisk'],
+  'vegetable': ['grøntsag', 'organisk'],
+  'bread': ['brød', 'organisk'],
+  'meat': ['kød', 'organisk'],
+  
+  // Containers and packaging
+  'bottle': ['flaske', 'emballage'],
+  'plastic bottle': ['plastflaske', 'plastik', 'emballage'],
+  'glass bottle': ['glasflaske', 'glas', 'emballage'],
+  'can': ['dåse', 'metal', 'emballage'],
+  'tin can': ['dåse', 'metal', 'emballage'],
+  'aluminum can': ['aluminiumsdåse', 'aluminium', 'metal'],
+  'jar': ['glas', 'emballage'],
+  'container': ['beholder', 'emballage'],
+  'box': ['kasse', 'karton', 'papir'],
+  'carton': ['karton', 'papir', 'emballage'],
+  'packaging': ['emballage', 'indpakning'],
+  'bag': ['pose', 'plastik'],
+  'plastic bag': ['plastpose', 'plastik'],
+  'paper bag': ['papirpose', 'papir'],
+  
+  // Materials
+  'plastic': ['plastik'],
+  'glass': ['glas'],
+  'metal': ['metal'],
+  'aluminum': ['aluminium', 'metal'],
+  'steel': ['stål', 'metal'],
+  'paper': ['papir'],
+  'cardboard': ['karton', 'papir'],
+  'wood': ['træ'],
+  'fabric': ['tekstil', 'stof'],
+  'cotton': ['bomuld', 'tekstil'],
+  
+  // Electronics
+  'phone': ['telefon', 'elektronik'],
+  'computer': ['computer', 'elektronik'],
+  'battery': ['batteri', 'elektronik'],
+  'cable': ['kabel', 'elektronik'],
+  'electronics': ['elektronik'],
+  
+  // Common items
+  'newspaper': ['avis', 'papir'],
+  'magazine': ['blad', 'papir'],
+  'book': ['bog', 'papir'],
+  'cup': ['kop', 'emballage'],
+  'plate': ['tallerken'],
+  'cutlery': ['bestik', 'metal'],
+  'fork': ['gaffel', 'metal'],
+  'knife': ['kniv', 'metal'],
+  'spoon': ['ske', 'metal'],
+  'tool': ['værktøj', 'metal'],
+  'toy': ['legetøj'],
+  'clothing': ['tøj', 'tekstil'],
+  'shoe': ['sko', 'tekstil'],
+  
+  // Categories
+  'waste': ['affald'],
+  'trash': ['affald', 'skrald'],
+  'garbage': ['affald', 'skrald'],
+  'recycling': ['genbrug'],
+  'organic': ['organisk', 'kompost'],
+  'compost': ['kompost', 'organisk']
+};
+
 // Fallback database for unknown items
 const fallbackItems = [
   {
@@ -32,6 +103,71 @@ const fallbackItems = [
     description: 'Genstanden kunne ikke identificeres. Sortér som restaffald eller kontakt din lokale genbrugsplads for vejledning.'
   }
 ];
+
+// Function to translate English terms to Danish search terms
+const translateTodanish = (englishTerm: string): string[] => {
+  const lowercaseTerm = englishTerm.toLowerCase();
+  const danishTerms = englishToDanish[lowercaseTerm] || [];
+  
+  // Also include partial matches
+  const partialMatches: string[] = [];
+  Object.keys(englishToDanish).forEach(key => {
+    if (key.includes(lowercaseTerm) || lowercaseTerm.includes(key)) {
+      partialMatches.push(...englishToDanish[key]);
+    }
+  });
+  
+  return [...new Set([...danishTerms, ...partialMatches, lowercaseTerm])];
+};
+
+// Function to search database with multiple strategies
+const searchDatabase = async (searchTerms: string[]) => {
+  const allMatches = [];
+  
+  for (const term of searchTerms) {
+    // Strategy 1: Direct name match
+    const { data: nameMatches } = await supabase
+      .from('demo')
+      .select('*')
+      .ilike('navn', `%${term}%`);
+    
+    if (nameMatches?.length) {
+      allMatches.push(...nameMatches.map(match => ({ ...match, matchType: 'name', matchTerm: term })));
+    }
+    
+    // Strategy 2: Synonym match
+    const { data: synonymMatches } = await supabase
+      .from('demo')
+      .select('*')
+      .ilike('synonymer', `%${term}%`);
+    
+    if (synonymMatches?.length) {
+      allMatches.push(...synonymMatches.map(match => ({ ...match, matchType: 'synonym', matchTerm: term })));
+    }
+    
+    // Strategy 3: Material match
+    const { data: materialMatches } = await supabase
+      .from('demo')
+      .select('*')
+      .ilike('materiale', `%${term}%`);
+    
+    if (materialMatches?.length) {
+      allMatches.push(...materialMatches.map(match => ({ ...match, matchType: 'material', matchTerm: term })));
+    }
+    
+    // Strategy 4: Variation match
+    const { data: variationMatches } = await supabase
+      .from('demo')
+      .select('*')
+      .ilike('variation', `%${term}%`);
+    
+    if (variationMatches?.length) {
+      allMatches.push(...variationMatches.map(match => ({ ...match, matchType: 'variation', matchTerm: term })));
+    }
+  }
+  
+  return allMatches;
+};
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
@@ -54,42 +190,61 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     const topLabels = visionData.labels.slice(0, 5);
     console.log('Vision API labels:', topLabels);
 
-    // Search database for matches
+    // Translate English Vision labels to Danish and search database
     let bestMatch = null;
     let bestScore = 0;
+    const processedLabels = new Set(); // Avoid duplicate processing
 
     for (const label of topLabels) {
-      const searchTerms = label.description.toLowerCase();
+      const englishTerm = label.description.toLowerCase();
       
-      // Search in demo table
-      const { data: matches, error: dbError } = await supabase
-        .from('demo')
-        .select('*')
-        .or(`navn.ilike.%${searchTerms}%,synonymer.ilike.%${searchTerms}%`);
-
-      if (dbError) {
-        console.error('Database search error:', dbError);
-        continue;
-      }
-
-      if (matches && matches.length > 0) {
-        // Use the first match and combine with Vision confidence
-        const match = matches[0];
-        const combinedScore = label.score * 100; // Convert to percentage
+      // Skip if we already processed this term
+      if (processedLabels.has(englishTerm)) continue;
+      processedLabels.add(englishTerm);
+      
+      console.log(`Processing Vision label: "${label.description}" (confidence: ${Math.round(label.score * 100)}%)`);
+      
+      // Translate English term to Danish search terms
+      const danishSearchTerms = translateTodanish(englishTerm);
+      console.log(`Danish search terms: ${danishSearchTerms.join(', ')}`);
+      
+      // Search database with multiple strategies
+      const matches = await searchDatabase(danishSearchTerms);
+      
+      if (matches.length > 0) {
+        console.log(`Found ${matches.length} matches for "${label.description}"`);
         
-        if (combinedScore > bestScore) {
-          bestMatch = {
-            id: Date.now().toString(),
-            name: match.navn || 'Ukendt genstand',
-            image: imageData,
-            homeCategory: match.hjem || 'Restaffald',
-            recyclingCategory: match.genbrugsplads || 'Restaffald',
-            description: `${match.variation || match.navn || 'Ukendt genstand'}. ${match.materiale ? `Materiale: ${match.materiale}. ` : ''}`,
-            confidence: Math.round(combinedScore),
-            timestamp: new Date()
-          };
-          bestScore = combinedScore;
+        // Score matches based on match type and Vision confidence
+        for (const match of matches) {
+          let matchScore = label.score * 100; // Base Vision confidence
+          
+          // Boost score based on match type (name matches are most reliable)
+          if (match.matchType === 'name') matchScore *= 1.2;
+          else if (match.matchType === 'synonym') matchScore *= 1.1;
+          else if (match.matchType === 'variation') matchScore *= 1.0;
+          else if (match.matchType === 'material') matchScore *= 0.8;
+          
+          // Avoid duplicate matches from same database entry
+          const uniqueKey = `${match.id}-${match.matchType}`;
+          
+          if (matchScore > bestScore) {
+            console.log(`New best match: "${match.navn}" (type: ${match.matchType}, term: ${match.matchTerm}, score: ${Math.round(matchScore)}%)`);
+            
+            bestMatch = {
+              id: Date.now().toString(),
+              name: match.navn || 'Ukendt genstand',
+              image: imageData,
+              homeCategory: match.hjem || 'Restaffald',
+              recyclingCategory: match.genbrugsplads || 'Restaffald',
+              description: `${match.variation || match.navn || 'Ukendt genstand'}. ${match.materiale ? `Materiale: ${match.materiale}. ` : ''}Identificeret som: ${label.description} → ${match.matchTerm}.`,
+              confidence: Math.round(matchScore),
+              timestamp: new Date()
+            };
+            bestScore = matchScore;
+          }
         }
+      } else {
+        console.log(`No matches found for "${label.description}" with Danish terms: ${danishSearchTerms.join(', ')}`);
       }
     }
 
