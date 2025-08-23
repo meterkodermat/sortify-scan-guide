@@ -1,1 +1,4 @@
 project_id = "azkjamiclbxdfjzttkci"
+
+[functions.vision-proxy]
+verify_jwt = false
