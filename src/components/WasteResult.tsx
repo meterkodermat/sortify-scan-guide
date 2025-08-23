@@ -12,6 +12,7 @@ interface WasteItem {
   description: string;
   confidence: number;
   timestamp: Date;
+  aiThoughtProcess?: string;
 }
 
 interface WasteResultProps {
@@ -85,6 +86,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             </div>
           </Card>
         </div>
+
+        {/* AI Analysis Process (if available) */}
+        {item.aiThoughtProcess && (
+          <Card className="p-4 bg-muted/30 border-dashed">
+            <div className="flex items-start">
+              <Info className="h-4 w-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium mb-1">AI Analyse Process:</p>
+                <p className="italic">{item.aiThoughtProcess}</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Additional Info */}
         <Card className="p-4 bg-muted/50">

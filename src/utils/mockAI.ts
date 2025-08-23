@@ -10,6 +10,7 @@ interface WasteItem {
   description: string;
   confidence: number;
   timestamp: Date;
+  aiThoughtProcess?: string;
 }
 
 interface VisionLabel {
@@ -126,7 +127,7 @@ const searchDatabase = async (searchTerms: string[]) => {
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
-    // Call vision-proxy edge function
+    // STEP 1: VISUAL ANALYSIS - Call vision-proxy edge function
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
@@ -141,88 +142,91 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Ingen objekter fundet i billedet');
     }
 
-    // Get the top labels from Vision API
+    // Get the top labels from Vision API for analysis
     const topLabels = visionData.labels.slice(0, 5);
     console.log('Vision API labels:', topLabels);
 
-    // Translate English Vision labels to Danish and search database
+    // STEP 2: DATA LOOKUP - Systematic search through WASTE_DATA (demo table)
     let bestMatch = null;
     let bestScore = 0;
-    const processedLabels = new Set(); // Avoid duplicate processing
+    let aiThoughtProcess = '';
+    const processedLabels = new Set();
+
+    // Analyze primary object from vision
+    const primaryLabel = topLabels[0];
+    const identifiedObject = primaryLabel?.description || 'ukendt genstand';
+    const identifiedMaterial = topLabels.find(l => 
+      categoryFallbacks.plastic?.some(term => l.translatedText?.includes(term)) ||
+      categoryFallbacks.paper?.some(term => l.translatedText?.includes(term)) ||
+      categoryFallbacks.glass?.some(term => l.translatedText?.includes(term)) ||
+      categoryFallbacks.metal?.some(term => l.translatedText?.includes(term))
+    )?.translatedText || 'ukendt materiale';
+
+    aiThoughtProcess = `Analyse: Identificeret primær genstand som '${identifiedObject}', materiale: '${identifiedMaterial}'. `;
 
     for (const label of topLabels) {
       const englishTerm = label.description.toLowerCase();
       
-      // Skip if we already processed this term
       if (processedLabels.has(englishTerm)) continue;
       processedLabels.add(englishTerm);
       
-      console.log(`Processing Vision label: "${label.description}" (confidence: ${Math.round(label.score * 100)}%)`);
-      console.log(`Translated text: ${label.translatedText || 'Not available'}`);
-      
-      // Get search terms (prioritizes Google Translation API results)
+      // Get search terms prioritizing Google Translation API results
       const searchTerms = getSearchTerms(label);
-      console.log(`Search terms: ${searchTerms.join(', ')}`);
+      console.log(`Search terms for "${label.description}": ${searchTerms.join(', ')}`);
       
-      // Search database with multiple strategies
+      // Systematic database search limited to WASTE_DATA only
       const matches = await searchDatabase(searchTerms);
       
       if (matches.length > 0) {
-        console.log(`Found ${matches.length} matches for "${label.description}"`);
+        console.log(`Found ${matches.length} matches in WASTE_DATA for "${label.description}"`);
         
-        // Score matches based on match type and Vision confidence
+        // Find single best match based on scoring
         for (const match of matches) {
-          let matchScore = label.score * 100; // Base Vision confidence
+          let matchScore = label.score * 100;
           
-          // Boost score based on match type (name matches are most reliable)
+          // Scoring system for match quality
           if (match.matchType === 'name') matchScore *= 1.2;
           else if (match.matchType === 'synonym') matchScore *= 1.1;
           else if (match.matchType === 'variation') matchScore *= 1.0;
           else if (match.matchType === 'material') matchScore *= 0.8;
           
-          // Avoid duplicate matches from same database entry
-          const uniqueKey = `${match.id}-${match.matchType}`;
-          
           if (matchScore > bestScore) {
-            console.log(`New best match: "${match.navn}" (type: ${match.matchType}, term: ${match.matchTerm}, score: ${Math.round(matchScore)}%)`);
+            console.log(`Best match found: "${match.navn}" (confidence: ${Math.round(matchScore)}%)`);
+            
+            // STEP 3: REASONING - Document the matching process
+            aiThoughtProcess += `Match: Fundet '${match.navn}' i WASTE_DATA via ${match.matchType} match. `;
             
             bestMatch = {
               id: Date.now().toString(),
-              name: match.navn || 'Ukendt genstand',
+              name: match.navn,
               image: imageData,
               homeCategory: match.hjem || 'Restaffald',
               recyclingCategory: match.genbrugsplads || 'Restaffald',
-              description: `${match.variation || match.navn || 'Ukendt genstand'}. ${match.materiale ? `Materiale: ${match.materiale}. ` : ''}Identificeret som: ${label.description} → ${match.matchTerm}.`,
+              description: match.variation || match.navn,
               confidence: Math.round(matchScore),
-              timestamp: new Date()
+              timestamp: new Date(),
+              aiThoughtProcess: aiThoughtProcess + `Konklusion: Udtrukket sorteringsinfo fra WASTE_DATA.`
             };
             bestScore = matchScore;
           }
         }
-      } else {
-        console.log(`No matches found for "${label.description}" with search terms: ${searchTerms.join(', ')}`);
-        if (label.translatedText) {
-          console.log(`Translation result was: "${label.translatedText}"`);
-        } else {
-          console.log('No translation was available from Google Cloud Translation API');
-        }
       }
     }
 
-    // If no match found, use fallback
+    // STEP 4: CONSTRUCT OUTPUT - Handle no match case
     if (!bestMatch) {
-      const fallback = fallbackItems[0];
-      const topLabel = topLabels[0];
+      aiThoughtProcess += `Match: Ingen præcist match fundet i WASTE_DATA. Konklusion: Sæt til 'Ukendt'.`;
       
       bestMatch = {
         id: Date.now().toString(),
-        name: topLabel?.description || fallback.name,
+        name: 'Ukendt',
         image: imageData,
-        homeCategory: fallback.homeCategory,
-        recyclingCategory: fallback.recyclingCategory,
-        description: `Identificeret som: ${topLabel?.description || 'ukendt genstand'}. ${fallback.description}`,
-        confidence: Math.round((topLabel?.score || 0.5) * 100),
-        timestamp: new Date()
+        homeCategory: 'Restaffald',
+        recyclingCategory: 'Restaffald',
+        description: `Identificeret som: ${identifiedObject}. Kunne ikke matches til WASTE_DATA.`,
+        confidence: Math.round((primaryLabel?.score || 0.5) * 100),
+        timestamp: new Date(),
+        aiThoughtProcess: aiThoughtProcess
       };
     }
 
@@ -231,17 +235,19 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   } catch (error) {
     console.error('Error in identifyWaste:', error);
     
-    // Return fallback item on error
-    const fallback = fallbackItems[0];
+    // ERROR HANDLING: Follow structured rules even on error
+    const aiThoughtProcess = `Analyse: Fejl ved billedanalyse (${error.message}). Match: Ingen data tilgængelig. Konklusion: Sæt til 'Ukendt' som fallback.`;
+    
     return {
       id: Date.now().toString(),
-      name: fallback.name,
+      name: 'Ukendt',
       image: imageData,
-      homeCategory: fallback.homeCategory,
-      recyclingCategory: fallback.recyclingCategory,
-      description: `Fejl ved analyse: ${error.message}. ${fallback.description}`,
+      homeCategory: 'Restaffald',
+      recyclingCategory: 'Restaffald',
+      description: `Fejl ved analyse: ${error.message}. Genstanden kunne ikke identificeres. Sortér som restaffald eller kontakt din lokale genbrugsplads.`,
       confidence: 50,
-      timestamp: new Date()
+      timestamp: new Date(),
+      aiThoughtProcess: aiThoughtProcess
     };
   }
 };
