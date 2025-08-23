@@ -15,6 +15,7 @@ interface WasteItem {
 interface VisionLabel {
   description: string;
   score: number;
+  translatedText?: string;
 }
 
 interface VisionResponse {
@@ -23,75 +24,18 @@ interface VisionResponse {
   error?: string;
 }
 
-// English to Danish translation dictionary for Vision API results
-const englishToDanish = {
-  // Fruits and food
-  'apple': ['æble', 'frugt'],
-  'fruit': ['frugt'],
-  'banana': ['banan', 'frugt'],
-  'orange': ['appelsin', 'citrus', 'frugt'],
-  'food': ['mad', 'fødevarer', 'organisk'],
-  'vegetable': ['grøntsag', 'organisk'],
-  'bread': ['brød', 'organisk'],
-  'meat': ['kød', 'organisk'],
-  
-  // Containers and packaging
-  'bottle': ['flaske', 'emballage'],
-  'plastic bottle': ['plastflaske', 'plastik', 'emballage'],
-  'glass bottle': ['glasflaske', 'glas', 'emballage'],
-  'can': ['dåse', 'metal', 'emballage'],
-  'tin can': ['dåse', 'metal', 'emballage'],
-  'aluminum can': ['aluminiumsdåse', 'aluminium', 'metal'],
-  'jar': ['glas', 'emballage'],
-  'container': ['beholder', 'emballage'],
-  'box': ['kasse', 'karton', 'papir'],
-  'carton': ['karton', 'papir', 'emballage'],
-  'packaging': ['emballage', 'indpakning'],
-  'bag': ['pose', 'plastik'],
-  'plastic bag': ['plastpose', 'plastik'],
-  'paper bag': ['papirpose', 'papir'],
-  
-  // Materials
-  'plastic': ['plastik'],
-  'glass': ['glas'],
-  'metal': ['metal'],
-  'aluminum': ['aluminium', 'metal'],
-  'steel': ['stål', 'metal'],
-  'paper': ['papir'],
-  'cardboard': ['karton', 'papir'],
-  'wood': ['træ'],
-  'fabric': ['tekstil', 'stof'],
-  'cotton': ['bomuld', 'tekstil'],
-  
-  // Electronics
-  'phone': ['telefon', 'elektronik'],
-  'computer': ['computer', 'elektronik'],
-  'battery': ['batteri', 'elektronik'],
-  'cable': ['kabel', 'elektronik'],
-  'electronics': ['elektronik'],
-  
-  // Common items
-  'newspaper': ['avis', 'papir'],
-  'magazine': ['blad', 'papir'],
-  'book': ['bog', 'papir'],
-  'cup': ['kop', 'emballage'],
-  'plate': ['tallerken'],
-  'cutlery': ['bestik', 'metal'],
-  'fork': ['gaffel', 'metal'],
-  'knife': ['kniv', 'metal'],
-  'spoon': ['ske', 'metal'],
-  'tool': ['værktøj', 'metal'],
-  'toy': ['legetøj'],
-  'clothing': ['tøj', 'tekstil'],
-  'shoe': ['sko', 'tekstil'],
-  
-  // Categories
-  'waste': ['affald'],
-  'trash': ['affald', 'skrald'],
-  'garbage': ['affald', 'skrald'],
-  'recycling': ['genbrug'],
-  'organic': ['organisk', 'kompost'],
-  'compost': ['kompost', 'organisk']
+// Fallback terms for common categories when translation fails
+const categoryFallbacks: { [key: string]: string[] } = {
+  'food': ['mad', 'fødevarer', 'spiserester', 'organisk', 'kompost'],
+  'fruit': ['frugt', 'æble', 'pære', 'banan', 'citrus'],
+  'bottle': ['flaske', 'plastflaske', 'glasflaske', 'drikkedunk'],
+  'bag': ['pose', 'plastpose', 'indkøbspose', 'affaldssæk'],
+  'paper': ['papir', 'karton', 'avis', 'tidsskrift'],
+  'plastic': ['plast', 'plastik', 'emballage'],
+  'metal': ['metal', 'aluminium', 'stål', 'dåse'],
+  'glass': ['glas', 'flaske', 'krukke'],
+  'electronic': ['elektronik', 'batteri', 'ledning', 'computer'],
+  'textile': ['tekstil', 'tøj', 'stof', 'sko']
 };
 
 // Fallback database for unknown items
@@ -104,20 +48,31 @@ const fallbackItems = [
   }
 ];
 
-// Function to translate English terms to Danish search terms
-const translateTodanish = (englishTerm: string): string[] => {
-  const lowercaseTerm = englishTerm.toLowerCase();
-  const danishTerms = englishToDanish[lowercaseTerm] || [];
+// Function to get search terms from Vision label (prioritizes Google Translation API results)
+const getSearchTerms = (label: VisionLabel): string[] => {
+  const searchTerms: string[] = [];
   
-  // Also include partial matches
-  const partialMatches: string[] = [];
-  Object.keys(englishToDanish).forEach(key => {
-    if (key.includes(lowercaseTerm) || lowercaseTerm.includes(key)) {
-      partialMatches.push(...englishToDanish[key]);
+  // Primary: Use Google Cloud Translation API result if available
+  if (label.translatedText) {
+    searchTerms.push(label.translatedText);
+    // Add individual words from translated text
+    const words = label.translatedText.split(' ').filter(word => word.length > 2);
+    searchTerms.push(...words);
+  }
+  
+  // Secondary: Use category fallbacks for common English terms
+  const englishTerm = label.description.toLowerCase();
+  for (const [category, terms] of Object.entries(categoryFallbacks)) {
+    if (englishTerm.includes(category)) {
+      searchTerms.push(...terms);
     }
-  });
+  }
   
-  return [...new Set([...danishTerms, ...partialMatches, lowercaseTerm])];
+  // Tertiary: Add the original English term as fallback
+  searchTerms.push(englishTerm);
+  
+  // Remove duplicates and empty strings
+  return [...new Set(searchTerms.filter(term => term.trim().length > 0))];
 };
 
 // Function to search database with multiple strategies
@@ -203,13 +158,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       processedLabels.add(englishTerm);
       
       console.log(`Processing Vision label: "${label.description}" (confidence: ${Math.round(label.score * 100)}%)`);
+      console.log(`Translated text: ${label.translatedText || 'Not available'}`);
       
-      // Translate English term to Danish search terms
-      const danishSearchTerms = translateTodanish(englishTerm);
-      console.log(`Danish search terms: ${danishSearchTerms.join(', ')}`);
+      // Get search terms (prioritizes Google Translation API results)
+      const searchTerms = getSearchTerms(label);
+      console.log(`Search terms: ${searchTerms.join(', ')}`);
       
       // Search database with multiple strategies
-      const matches = await searchDatabase(danishSearchTerms);
+      const matches = await searchDatabase(searchTerms);
       
       if (matches.length > 0) {
         console.log(`Found ${matches.length} matches for "${label.description}"`);
@@ -244,7 +200,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
       } else {
-        console.log(`No matches found for "${label.description}" with Danish terms: ${danishSearchTerms.join(', ')}`);
+        console.log(`No matches found for "${label.description}" with search terms: ${searchTerms.join(', ')}`);
+        if (label.translatedText) {
+          console.log(`Translation result was: "${label.translatedText}"`);
+        } else {
+          console.log('No translation was available from Google Cloud Translation API');
+        }
       }
     }
 

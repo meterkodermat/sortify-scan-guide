@@ -34,10 +34,19 @@ serve(async (req) => {
     
     // Get Google Vision API key from Supabase secrets
     const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
+    const translationApiKey = Deno.env.get('GOOGLE_CLOUD_TRANSLATION_API_KEY');
     
     if (!apiKey) {
       console.error('Google Vision API key not found in environment');
       return new Response(JSON.stringify({ success: false, error: 'API configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!translationApiKey) {
+      console.error('Google Cloud Translation API key not found in environment');
+      return new Response(JSON.stringify({ success: false, error: 'Translation API configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -115,9 +124,46 @@ serve(async (req) => {
 
     console.log('Vision API labels:', processedLabels);
 
+    // Translate labels to Danish using Google Cloud Translation API
+    let translatedLabels = processedLabels;
+    try {
+      if (processedLabels.length > 0) {
+        const textsToTranslate = processedLabels.map(label => label.description);
+        
+        const translationResponse = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${translationApiKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            q: textsToTranslate,
+            target: 'da',
+            source: 'en'
+          }),
+        });
+
+        if (translationResponse.ok) {
+          const translationData = await translationResponse.json();
+          const translations = translationData.data.translations;
+          
+          translatedLabels = processedLabels.map((label, index) => ({
+            ...label,
+            translatedText: translations[index].translatedText.toLowerCase()
+          }));
+          
+          console.log('Translated labels:', translatedLabels);
+        } else {
+          console.error('Translation API error:', await translationResponse.text());
+        }
+      }
+    } catch (translationError) {
+      console.error('Error translating labels:', translationError);
+      // Continue with original labels if translation fails
+    }
+
     return new Response(JSON.stringify({ 
       success: true, 
-      labels: processedLabels 
+      labels: translatedLabels 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
