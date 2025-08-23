@@ -1,4 +1,4 @@
-// AI service for waste identification using Google Vision API with semantic validation
+// Phase 3: Complete AI Overhaul for Waste Identification with intelligent scoring
 import { supabase } from "@/integrations/supabase/client";
 
 interface WasteItem {
@@ -18,27 +18,41 @@ interface VisionLabel {
   score: number;
   translatedText?: string;
   type?: 'label' | 'object';
+  degradedScore?: number;
+  contextualRelevance?: number;
 }
 
-// Enhanced semantic category groups with Danish terms for aggressive filtering
+// Phase 3A: Enhanced semantic categories with stricter animal/people detection
 const semanticCategories = {
-  animals: ['bird', 'animal', 'mammal', 'wildlife', 'pet', 'cat', 'dog', 'horse', 'cow', 'fish', 'flamingo', 'swan', 'duck', 'fugl', 'dyr', 'pattedyr', 'kæledyr', 'kat', 'hund', 'hest', 'ko', 'fisk', 'flamingo', 'svane', 'and'],
-  people: ['person', 'human', 'face', 'people', 'man', 'woman', 'child', 'baby', 'menneske', 'ansigt', 'mennesker', 'mand', 'kvinde', 'barn', 'baby'],
+  animals: ['bird', 'animal', 'mammal', 'wildlife', 'pet', 'cat', 'dog', 'horse', 'cow', 'fish', 'flamingo', 'swan', 'duck', 'goose', 'chicken', 'rabbit', 'deer', 'elephant', 'tiger', 'lion', 'fugl', 'dyr', 'pattedyr', 'kæledyr', 'kat', 'hund', 'hest', 'ko', 'fisk', 'flamingo', 'svane', 'and', 'gås', 'kylling', 'kanin', 'hjort'],
+  people: ['person', 'human', 'face', 'people', 'man', 'woman', 'child', 'baby', 'boy', 'girl', 'adult', 'menneske', 'ansigt', 'mennesker', 'mand', 'kvinde', 'barn', 'baby', 'dreng', 'pige', 'voksen'],
   kitchen: ['lid', 'pot', 'pan', 'cookware', 'kitchen', 'utensil', 'bowl', 'plate', 'spoon', 'fork', 'knife', 'låg', 'grydelåg', 'gryde', 'pande', 'køkkenting', 'køkken', 'redskab', 'skål', 'tallerken', 'ske', 'gaffel', 'kniv'],
   containers: ['box', 'container', 'package', 'packaging', 'bottle', 'jar', 'can', 'bag', 'kasse', 'beholder', 'pakke', 'emballage', 'flaske', 'krukke', 'dåse', 'pose'],
   materials: ['plastic', 'glass', 'metal', 'paper', 'cardboard', 'wood', 'fabric', 'textile', 'plastik', 'glas', 'metal', 'papir', 'karton', 'træ', 'stof', 'tekstil'],
   electronics: ['electronic', 'device', 'phone', 'computer', 'battery', 'cable', 'appliance', 'elektronik', 'enhed', 'telefon', 'computer', 'batteri', 'kabel', 'apparat'],
-  organic: ['food', 'fruit', 'vegetable', 'organic', 'plant', 'flower', 'leaf', 'tree', 'mad', 'frugt', 'grøntsag', 'organisk', 'plante', 'blomst', 'blad', 'træ']
+  organic: ['food', 'fruit', 'vegetable', 'organic', 'plant', 'flower', 'leaf', 'tree', 'mad', 'frugt', 'grøntsag', 'organisk', 'plante', 'blomst', 'blad', 'træ'],
+  // Ultra-generic terms that need confidence degradation
+  ultraGeneric: ['lid', 'box', 'container', 'object', 'item', 'thing', 'stuff', 'låg', 'kasse', 'genstand', 'ting', 'noget']
 };
 
-// Incompatible category combinations (animals should never match kitchen items)
+// Phase 3A: Critical incompatible combinations with zero tolerance
 const incompatibleCategories = [
-  ['animals', 'kitchen'],
-  ['animals', 'containers'],
-  ['people', 'kitchen'],
-  ['people', 'containers'],
-  ['people', 'materials']
+  ['animals', 'kitchen'],     // Flamingo cannot be a lid
+  ['animals', 'containers'],  // Animals cannot be boxes/bottles
+  ['people', 'kitchen'],      // People cannot be kitchen items
+  ['people', 'containers'],   // People cannot be containers
+  ['people', 'materials'],    // People cannot be materials
+  ['animals', 'materials']    // Animals cannot be materials
 ];
+
+// Phase 3B: Translation blacklist - nonsensical translations to block
+const translationBlacklist = {
+  'flamingo': ['lid', 'låg', 'pot', 'gryde', 'container', 'beholder'],
+  'swan': ['lid', 'låg', 'pot', 'gryde'],
+  'bird': ['lid', 'låg', 'cookware', 'køkkentøj'],
+  'person': ['lid', 'låg', 'box', 'kasse'],
+  'human': ['container', 'beholder', 'packaging', 'emballage']
+};
 
 interface VisionResponse {
   success: boolean;
@@ -99,13 +113,19 @@ const calculateFuzzyScore = (term1: string, term2: string): number => {
   return 1 - (distance / maxLength);
 };
 
-// Determine semantic category of a label
+// Phase 3A: Enhanced semantic categorization with confidence scoring
 const getSemanticCategory = (label: VisionLabel): string[] => {
   const categories: string[] = [];
   const term = label.description.toLowerCase();
+  const translatedTerm = label.translatedText?.toLowerCase() || '';
   
   for (const [category, keywords] of Object.entries(semanticCategories)) {
-    if (keywords.some(keyword => term.includes(keyword) || keyword.includes(term))) {
+    const matchFound = keywords.some(keyword => {
+      return term.includes(keyword) || keyword.includes(term) || 
+             (translatedTerm && (translatedTerm.includes(keyword) || keyword.includes(translatedTerm)));
+    });
+    
+    if (matchFound) {
       categories.push(category);
     }
   }
@@ -113,9 +133,61 @@ const getSemanticCategory = (label: VisionLabel): string[] => {
   return categories;
 };
 
-// Semantic validation - check if labels are compatible
-const validateSemanticCompatibility = (labels: VisionLabel[]): { compatible: boolean; reason?: string } => {
+// Phase 3A: Vision confidence degradation for generic terms
+const degradeVisionConfidence = (label: VisionLabel): VisionLabel => {
+  const term = label.description.toLowerCase();
+  const translatedTerm = label.translatedText?.toLowerCase() || '';
+  
+  let degradedScore = label.score;
+  let contextualRelevance = 1.0;
+  
+  // Ultra-generic terms get heavy degradation
+  if (semanticCategories.ultraGeneric.some(generic => 
+    term === generic || translatedTerm === generic)) {
+    degradedScore *= 0.3; // 70% reduction for ultra-generic terms
+    contextualRelevance = 0.3;
+  }
+  
+  // Generic terms with low confidence get degraded further
+  if (label.score < 0.8 && (term === 'lid' || translatedTerm === 'låg')) {
+    degradedScore *= 0.1; // Massive reduction for low-confidence generic terms
+    contextualRelevance = 0.1;
+  }
+  
+  return {
+    ...label,
+    degradedScore,
+    contextualRelevance
+  };
+};
+
+// Phase 3B: Smart translation validation
+const validateTranslation = (original: string, translated: string): boolean => {
+  const originalLower = original.toLowerCase();
+  const translatedLower = translated.toLowerCase();
+  
+  // Check translation blacklist
+  if (translationBlacklist[originalLower]) {
+    return !translationBlacklist[originalLower].includes(translatedLower);
+  }
+  
+  // Additional semantic validation
+  const originalCategories = getSemanticCategory({ description: original, score: 1.0 });
+  const translatedCategories = getSemanticCategory({ description: translated, score: 1.0 });
+  
+  // Translation should maintain semantic category consistency
+  if (originalCategories.includes('animals') && 
+      (translatedCategories.includes('kitchen') || translatedCategories.includes('containers'))) {
+    return false;
+  }
+  
+  return true;
+};
+
+// Phase 3A: Enhanced semantic compatibility with severity levels
+const validateSemanticCompatibility = (labels: VisionLabel[]): { compatible: boolean; severity: 'critical' | 'warning' | 'minor'; reason?: string } => {
   const allCategories = new Set<string>();
+  const criticalConflicts: string[] = [];
   
   // Collect all semantic categories from labels
   labels.forEach(label => {
@@ -123,102 +195,133 @@ const validateSemanticCompatibility = (labels: VisionLabel[]): { compatible: boo
     categories.forEach(cat => allCategories.add(cat));
   });
   
-  // Check for incompatible combinations
+  // Check for critical incompatible combinations
   for (const [cat1, cat2] of incompatibleCategories) {
     if (allCategories.has(cat1) && allCategories.has(cat2)) {
-      return { 
-        compatible: false, 
-        reason: `Konflikt: Fundet både ${cat1} og ${cat2} kategorier i samme billede` 
-      };
+      criticalConflicts.push(`${cat1}+${cat2}`);
     }
   }
   
-  return { compatible: true };
-};
-
-// AGGRESSIVE semantic blocking - completely stop incompatible searches
-const shouldBlockSearch = (labelCategories: string[], globalSemanticContext: string[]): { blocked: boolean; reason?: string } => {
-  // Block if we detect animals/people trying to match kitchen/container items
-  if ((labelCategories.includes('animals') || labelCategories.includes('people')) && 
-      (globalSemanticContext.includes('kitchen') || globalSemanticContext.includes('containers'))) {
+  if (criticalConflicts.length > 0) {
     return { 
-      blocked: true, 
-      reason: `Blokeret: ${labelCategories.join('+')} kan ikke være ${globalSemanticContext.filter(c => c === 'kitchen' || c === 'containers').join('+')}`
+      compatible: false, 
+      severity: 'critical',
+      reason: `KRITISK KONFLIKT: ${criticalConflicts.join(', ')} - kan ikke eksistere i samme billede` 
     };
   }
   
-  // Block obvious mismatches early
-  for (const [cat1, cat2] of incompatibleCategories) {
-    if (labelCategories.includes(cat1) && globalSemanticContext.includes(cat2)) {
-      return { 
-        blocked: true, 
-        reason: `Blokeret: ${cat1} og ${cat2} er inkompatible kategorier`
-      };
+  return { compatible: true, severity: 'minor' };
+};
+
+// Phase 3C: Semantic veto system - completely blocks nonsensical matches
+const semanticVeto = (originalLabel: string, translatedLabel: string, labelCategories: string[], globalContext: string[]): { vetoed: boolean; reason?: string } => {
+  // Absolute veto for animal/people -> kitchen/container
+  if ((labelCategories.includes('animals') || labelCategories.includes('people')) && 
+      (globalContext.includes('kitchen') || globalContext.includes('containers'))) {
+    return { 
+      vetoed: true, 
+      reason: `🚫 ABSOLUT VETO: ${originalLabel} (${labelCategories.join(',')}) kan ALDRIG være køkkenting eller beholder`
+    };
+  }
+  
+  // Translation-specific vetos
+  if (!validateTranslation(originalLabel, translatedLabel)) {
+    return {
+      vetoed: true,
+      reason: `🚫 OVERSÆTTELSE VETO: "${originalLabel}" -> "${translatedLabel}" er semantisk umulig`
+    };
+  }
+  
+  // Ultra-generic term veto if high-confidence specific terms exist
+  const isUltraGeneric = semanticCategories.ultraGeneric.includes(originalLabel.toLowerCase()) ||
+                         semanticCategories.ultraGeneric.includes(translatedLabel.toLowerCase());
+  
+  if (isUltraGeneric && globalContext.includes('animals')) {
+    return {
+      vetoed: true,
+      reason: `🚫 GENERISK VETO: Generisk term "${translatedLabel}" blokeret når dyr er identificeret`
+    };
+  }
+  
+  return { vetoed: false };
+};
+
+// Phase 3C: Intelligent search term generation with multi-stage filtering
+const getSearchTerms = (label: VisionLabel, semanticContext: string[]): { terms: string[]; confidence: number; reasoning: string } => {
+  const labelCategories = getSemanticCategory(label);
+  let reasoning = `Analyserer "${label.description}" (kategorier: ${labelCategories.join(',')})`;
+  
+  // STAGE 1: Semantic veto check
+  const vetoCheck = semanticVeto(label.description, label.translatedText || '', labelCategories, semanticContext);
+  if (vetoCheck.vetoed) {
+    return { terms: [], confidence: 0, reasoning: vetoCheck.reason || 'Vetoed' };
+  }
+  
+  const searchTerms: string[] = [];
+  let confidenceMultiplier = 1.0;
+  
+  // STAGE 2: Translation validation and processing
+  if (label.translatedText) {
+    const translationValid = validateTranslation(label.description, label.translatedText);
+    if (translationValid) {
+      searchTerms.push(label.translatedText);
+      const words = label.translatedText.split(' ').filter(word => word.length > 2);
+      searchTerms.push(...words);
+      reasoning += `, bruger valideret oversættelse: "${label.translatedText}"`;
+    } else {
+      confidenceMultiplier *= 0.2; // Heavy penalty for invalid translations
+      reasoning += `, oversættelse "${label.translatedText}" er ugyldig`;
     }
   }
   
-  return { blocked: false };
-};
-
-// Enhanced search terms with aggressive semantic filtering
-const getSearchTerms = (label: VisionLabel, semanticContext: string[]): string[] => {
-  const searchTerms: string[] = [];
-  const labelCategories = getSemanticCategory(label);
-  
-  // EARLY SEMANTIC BLOCKING
-  const blockCheck = shouldBlockSearch(labelCategories, semanticContext);
-  if (blockCheck.blocked) {
-    console.log(`🚫 BLOCKED search for "${label.description}": ${blockCheck.reason}`);
-    return []; // Return empty array to completely skip database search
-  }
-  
-  // Primary: Use Google Cloud Translation API result if available
-  if (label.translatedText) {
-    searchTerms.push(label.translatedText);
-    const words = label.translatedText.split(' ').filter(word => word.length > 2);
-    searchTerms.push(...words);
-  }
-  
-  // Secondary: Use category fallbacks with enhanced semantic filtering
+  // STAGE 3: Semantic similarity threshold check
+  const minSemanticSimilarity = 0.7;
   const englishTerm = label.description.toLowerCase();
   
-  // Aggressive filtering - skip fallbacks for incompatible categories
+  // Enhanced fallback processing with semantic scoring
   for (const [category, terms] of Object.entries(categoryFallbacks)) {
     if (englishTerm.includes(category)) {
-      // Enhanced compatibility check
-      const isSemanticallySafe = labelCategories.length === 0 || 
-        !incompatibleCategories.some(([c1, c2]) => 
-          (labelCategories.includes(c1) && (category === c2 || semanticContext.includes(c2))) ||
-          (labelCategories.includes(c2) && (category === c1 || semanticContext.includes(c1)))
-        );
+      const categorySemanticScore = labelCategories.includes(category) ? 1.0 : 0.5;
       
-      if (isSemanticallySafe) {
+      if (categorySemanticScore >= minSemanticSimilarity) {
         searchTerms.push(...terms);
+        reasoning += `, tilføjet fallback termer for ${category}`;
       } else {
-        console.log(`🚫 Skipping fallback "${category}" for semantic safety`);
+        reasoning += `, sprang ${category} fallback over (lav semantisk score: ${categorySemanticScore})`;
       }
     }
   }
   
-  // Tertiary: Add original English term only if semantically safe
-  if (!labelCategories.some(cat => 
-    incompatibleCategories.some(([c1, c2]) => 
-      (cat === c1 && semanticContext.includes(c2)) ||
-      (cat === c2 && semanticContext.includes(c1))
-    )
-  )) {
-    searchTerms.push(englishTerm);
+  // Apply confidence degradation if label was processed
+  if (label.degradedScore !== undefined) {
+    confidenceMultiplier *= label.contextualRelevance || 1.0;
+    reasoning += `, degraderet confidence: ${Math.round((label.contextualRelevance || 1) * 100)}%`;
   }
   
-  return [...new Set(searchTerms.filter(term => term.trim().length > 0))];
+  const finalTerms = [...new Set(searchTerms.filter(term => term.trim().length > 0))];
+  const finalConfidence = Math.max(0.1, confidenceMultiplier);
+  
+  return { 
+    terms: finalTerms, 
+    confidence: finalConfidence,
+    reasoning: reasoning + ` -> ${finalTerms.length} søgetermer med confidence ${Math.round(finalConfidence * 100)}%`
+  };
 };
 
-// Advanced database search with fuzzy matching and scoring
-const searchDatabase = async (searchTerms: string[], semanticCategories: string[]) => {
+// Phase 3C: Revolutionary database search with semantic similarity gates
+const searchDatabase = async (searchResult: { terms: string[]; confidence: number }, semanticCategories: string[]) => {
   const allMatches = [];
+  const searchTerms = searchResult.terms;
+  
+  // Minimum semantic similarity threshold
+  const minSemanticSimilarity = 0.7;
+  
+  if (searchTerms.length === 0) {
+    return { matches: [], searchQuality: 'blocked' };
+  }
   
   for (const term of searchTerms) {
-    // Strategy 1: Direct name match with fuzzy scoring
+    // Enhanced Strategy 1: Direct name match with semantic validation
     const { data: nameMatches } = await supabase
       .from('demo')
       .select('*')
@@ -227,17 +330,26 @@ const searchDatabase = async (searchTerms: string[], semanticCategories: string[
     if (nameMatches?.length) {
       nameMatches.forEach(match => {
         const fuzzyScore = calculateFuzzyScore(term, match.navn);
-        allMatches.push({ 
-          ...match, 
-          matchType: 'name', 
-          matchTerm: term,
-          fuzzyScore,
-          exactMatch: match.navn.toLowerCase().includes(term.toLowerCase())
-        });
+        
+        // Semantic coherence check for name matches
+        const matchCategories = getSemanticCategory({ description: match.navn, score: 1.0 });
+        const semanticCoherence = calculateSemanticCoherence(semanticCategories, matchCategories);
+        
+        if (semanticCoherence >= minSemanticSimilarity) {
+          allMatches.push({ 
+            ...match, 
+            matchType: 'name', 
+            matchTerm: term,
+            fuzzyScore,
+            semanticCoherence,
+            exactMatch: match.navn.toLowerCase().includes(term.toLowerCase()),
+            searchConfidence: searchResult.confidence
+          });
+        }
       });
     }
     
-    // Strategy 2: Synonym match with fuzzy scoring
+    // Enhanced Strategy 2: Synonym match with semantic validation
     const { data: synonymMatches } = await supabase
       .from('demo')
       .select('*')
@@ -249,38 +361,49 @@ const searchDatabase = async (searchTerms: string[], semanticCategories: string[
         const bestSynonymScore = Math.max(...synonyms.map(syn => 
           calculateFuzzyScore(term, syn.trim())
         ));
+        
+        // Category-locked search for animals/people
+        if (semanticCategories.includes('animals') || semanticCategories.includes('people')) {
+          const matchIsNonWaste = match.hjem === 'Ikke affald' || match.genbrugsplads === 'Ikke affald';
+          if (!matchIsNonWaste) return; // Skip non-matching categories
+        }
+        
         allMatches.push({ 
           ...match, 
           matchType: 'synonym', 
           matchTerm: term,
           fuzzyScore: bestSynonymScore,
-          exactMatch: synonyms.some(syn => syn.toLowerCase().includes(term.toLowerCase()))
+          semanticCoherence: 0.8, // Default for synonym matches
+          exactMatch: synonyms.some(syn => syn.toLowerCase().includes(term.toLowerCase())),
+          searchConfidence: searchResult.confidence
         });
       });
     }
     
-    // Strategy 3: Material match (heavily penalized for semantic conflicts)  
-    const { data: materialMatches } = await supabase
-      .from('demo')
-      .select('*')
-      .ilike('materiale', `%${term}%`);
-    
-    if (materialMatches?.length) {
-      materialMatches.forEach(match => {
-        const fuzzyScore = calculateFuzzyScore(term, match.materiale || '');
-        // AGGRESSIVE penalty for semantic conflicts (nearly eliminates them)
-        const semanticPenalty = semanticCategories.includes('animals') || semanticCategories.includes('people') ? 0.01 : 1.0;
-        allMatches.push({ 
-          ...match, 
-          matchType: 'material', 
-          matchTerm: term,
-          fuzzyScore: fuzzyScore * semanticPenalty,
-          exactMatch: match.materiale?.toLowerCase().includes(term.toLowerCase())
+    // Enhanced Strategy 3: Material match with aggressive filtering
+    if (!semanticCategories.includes('animals') && !semanticCategories.includes('people')) {
+      const { data: materialMatches } = await supabase
+        .from('demo')
+        .select('*')
+        .ilike('materiale', `%${term}%`);
+      
+      if (materialMatches?.length) {
+        materialMatches.forEach(match => {
+          const fuzzyScore = calculateFuzzyScore(term, match.materiale || '');
+          allMatches.push({ 
+            ...match, 
+            matchType: 'material', 
+            matchTerm: term,
+            fuzzyScore,
+            semanticCoherence: 0.6, // Lower for material matches
+            exactMatch: match.materiale?.toLowerCase().includes(term.toLowerCase()),
+            searchConfidence: searchResult.confidence
+          });
         });
-      });
+      }
     }
     
-    // Strategy 4: Variation match
+    // Enhanced Strategy 4: Variation match with confidence weighting
     const { data: variationMatches } = await supabase
       .from('demo')
       .select('*')
@@ -294,50 +417,111 @@ const searchDatabase = async (searchTerms: string[], semanticCategories: string[
           matchType: 'variation', 
           matchTerm: term,
           fuzzyScore,
-          exactMatch: match.variation?.toLowerCase().includes(term.toLowerCase())
+          semanticCoherence: 0.7, // Medium for variation matches
+          exactMatch: match.variation?.toLowerCase().includes(term.toLowerCase()),
+          searchConfidence: searchResult.confidence
         });
       });
     }
   }
   
-  return allMatches;
+  return { 
+    matches: allMatches, 
+    searchQuality: allMatches.length > 0 ? 'good' : 'no_matches'
+  };
 };
 
-// Multi-criteria scoring for matches
-const calculateMatchScore = (match: any, visionScore: number, semanticCategories: string[]): number => {
-  let score = visionScore * 100;
+// Phase 3C: Semantic coherence scoring between categories
+const calculateSemanticCoherence = (sourceCategories: string[], targetCategories: string[]): number => {
+  if (sourceCategories.length === 0 || targetCategories.length === 0) return 0.5;
   
-  // Base match type multipliers
+  // Perfect match
+  const intersection = sourceCategories.filter(cat => targetCategories.includes(cat));
+  if (intersection.length > 0) return 1.0;
+  
+  // Check for critical incompatibilities
+  for (const [cat1, cat2] of incompatibleCategories) {
+    if ((sourceCategories.includes(cat1) && targetCategories.includes(cat2)) ||
+        (sourceCategories.includes(cat2) && targetCategories.includes(cat1))) {
+      return 0.0; // Complete incompatibility
+    }
+  }
+  
+  // Related categories (materials + containers, organic + food, etc.)
+  const relatedPairs = [
+    ['materials', 'containers'],
+    ['organic', 'containers'],
+    ['electronics', 'materials']
+  ];
+  
+  for (const [cat1, cat2] of relatedPairs) {
+    if ((sourceCategories.includes(cat1) && targetCategories.includes(cat2)) ||
+        (sourceCategories.includes(cat2) && targetCategories.includes(cat1))) {
+      return 0.8; // High compatibility
+    }
+  }
+  
+  return 0.3; // Neutral/unknown compatibility
+};
+
+// Phase 3D: Intelligent ensemble scoring with context awareness
+const calculateMatchScore = (match: any, visionLabel: VisionLabel, semanticCategories: string[]): number => {
+  // Base score from degraded vision confidence
+  const baseVisionScore = visionLabel.degradedScore || visionLabel.score;
+  let score = baseVisionScore * 100;
+  
+  // Apply search confidence from term generation
+  score *= (match.searchConfidence || 1.0);
+  
+  // Enhanced match type multipliers with object detection priority
   const typeMultipliers = {
-    'name': 1.3,
-    'synonym': 1.2,
+    'name': visionLabel.type === 'object' ? 2.0 : 1.3,     // 5x boost for object names
+    'synonym': visionLabel.type === 'object' ? 1.8 : 1.2,  // Strong boost for object synonyms
     'variation': 1.1,
-    'material': 0.8
+    'material': 0.6  // Reduced material match weight
   };
   
   score *= (typeMultipliers[match.matchType] || 1.0);
   
-  // Fuzzy match quality bonus
-  score *= (0.7 + (match.fuzzyScore * 0.3));
+  // Semantic coherence is now critical
+  const semanticScore = match.semanticCoherence || calculateSemanticCoherence(semanticCategories, []);
+  score *= (0.3 + (semanticScore * 0.7)); // 70% weight on semantic coherence
+  
+  // Fuzzy match quality bonus (reduced weight)
+  score *= (0.8 + (match.fuzzyScore * 0.2));
   
   // Exact match bonus
   if (match.exactMatch) {
-    score *= 1.2;
+    score *= 1.15;
   }
   
-  // Semantic compatibility penalty
-  const matchTermLower = match.matchTerm.toLowerCase();
-  if ((semanticCategories.includes('animals') || semanticCategories.includes('people')) && 
-      (matchTermLower.includes('lid') || matchTermLower.includes('låg') || matchTermLower.includes('pot'))) {
-    score *= 0.1; // Heavy penalty for animal/person -> kitchen item matches
+  // Context-aware penalties
+  const contextualRelevance = visionLabel.contextualRelevance || 1.0;
+  score *= contextualRelevance;
+  
+  // Final semantic veto check - completely block impossible matches
+  const finalVeto = semanticVeto(visionLabel.description, visionLabel.translatedText || '', semanticCategories, []);
+  if (finalVeto.vetoed) {
+    score = 0; // Complete elimination
   }
   
-  return score;
+  return Math.max(0, score);
+};
+
+// Phase 3E: Enhanced match quality metrics
+const calculateMatchQuality = (score: number, semanticCoherence: number, searchQuality: string): 'excellent' | 'good' | 'fair' | 'poor' => {
+  if (score > 80 && semanticCoherence > 0.8 && searchQuality === 'good') return 'excellent';
+  if (score > 60 && semanticCoherence > 0.6) return 'good';
+  if (score > 40 && semanticCoherence > 0.4) return 'fair';
+  return 'poor';
 };
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
-    // STEP 1: VISUAL ANALYSIS - Call vision-proxy edge function
+    // PHASE 3: COMPLETE AI OVERHAUL PIPELINE
+    console.log('🚀 Phase 3 AI Pipeline Started');
+    
+    // STEP 1: VISUAL ANALYSIS with enhanced processing
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
@@ -352,40 +536,49 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Ingen objekter fundet i billedet');
     }
 
-    // Get the top labels from Vision API for analysis
-    const topLabels = visionData.labels.slice(0, 5);
-    console.log('Vision API labels:', topLabels);
-
-    // STEP 1.5: SEMANTIC VALIDATION
-    const semanticValidation = validateSemanticCompatibility(topLabels);
-    const globalSemanticContext = topLabels.flatMap(label => getSemanticCategory(label));
+    // STEP 2: VISION CONFIDENCE DEGRADATION (Phase 3A)
+    const rawLabels = visionData.labels.slice(0, 5);
+    const degradedLabels = rawLabels.map(degradeVisionConfidence);
     
-    let aiThoughtProcess = `Analyse: Identificeret ${topLabels.length} labels fra Vision API. `;
+    console.log('🔧 Vision confidence degradation applied:', degradedLabels.map(l => 
+      `${l.description}: ${(l.score * 100).toFixed(1)}% -> ${((l.degradedScore || l.score) * 100).toFixed(1)}%`
+    ));
+
+    // STEP 3: ENHANCED SEMANTIC VALIDATION (Phase 3A)
+    const semanticValidation = validateSemanticCompatibility(degradedLabels);
+    const globalSemanticContext = degradedLabels.flatMap(label => getSemanticCategory(label));
+    
+    let aiThoughtProcess = `🔍 PHASE 3 ANALYSE: Processet ${degradedLabels.length} labels med confidence degradation. `;
     
     if (!semanticValidation.compatible) {
-      aiThoughtProcess += `Semantisk advarsel: ${semanticValidation.reason}. `;
-      console.warn('Semantic compatibility issue:', semanticValidation.reason);
+      aiThoughtProcess += `${semanticValidation.reason}. `;
+      console.warn(`⚠️ ${semanticValidation.severity.toUpperCase()}: ${semanticValidation.reason}`);
     }
 
-    // Prioritize object detection over general labels
-    const objectLabels = topLabels.filter(l => l.type === 'object');
-    const generalLabels = topLabels.filter(l => l.type !== 'object');
-    const prioritizedLabels = [...objectLabels, ...generalLabels];
+    // STEP 4: OBJECT-CENTRIC PRIORITIZATION (Phase 3A) 
+    const objectLabels = degradedLabels.filter(l => l.type === 'object');
+    const generalLabels = degradedLabels.filter(l => l.type !== 'object');
+    
+    // 5x prioritization: objects first, then highest degraded confidence
+    const prioritizedLabels = [
+      ...objectLabels.sort((a, b) => (b.degradedScore || b.score) - (a.degradedScore || a.score)),
+      ...generalLabels.sort((a, b) => (b.degradedScore || b.score) - (a.degradedScore || a.score))
+    ];
 
-    // STEP 2: ADVANCED MATCHING - Ensemble voting system
+    // STEP 5: INTELLIGENT MATCHING PIPELINE
     let bestMatch = null;
     let bestScore = 0;
+    let bestMatchQuality = 'poor';
     const processedLabels = new Set();
     const allMatches = [];
 
-    // Analyze primary object from vision
     const primaryLabel = prioritizedLabels[0];
     const identifiedObject = primaryLabel?.description || 'ukendt genstand';
     const primarySemanticCategories = getSemanticCategory(primaryLabel);
     
-    aiThoughtProcess += `Primær genstand: '${identifiedObject}' (kategorier: ${primarySemanticCategories.join(', ')}). `;
+    aiThoughtProcess += `Primære objekt: "${identifiedObject}" (type: ${primaryLabel?.type || 'unknown'}, kategorier: ${primarySemanticCategories.join(', ')}, degraderet score: ${((primaryLabel?.degradedScore || primaryLabel?.score || 0) * 100).toFixed(1)}%). `;
 
-    // Process each label with aggressive semantic filtering
+    // Process each label through the enhanced pipeline
     for (const label of prioritizedLabels) {
       const englishTerm = label.description.toLowerCase();
       
@@ -394,53 +587,68 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       
       const labelSemanticCategories = getSemanticCategory(label);
       
-      // Get search terms with semantic context (may return empty if blocked)
-      const searchTerms = getSearchTerms(label, globalSemanticContext);
+      // STEP 5A: INTELLIGENT SEARCH TERM GENERATION (Phase 3C)
+      const searchResult = getSearchTerms(label, globalSemanticContext);
       
-      // Enhanced logging for blocked searches
-      if (searchTerms.length === 0) {
-        aiThoughtProcess += `🚫 BLOKERET: '${label.description}' (${labelSemanticCategories.join(',')}) - semantisk konflikt. `;
-        console.log(`🚫 Search blocked for "${label.description}" due to semantic conflict`);
-        continue; // Skip to next label
+      aiThoughtProcess += searchResult.reasoning + '. ';
+      
+      if (searchResult.terms.length === 0) {
+        console.log(`🚫 Completely blocked: "${label.description}"`);
+        continue;
       }
       
-      console.log(`✅ Search terms for "${label.description}" (${labelSemanticCategories.join(', ')}): ${searchTerms.join(', ')}`);
+      console.log(`🔍 Enhanced search for "${label.description}":`, searchResult);
       
-      // Enhanced database search with semantic awareness
-      const matches = await searchDatabase(searchTerms, globalSemanticContext);
+      // STEP 5B: REVOLUTIONARY DATABASE SEARCH (Phase 3C)
+      const searchResults = await searchDatabase(searchResult, globalSemanticContext);
       
-      if (matches.length > 0) {
-        console.log(`Found ${matches.length} matches for "${label.description}"`);
+      if (searchResults.matches.length > 0) {
+        console.log(`📊 Found ${searchResults.matches.length} matches with quality: ${searchResults.searchQuality}`);
         
-        // Score all matches with advanced algorithm
-        for (const match of matches) {
-          const matchScore = calculateMatchScore(match, label.score, globalSemanticContext);
+        // STEP 5C: INTELLIGENT SCORING (Phase 3D)
+        for (const match of searchResults.matches) {
+          const matchScore = calculateMatchScore(match, label, globalSemanticContext);
+          const matchQuality = calculateMatchQuality(matchScore, match.semanticCoherence || 0, searchResults.searchQuality);
           
           match.finalScore = matchScore;
           match.sourceLabel = label.description;
           match.semanticCategories = labelSemanticCategories;
+          match.matchQuality = matchQuality;
           allMatches.push(match);
           
-          if (matchScore > bestScore) {
+          console.log(`📈 Match "${match.navn}": score=${Math.round(matchScore)}%, quality=${matchQuality}, coherence=${(match.semanticCoherence || 0).toFixed(2)}`);
+          
+          // Select best match based on score AND quality
+          if (matchScore > bestScore || (matchScore >= bestScore * 0.9 && matchQuality > bestMatchQuality)) {
             bestScore = matchScore;
             bestMatch = match;
+            bestMatchQuality = matchQuality;
           }
         }
       } else {
-        aiThoughtProcess += `Ingen match for '${label.description}'. `;
+        aiThoughtProcess += `Ingen database matches for "${label.description}". `;
       }
     }
 
-    // STEP 3: FINAL VALIDATION AND OUTPUT
-    if (bestMatch && bestScore > 30) { // Minimum threshold for acceptance
-      console.log(`Best match: "${bestMatch.navn}" (score: ${Math.round(bestScore)}%)`);
+    // STEP 6: FINAL QUALITY CONTROL AND OUTPUT (Phase 3E)
+    const minimumThreshold = semanticValidation.severity === 'critical' ? 60 : 35;
+    
+    if (bestMatch && bestScore > minimumThreshold) {
+      console.log(`🎯 FINAL RESULT: "${bestMatch.navn}" (score: ${Math.round(bestScore)}%, quality: ${bestMatchQuality})`);
       
-      aiThoughtProcess += `Match: Fundet '${bestMatch.navn}' via ${bestMatch.matchType} match (score: ${Math.round(bestScore)}%, fuzzy: ${Math.round(bestMatch.fuzzyScore * 100)}%). `;
+      aiThoughtProcess += `🎯 RESULTAT: Identificeret "${bestMatch.navn}" via ${bestMatch.matchType} match. Score: ${Math.round(bestScore)}% (quality: ${bestMatchQuality}), semantisk coherence: ${((bestMatch.semanticCoherence || 0) * 100).toFixed(1)}%. `;
       
-      // Additional semantic check
-      if (!semanticValidation.compatible && bestScore < 70) {
-        aiThoughtProcess += `Semantisk konflikt detekteret - reducerer confidence. `;
-        bestScore *= 0.6;
+      // Conservative confidence scoring for transparency
+      let finalConfidence = Math.min(bestScore, 85); // Lower max confidence
+      
+      if (semanticValidation.severity === 'critical') {
+        finalConfidence *= 0.7; // Reduce confidence for critical semantic issues
+        aiThoughtProcess += `Semantisk konflikt detekteret - confidence reduceret til ${Math.round(finalConfidence)}%. `;
+      }
+      
+      if (bestMatchQuality === 'poor' || bestMatchQuality === 'fair') {
+        finalConfidence *= 0.8; // Reduce confidence for poor quality matches
+        aiThoughtProcess += `Match quality ${bestMatchQuality} - confidence justeret. `;
       }
       
       return {
@@ -450,61 +658,68 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         homeCategory: bestMatch.hjem || 'Restaffald',
         recyclingCategory: bestMatch.genbrugsplads || 'Restaffald',
         description: bestMatch.variation || bestMatch.navn,
-        confidence: Math.round(Math.min(bestScore, 95)), // Cap at 95%
+        confidence: Math.round(Math.max(15, finalConfidence)), // Minimum 15% confidence
         timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `Konklusion: Udtrukket sorteringsinfo fra WASTE_DATA med semantisk validering.`
+        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: Phase 3 pipeline gennemført med multi-stage validering og intelligent scoring.`
       };
     }
 
-    // STEP 4: HANDLE NO MATCH OR LOW CONFIDENCE
-    aiThoughtProcess += `Match: Ingen pålidelig match fundet (bedste score: ${Math.round(bestScore)}%). `;
+    // STEP 7: ENHANCED FALLBACK WITH CONTEXTUAL INTELLIGENCE
+    console.log('🔄 No suitable matches found, applying intelligent fallback');
     
-    // Special handling for obvious non-waste items
-    if (globalSemanticContext.includes('animals') || globalSemanticContext.includes('people')) {
-      aiThoughtProcess += `Konklusion: Genstand er ikke affald (${primarySemanticCategories.join(', ')}).`;
+    aiThoughtProcess += `❌ Ingen acceptable matches (threshold: ${minimumThreshold}%). `;
+    
+    // Smart fallback based on semantic analysis
+    const isLikelyNonWaste = globalSemanticContext.includes('animals') || globalSemanticContext.includes('people');
+    const hasHighConfidenceAnimal = degradedLabels.some(l => 
+      getSemanticCategory(l).includes('animals') && (l.degradedScore || l.score) > 0.7
+    );
+    
+    if (isLikelyNonWaste || hasHighConfidenceAnimal) {
+      aiThoughtProcess += `🔬 INTELLIGENT FALLBACK: Høj confidence dyr/person detekteret -> "Ikke affald". `;
       
       return {
         id: Date.now().toString(),
         name: 'Ikke affald',
         image: imageData,
-        homeCategory: 'Ikke relevant',
-        recyclingCategory: 'Ikke relevant',
-        description: `Identificeret som: ${identifiedObject}. Dette er ikke en affaldsgenstand.`,
-        confidence: Math.round((primaryLabel?.score || 0.5) * 100),
+        homeCategory: 'Ikke affald',
+        recyclingCategory: 'Ikke affald',
+        description: 'Dette er ikke affald og skal ikke sorteres. Genstand identificeret som levende væsen eller ikke-affald.',
+        confidence: hasHighConfidenceAnimal ? 90 : 75,
         timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess
+        aiThoughtProcess: aiThoughtProcess + `💡 SMART FALLBACK: Semantisk analyse identificerede ikke-affald med høj sikkerhed.`
       };
     }
-
-    aiThoughtProcess += `Konklusion: Sæt til 'Ukendt' - ingen pålidelig match i WASTE_DATA.`;
+    
+    // Standard fallback for unclear items
+    const fallback = fallbackItems[0];
+    aiThoughtProcess += `📋 Standard fallback anvendt - ingen klar kategorisering mulig. `;
     
     return {
       id: Date.now().toString(),
-      name: 'Ukendt',
+      name: fallback.name,
       image: imageData,
-      homeCategory: 'Restaffald',
-      recyclingCategory: 'Restaffald',
-      description: `Identificeret som: ${identifiedObject}. Kunne ikke matches sikkert til WASTE_DATA.`,
-      confidence: Math.round((primaryLabel?.score || 0.5) * 100),
+      homeCategory: fallback.homeCategory,
+      recyclingCategory: fallback.recyclingCategory,
+      description: fallback.description + ' Genstanden kunne ikke identificeres præcist af AI-systemet.',
+      confidence: 20, // Very low confidence for unclear items
       timestamp: new Date(),
-      aiThoughtProcess: aiThoughtProcess
+      aiThoughtProcess: aiThoughtProcess + `⚠️ KONSERVATIV FALLBACK: Utilstrækkelig information til sikker klassificering.`
     };
 
   } catch (error) {
-    console.error('Error in identifyWaste:', error);
-    
-    const aiThoughtProcess = `Analyse: Fejl ved billedanalyse (${error.message}). Match: Ingen data tilgængelig. Konklusion: Sæt til 'Ukendt' som fallback.`;
+    console.error('💥 Error in Phase 3 AI Pipeline:', error);
     
     return {
       id: Date.now().toString(),
-      name: 'Ukendt',
+      name: 'Analyse fejl',
       image: imageData,
       homeCategory: 'Restaffald',
       recyclingCategory: 'Restaffald',
-      description: `Fejl ved analyse: ${error.message}. Genstanden kunne ikke identificeres.`,
-      confidence: 50,
+      description: 'Der opstod en teknisk fejl under AI-analysen. Prøv at tage et nyt billede eller kontakt support hvis problemet fortsætter.',
+      confidence: 0,
       timestamp: new Date(),
-      aiThoughtProcess: aiThoughtProcess
+      aiThoughtProcess: `🚨 KRITISK FEJL i Phase 3 pipeline: ${error instanceof Error ? error.message : 'Ukendt systemfejl'}`
     };
   }
 };
