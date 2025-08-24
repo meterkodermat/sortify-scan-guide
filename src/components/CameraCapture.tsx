@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, X, RotateCcw } from "lucide-react";
@@ -19,20 +19,67 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     console.log("🎥 Starting camera...");
     try {
       console.log("📱 Requesting camera permission...");
+      
+      // Check if navigator.mediaDevices exists
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported");
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } // Use back camera on mobile
+        video: { 
+          facingMode: "environment", // Use back camera on mobile
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
       });
       console.log("✅ Camera permission granted");
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCapturing(true);
         console.log("🎬 Camera started successfully");
+        
+        // Wait for video to load before showing it
+        videoRef.current.onloadedmetadata = () => {
+          console.log("📹 Video metadata loaded");
+        };
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
-      toast.error("Kunne ikke få adgang til kameraet. Tjek at du har givet tilladelse.");
+      let errorMessage = "Kunne ikke få adgang til kameraet. ";
+      
+      if (error instanceof Error) {
+        if (error.name === "NotAllowedError") {
+          errorMessage += "Giv tilladelse til kameraet i browserindstillingerne.";
+        } else if (error.name === "NotFoundError") {
+          errorMessage += "Intet kamera fundet på enheden.";
+        } else if (error.name === "NotSupportedError") {
+          errorMessage += "Kamera understøttes ikke i denne browser.";
+        } else {
+          errorMessage += error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     }
   };
+
+  // Auto-start camera when component mounts
+  useEffect(() => {
+    console.log("🚀 CameraCapture component mounted");
+    startCamera();
+    
+    // Cleanup function to stop camera when component unmounts
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => {
+          console.log("🛑 Stopping camera track");
+          track.stop();
+        });
+      }
+    };
+  }, []);
 
   const capturePhoto = () => {
     console.log("📸 Taking photo...");
