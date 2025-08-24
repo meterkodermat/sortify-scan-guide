@@ -74,27 +74,40 @@ const calculateFuzzyScore = (term1: string, term2: string): number => {
   return matches / maxLength;
 };
 
-// Simple database search (ONE TERM ONLY)
+// Simple database search (ONE TERM ONLY) - Reversed logic for partial matching
 const searchDatabase = async (searchTerm: string) => {
-  // Search only in 'navn' field with exact matching
-  const { data: matches } = await supabase
+  // Get all database entries and check if searchTerm contains any of them
+  const { data: allEntries } = await supabase
     .from('demo')
-    .select('*')
-    .ilike('navn', `%${searchTerm}%`);
+    .select('*');
   
-  if (!matches?.length) {
+  if (!allEntries?.length) {
     return null;
   }
   
-  // Return best match based on simple fuzzy score
+  // Find entries where the searchTerm contains the database navn
+  const matches = allEntries.filter(entry => {
+    if (!entry.navn) return false;
+    const navn = entry.navn.toLowerCase();
+    const term = searchTerm.toLowerCase();
+    
+    // Check if the search term contains the database navn (minimum 3 chars to avoid false matches)
+    return term.includes(navn) && navn.length >= 3;
+  });
+  
+  if (!matches.length) {
+    return null;
+  }
+  
+  // Return best match - prefer longer navn (more specific matches)
   let bestMatch = matches[0];
-  let bestScore = calculateFuzzyScore(searchTerm, bestMatch.navn);
+  let bestScore = bestMatch.navn?.length || 0;
   
   for (const match of matches) {
-    const score = calculateFuzzyScore(searchTerm, match.navn);
-    if (score > bestScore) {
+    const navnLength = match.navn?.length || 0;
+    if (navnLength > bestScore) {
+      bestScore = navnLength;
       bestMatch = match;
-      bestScore = score;
     }
   }
   
