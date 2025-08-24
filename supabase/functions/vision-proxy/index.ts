@@ -64,11 +64,11 @@ async function testGeminiApiKey(apiKey: string): Promise<{ valid: boolean, error
 // Generate fallback mock response
 function generateMockResponse(base64Data: string) {
   const mockObjects = [
-    { description: "plastic_bottle", score: 0.85 },
-    { description: "paper", score: 0.78 },
-    { description: "can", score: 0.72 },
-    { description: "food_packaging", score: 0.68 },
-    { description: "container", score: 0.65 }
+    { description: "plastikflaske", score: 0.85 },
+    { description: "papir", score: 0.78 },
+    { description: "dåse", score: 0.72 },
+    { description: "madkasse", score: 0.68 },
+    { description: "flaske", score: 0.65 }
   ];
   
   // Simple pseudo-random selection based on image hash
@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyser dette billede og identificer objekter. Returner en JSON liste af objekter med deres konfidensscores mellem 0 og 1. Fokuser på affaldsemner, genbrugsartikler og husholdningsartikler. Format: [{\"description\": \"objekt_navn\", \"score\": 0.95}]. Hold beskrivelser enkle og på DANSK. Eksempel: æble, plastikflaske, papir, dåse, madkasse." },
+            { text: "VIGTIGT: Svar kun på DANSK! Analyser dette billede og identificer objekter. Returner en JSON liste af objekter med deres konfidensscores mellem 0 og 1. Fokuser på affaldsemner, genbrugsartikler og husholdningsartikler. Format: [{\"description\": \"objekt_navn_på_dansk\", \"score\": 0.95}]. \n\nEKSEMPLER PÅ DANSKE ORD:\n- æble (ikke apple)\n- plastikflaske (ikke plastic_bottle)\n- papir (ikke paper)\n- dåse (ikke can)\n- madkasse (ikke food_container)\n- banan (ikke banana)\n- flaske (ikke bottle)\n\nSvar KUN på dansk - brug aldrig engelske ord!" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
