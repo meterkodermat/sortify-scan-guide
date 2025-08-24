@@ -11,6 +11,11 @@ interface WasteItem {
   confidence: number;
   timestamp: Date;
   aiThoughtProcess?: string;
+  components?: Array<{
+    genstand: string;
+    materiale: string;
+    tilstand?: string;
+  }>;
 }
 
 interface VisionLabel {
@@ -138,18 +143,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     // Check if we have the new format with materiale and tilstand
     if (labels.length > 0 && labels[0].materiale) {
-      // Handle multiple components - create a combined analysis
-      const primaryComponent = labels[0]; // Use first component as primary
+      // Handle multiple components - store all components
+      const primaryComponent = labels[0];
       const allComponents = labels.map(label => 
         `${label.description} (${label.materiale}${label.tilstand ? `, ${label.tilstand}` : ''})`
       ).join(', ');
       
       let aiThoughtProcess = `🎯 GEMINI ANALYSE: Fandt ${labels.length} komponent(er): ${allComponents}. `;
-      aiThoughtProcess += `Primær komponent: "${primaryComponent.description}" - ${primaryComponent.materiale}. `;
       
       return {
         id: Date.now().toString(),
-        name: labels.length > 1 ? `${primaryComponent.description} (+${labels.length - 1} andre)` : primaryComponent.description,
+        name: labels.length > 1 ? `${labels.length} komponenter fundet` : primaryComponent.description,
         image: imageData,
         homeCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
                       primaryComponent.materiale === 'plastik' ? 'Plast' : 
@@ -164,11 +168,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                            primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
                            primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 'Rest efter sortering',
         description: labels.length > 1 ? 
-          `Flere komponenter: ${allComponents}. Sortér hver komponent særskilt.` : 
+          `${labels.length} komponenter fundet - se detaljer nedenfor` : 
           `${primaryComponent.description} - ${primaryComponent.materiale}${primaryComponent.tilstand ? ` (${primaryComponent.tilstand})` : ''}`,
         confidence: Math.round(primaryComponent.score * 100),
         timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: ${labels.length > 1 ? 'Multi-komponent' : 'Enkelt komponent'} match fra Gemini.`
+        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: ${labels.length} komponent(er) identificeret`,
+        components: labels.map(label => ({
+          genstand: label.description,
+          materiale: label.materiale,
+          tilstand: label.tilstand
+        }))
       };
     }
     

@@ -13,6 +13,11 @@ interface WasteItem {
   confidence: number;
   timestamp: Date;
   aiThoughtProcess?: string;
+  components?: Array<{
+    genstand: string;
+    materiale: string;
+    tilstand?: string;
+  }>;
 }
 
 interface WasteResultProps {
@@ -55,6 +60,49 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </div>
           <p className="text-muted-foreground">{item.description}</p>
         </Card>
+
+        {/* Individual Components (if multiple found) */}
+        {item.components && item.components.length > 1 && (
+          <Card className="p-6 bg-gradient-card shadow-card">
+            <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
+            <div className="space-y-3">
+              {item.components.map((component, index) => {
+                const getMaterialCategory = (materiale: string) => {
+                  switch (materiale) {
+                    case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary' };
+                    case 'plastik': return { home: 'Plast', recycling: 'Hård plast', variant: 'outline' };
+                    case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary' };
+                    case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline' };
+                    case 'organisk': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive' };
+                    case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive' };
+                    default: return { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline' };
+                  }
+                };
+                
+                const category = getMaterialCategory(component.materiale);
+                
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium text-foreground">
+                        {component.genstand}
+                        {component.tilstand && (
+                          <span className="text-sm text-muted-foreground ml-2">({component.tilstand})</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Hjemme: {category.home} • Genbrugsplads: {category.recycling}
+                      </div>
+                    </div>
+                    <Badge variant={category.variant as any} className="ml-3">
+                      {component.materiale}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Sorting Instructions */}
         <div className="space-y-4">
