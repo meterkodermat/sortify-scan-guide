@@ -134,7 +134,11 @@ const Index = () => {
         {/* Action Buttons */}
         <div className="space-y-4">
           <Button
-            onClick={() => setCurrentView('camera')}
+            onClick={() => {
+              console.log("🔘 Scan button clicked");
+              setCurrentView('camera');
+              console.log("📷 Setting view to camera");
+            }}
             variant="scan"
             size="lg"
             className="w-full h-16 text-lg"

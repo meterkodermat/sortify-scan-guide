@@ -141,6 +141,9 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
                   <Camera className="h-5 w-5 mr-2" />
                   Åbn kamera
                 </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Sørg for at give tilladelse til kameraet når browseren spørger
+                </p>
               </div>
             )}
 
