@@ -127,10 +127,39 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Kunne ikke analysere billedet');
     }
 
-    // STEP 2: Take ONLY the highest confidence result (ONE WORD STRATEGY)
+    // STEP 2: Take the highest confidence result (One Word Strategy)
     const topLabel = visionData.labels[0];
-    const keyword = topLabel.description.toLowerCase();
     
+    // Check if we have the new format with materiale and tilstand
+    if (topLabel.materiale && topLabel.tilstand) {
+      let aiThoughtProcess = `🎯 GEMINI ANALYSE: "${topLabel.description}" (confidence: ${(topLabel.score * 100).toFixed(1)}%). `;
+      aiThoughtProcess += `Materiale: "${topLabel.materiale}", Tilstand: "${topLabel.tilstand}". `;
+      
+      return {
+        id: Date.now().toString(),
+        name: topLabel.description,
+        image: imageData,
+        homeCategory: topLabel.materiale === 'pap' ? 'Pap' : 
+                      topLabel.materiale === 'plast' ? 'Plast' : 
+                      topLabel.materiale === 'glas' ? 'Glas' : 
+                      topLabel.materiale === 'metal' ? 'Metal' : 
+                      topLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                      topLabel.materiale === 'organisk' ? 'Madaffald' : 'Restaffald',
+        recyclingCategory: topLabel.materiale === 'pap' ? 'Pap' : 
+                          topLabel.materiale === 'plast' ? 'Hård plast' : 
+                          topLabel.materiale === 'glas' ? 'Glas' : 
+                          topLabel.materiale === 'metal' ? 'Metal' : 
+                          topLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                          topLabel.materiale === 'organisk' ? 'Ikke muligt' : 'Rest efter sortering',
+        description: `${topLabel.description} - ${topLabel.materiale}${topLabel.tilstand ? ` (${topLabel.tilstand})` : ''}`,
+        confidence: Math.round(topLabel.score * 100),
+        timestamp: new Date(),
+        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: Direkte match fra Gemini.`
+      };
+    }
+    
+    // Fall back to old logic if new format not available
+    const keyword = topLabel.description.toLowerCase();
     let aiThoughtProcess = `🎯 ONE WORD: "${keyword}" (confidence: ${(topLabel.score * 100).toFixed(1)}%). `;
 
     // STEP 3: Check hardcoded non-waste rules FIRST

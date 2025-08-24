@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "VIGTIGT: Svar kun på DANSK! Analyser dette billede og identificer objekter. Returner en JSON liste af objekter med deres konfidensscores mellem 0 og 1. Fokuser på affaldsemner, genbrugsartikler og husholdningsartikler. Format: [{\"description\": \"objekt_navn_på_dansk\", \"score\": 0.95}]. \n\nEKSEMPLER PÅ DANSKE ORD:\n- æble (ikke apple)\n- plastikflaske (ikke plastic_bottle)\n- papir (ikke paper)\n- dåse (ikke can)\n- madkasse (ikke food_container)\n- banan (ikke banana)\n- flaske (ikke bottle)\n\nSvar KUN på dansk - brug aldrig engelske ord!" },
+            { text: "Analyser billedet. Svar kun med et JSON-objekt. Brug nøglerne: \"genstand\", \"materiale\", \"tilstand\". Eksempel: {\"genstand\": \"ægebakke\", \"materiale\": \"pap\", \"tilstand\": \"tømt\"}. \n\nVIGTIGE RETNINGSLINJER:\n- Identificer den primære genstand i billedet\n- Bestem materialet (fx: pap, plast, glas, metal, træ, farligt, organisk)\n- Vurder tilstanden (fx: rent, tømt, våd, defekt, brugt)\n- Svar KUN på dansk\n- Returner KUN JSON-objektet - ingen anden tekst" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -312,22 +312,24 @@ serve(async (req) => {
     const candidate = geminiData.candidates[0];
     const responseText = candidate.content.parts[0].text;
 
-    // Parse Gemini response to extract objects
+    // Parse Gemini response to extract JSON object
     let allResults = [];
     try {
-      // Try to extract JSON from the response
-      const jsonMatch = responseText.match(/\[.*\]/s);
+      // Try to extract JSON object from the response
+      const jsonMatch = responseText.match(/\{[^}]+\}/s);
       if (jsonMatch) {
-        const parsedResults = JSON.parse(jsonMatch[0]);
-        allResults = parsedResults
-          .filter((item: any) => item.score >= 0.3) // Filter by confidence
-          .map((item: any) => ({
-            description: item.description,
-            score: item.score,
-            type: 'gemini_detection'
-          }))
-          .sort((a: any, b: any) => b.score - a.score)
-          .slice(0, 10); // Keep top 10 results
+        const parsedResult = JSON.parse(jsonMatch[0]);
+        
+        // Convert the new format to the expected array format
+        if (parsedResult.genstand) {
+          allResults = [{
+            description: parsedResult.genstand,
+            score: 0.9, // High confidence since it's the primary object
+            type: 'gemini_detection',
+            materiale: parsedResult.materiale,
+            tilstand: parsedResult.tilstand
+          }];
+        }
       } else {
         // Fallback: extract objects from text response
         const lines = responseText.split('\n');
