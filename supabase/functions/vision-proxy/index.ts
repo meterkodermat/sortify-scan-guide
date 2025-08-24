@@ -71,21 +71,12 @@ serve(async (req) => {
     // Remove base64 prefix if present
     const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
     
-    // Get Google Vision API key from Supabase secrets
-    const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
-    const translationApiKey = Deno.env.get('GOOGLE_CLOUD_TRANSLATION_API_KEY');
+    // Get Gemini API key from Supabase secrets
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     
-    if (!apiKey) {
-      console.error('Google Vision API key not found in environment');
+    if (!geminiApiKey) {
+      console.error('Gemini API key not found in environment');
       return new Response(JSON.stringify({ success: false, error: 'API configuration error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!translationApiKey) {
-      console.error('Google Cloud Translation API key not found in environment');
-      return new Response(JSON.stringify({ success: false, error: 'Translation API configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -107,156 +98,124 @@ serve(async (req) => {
       });
     }
 
-    // Call Google Vision API with enhanced features
-    const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
+    // Call Gemini 1.5 Pro API for image analysis
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: base64Data
-            },
-            features: [
-              {
-                type: 'LABEL_DETECTION',
-                maxResults: 15
-              },
-              {
-                type: 'OBJECT_LOCALIZATION', 
-                maxResults: 10
+        contents: [{
+          parts: [
+            { text: "Analyze this image and identify objects. Return a JSON list of objects with their confidence scores between 0 and 1. Focus on waste items, recyclables, and household objects. Format: [{\"description\": \"object_name\", \"score\": 0.95}]. Keep descriptions simple and in English." },
+            { 
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Data
               }
-            ]
-          }
-        ]
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1000
+        }
       }),
     });
 
-    if (!visionResponse.ok) {
-      const errorText = await visionResponse.text();
-      console.error('Google Vision API error:', errorText);
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API error:', errorText);
       return new Response(JSON.stringify({ 
         success: false, 
-        error: `Vision API error: ${visionResponse.status}` 
+        error: `Gemini API error: ${geminiResponse.status}` 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const visionData = await visionResponse.json();
+    const geminiData = await geminiResponse.json();
     
-    // Check if there are any responses
-    if (!visionData.responses || !visionData.responses[0]) {
-      console.error('No responses from Vision API');
+    // Check if there are any candidates
+    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
+      console.error('No responses from Gemini API');
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'No analysis results from Vision API' 
+        error: 'No analysis results from Gemini API' 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const response = visionData.responses[0];
-    
-    // Check for errors in the response
-    if (response.error) {
-      console.error('Vision API response error:', response.error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `Vision analysis error: ${response.error.message}` 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const candidate = geminiData.candidates[0];
+    const responseText = candidate.content.parts[0].text;
 
-    // Extract and process labels with confidence filtering
-    const labels = response.labelAnnotations || [];
-    const objects = response.localizedObjectAnnotations || [];
-    
-    // Filter labels by confidence threshold (minimum 0.5)
-    const filteredLabels = labels
-      .filter((label: any) => label.score >= 0.5)
-      .map((label: any) => ({
-        description: label.description,
-        score: label.score,
-        type: 'label'
-      }));
-    
-    // Process localized objects with higher priority
-    const processedObjects = objects
-      .filter((obj: any) => obj.score >= 0.6) // Higher threshold for objects
-      .map((obj: any) => ({
-        description: obj.name,
-        score: obj.score,
-        type: 'object',
-        boundingBox: obj.boundingPoly
-      }));
-
-    // Combine and prioritize objects over general labels
-    const allResults = [...processedObjects, ...filteredLabels]
-      .sort((a, b) => {
-        // Prioritize objects, then by score
-        if (a.type === 'object' && b.type !== 'object') return -1;
-        if (a.type !== 'object' && b.type === 'object') return 1;
-        return b.score - a.score;
-      })
-      .slice(0, 10); // Keep top 10 results
-
-    console.log('Vision API results:', { 
-      labels: filteredLabels.length, 
-      objects: processedObjects.length,
-      combined: allResults.length 
-    });
-
-    // Translate results to Danish using Google Cloud Translation API
-    let translatedResults = allResults;
+    // Parse Gemini response to extract objects
+    let allResults = [];
     try {
-      if (allResults.length > 0) {
-        const textsToTranslate = allResults.map(item => item.description);
-        
-        const translationResponse = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${translationApiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            q: textsToTranslate,
-            target: 'da',
-            source: 'en'
-          }),
-        });
-
-        if (translationResponse.ok) {
-          const translationData = await translationResponse.json();
-          const translations = translationData.data.translations;
-          
-          translatedResults = allResults.map((item, index) => ({
-            ...item,
-            translatedText: translations[index].translatedText.toLowerCase()
-          }));
-          
-          console.log('Translated results:', translatedResults);
-        } else {
-          console.error('Translation API error:', await translationResponse.text());
+      // Try to extract JSON from the response
+      const jsonMatch = responseText.match(/\[.*\]/s);
+      if (jsonMatch) {
+        const parsedResults = JSON.parse(jsonMatch[0]);
+        allResults = parsedResults
+          .filter((item: any) => item.score >= 0.3) // Filter by confidence
+          .map((item: any) => ({
+            description: item.description,
+            score: item.score,
+            type: 'gemini_detection'
+          }))
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 10); // Keep top 10 results
+      } else {
+        // Fallback: extract objects from text response
+        const lines = responseText.split('\n');
+        for (const line of lines) {
+          // Look for patterns like "object_name (confidence: 0.85)" or similar
+          const match = line.match(/([a-zA-Z\s]+).*?(\d+\.?\d*)/);
+          if (match) {
+            const description = match[1].trim().toLowerCase();
+            const score = parseFloat(match[2]) > 1 ? parseFloat(match[2]) / 100 : parseFloat(match[2]);
+            if (score >= 0.3 && description) {
+              allResults.push({
+                description,
+                score,
+                type: 'gemini_detection'
+              });
+            }
+          }
         }
       }
-    } catch (translationError) {
-      console.error('Error translating labels:', translationError);
-      // Continue with original results if translation fails
+    } catch (parseError) {
+      console.error('Error parsing Gemini response:', parseError);
+      console.log('Raw Gemini response:', responseText);
+      
+      // Last resort: create basic labels from response text
+      const words = responseText.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+      const uniqueWords = [...new Set(words)].slice(0, 5);
+      allResults = uniqueWords.map((word, index) => ({
+        description: word,
+        score: 0.8 - (index * 0.1), // Decreasing confidence
+        type: 'gemini_fallback'
+      }));
     }
+
+    console.log('Gemini API results:', { 
+      totalResults: allResults.length,
+      responseLength: responseText.length 
+    });
+
+    // No translation needed for One Word Strategy - keep English results
+    let translatedResults = allResults;
 
     return new Response(JSON.stringify({ 
       success: true, 
       labels: translatedResults,
       metadata: {
         imageQuality: imageQuality.score,
-        totalLabels: filteredLabels.length,
-        totalObjects: processedObjects.length,
+        totalResults: allResults.length,
+        model: 'gemini-1.5-pro',
         processingTime: Date.now()
       }
     }), {
