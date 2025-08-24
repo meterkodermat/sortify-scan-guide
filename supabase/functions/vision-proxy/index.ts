@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyze this image and identify objects. Return a JSON list of objects with their confidence scores between 0 and 1. Focus on waste items, recyclables, and household objects. Format: [{\"description\": \"object_name\", \"score\": 0.95}]. Keep descriptions simple and in English." },
+            { text: "Analyser dette billede og identificer objekter. Returner en JSON liste af objekter med deres konfidensscores mellem 0 og 1. Fokuser på affaldsemner, genbrugsartikler og husholdningsartikler. Format: [{\"description\": \"objekt_navn\", \"score\": 0.95}]. Hold beskrivelser enkle og på DANSK. Eksempel: æble, plastikflaske, papir, dåse, madkasse." },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
