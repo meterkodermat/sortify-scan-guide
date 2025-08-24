@@ -17,6 +17,8 @@ interface VisionLabel {
   description: string;
   score: number;
   translatedText?: string;
+  materiale?: string;
+  tilstand?: string;
 }
 
 interface VisionResponse {
@@ -127,38 +129,51 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Kunne ikke analysere billedet');
     }
 
-    // STEP 2: Take the highest confidence result (One Word Strategy)
-    const topLabel = visionData.labels[0];
+    // STEP 2: Take results and handle new komponenter format
+    const labels = visionData.labels || [];
     
+    if (!labels.length) {
+      throw new Error('Ingen komponenter fundet i billedet');
+    }
+
     // Check if we have the new format with materiale and tilstand
-    if (topLabel.materiale && topLabel.tilstand) {
-      let aiThoughtProcess = `🎯 GEMINI ANALYSE: "${topLabel.description}" (confidence: ${(topLabel.score * 100).toFixed(1)}%). `;
-      aiThoughtProcess += `Materiale: "${topLabel.materiale}", Tilstand: "${topLabel.tilstand}". `;
+    if (labels.length > 0 && labels[0].materiale) {
+      // Handle multiple components - create a combined analysis
+      const primaryComponent = labels[0]; // Use first component as primary
+      const allComponents = labels.map(label => 
+        `${label.description} (${label.materiale}${label.tilstand ? `, ${label.tilstand}` : ''})`
+      ).join(', ');
+      
+      let aiThoughtProcess = `🎯 GEMINI ANALYSE: Fandt ${labels.length} komponent(er): ${allComponents}. `;
+      aiThoughtProcess += `Primær komponent: "${primaryComponent.description}" - ${primaryComponent.materiale}. `;
       
       return {
         id: Date.now().toString(),
-        name: topLabel.description,
+        name: labels.length > 1 ? `${primaryComponent.description} (+${labels.length - 1} andre)` : primaryComponent.description,
         image: imageData,
-        homeCategory: topLabel.materiale === 'pap' ? 'Pap' : 
-                      topLabel.materiale === 'plast' ? 'Plast' : 
-                      topLabel.materiale === 'glas' ? 'Glas' : 
-                      topLabel.materiale === 'metal' ? 'Metal' : 
-                      topLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                      topLabel.materiale === 'organisk' ? 'Madaffald' : 'Restaffald',
-        recyclingCategory: topLabel.materiale === 'pap' ? 'Pap' : 
-                          topLabel.materiale === 'plast' ? 'Hård plast' : 
-                          topLabel.materiale === 'glas' ? 'Glas' : 
-                          topLabel.materiale === 'metal' ? 'Metal' : 
-                          topLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                          topLabel.materiale === 'organisk' ? 'Ikke muligt' : 'Rest efter sortering',
-        description: `${topLabel.description} - ${topLabel.materiale}${topLabel.tilstand ? ` (${topLabel.tilstand})` : ''}`,
-        confidence: Math.round(topLabel.score * 100),
+        homeCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
+                      primaryComponent.materiale === 'plastik' ? 'Plast' : 
+                      primaryComponent.materiale === 'glas' ? 'Glas' : 
+                      primaryComponent.materiale === 'metal' ? 'Metal' : 
+                      primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
+                      primaryComponent.materiale === 'organisk' ? 'Madaffald' : 'Restaffald',
+        recyclingCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
+                           primaryComponent.materiale === 'plastik' ? 'Hård plast' : 
+                           primaryComponent.materiale === 'glas' ? 'Glas' : 
+                           primaryComponent.materiale === 'metal' ? 'Metal' : 
+                           primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
+                           primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 'Rest efter sortering',
+        description: labels.length > 1 ? 
+          `Flere komponenter: ${allComponents}. Sortér hver komponent særskilt.` : 
+          `${primaryComponent.description} - ${primaryComponent.materiale}${primaryComponent.tilstand ? ` (${primaryComponent.tilstand})` : ''}`,
+        confidence: Math.round(primaryComponent.score * 100),
         timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: Direkte match fra Gemini.`
+        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: ${labels.length > 1 ? 'Multi-komponent' : 'Enkelt komponent'} match fra Gemini.`
       };
     }
     
     // Fall back to old logic if new format not available
+    const topLabel = labels[0];
     const keyword = topLabel.description.toLowerCase();
     let aiThoughtProcess = `🎯 ONE WORD: "${keyword}" (confidence: ${(topLabel.score * 100).toFixed(1)}%). `;
 

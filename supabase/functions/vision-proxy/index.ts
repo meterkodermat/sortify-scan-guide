@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyser billedet. Svar kun med et JSON-objekt. Brug nøglerne: \"genstand\", \"materiale\", \"tilstand\". Eksempel: {\"genstand\": \"ægebakke\", \"materiale\": \"pap\", \"tilstand\": \"tømt\"}. \n\nVIGTIGE RETNINGSLINJER:\n- Identificer den primære genstand i billedet\n- Bestem materialet (fx: pap, plast, glas, metal, træ, farligt, organisk)\n- Vurder tilstanden (fx: rent, tømt, våd, defekt, brugt)\n- Svar KUN på dansk\n- Returner KUN JSON-objektet - ingen anden tekst" },
+            { text: "Analyser billedet for affaldssortering. Identificér ALLE sorterbare komponenter i produktet.\nSvar KUN med et JSON-objekt med én nøgle: \"komponenter\". Denne nøgle skal indeholde en liste (array) af objekter.\n\nHvert objekt i listen SKAL have nøglerne: \"genstand\" og \"materiale\".\nInkludér KUN \"tilstand\", hvis det er relevant for sortering (f.eks. \"defekt\", \"tømt\", \"snavset\"). Udelad det for \"frisk\" eller \"ny\".\nSvar UDEN ekstra tekst.\n\nEksempel 1: Et net med appelsiner\n{\n  \"komponenter\": [\n    { \"genstand\": \"appelsin\", \"materiale\": \"organisk\" },\n    { \"genstand\": \"net\", \"materiale\": \"plastik\" },\n    { \"genstand\": \"mærkat\", \"materiale\": \"papir\" }\n  ]\n}\n\nEksempel 2: En tom mælkekarton med plastiklåg\n{\n  \"komponenter\": [\n    { \"genstand\": \"karton\", \"materiale\": \"pap\", \"tilstand\": \"tømt\" },\n    { \"genstand\": \"låg\", \"materiale\": \"plastik\" }\n  ]\n}\n\nEksempel 3: En enkel glasflaske\n{\n  \"komponenter\": [\n    { \"genstand\": \"flaske\", \"materiale\": \"glas\" }\n  ]\n}" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -316,15 +316,25 @@ serve(async (req) => {
     let allResults = [];
     try {
       // Try to extract JSON object from the response
-      const jsonMatch = responseText.match(/\{[^}]+\}/s);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
         
-        // Convert the new format to the expected array format
-        if (parsedResult.genstand) {
+        // Handle new komponenter format
+        if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
+          allResults = parsedResult.komponenter.map(component => ({
+            description: component.genstand,
+            score: 0.9,
+            type: 'gemini_detection',
+            materiale: component.materiale,
+            tilstand: component.tilstand
+          }));
+        }
+        // Fallback: handle old single object format
+        else if (parsedResult.genstand) {
           allResults = [{
             description: parsedResult.genstand,
-            score: 0.9, // High confidence since it's the primary object
+            score: 0.9,
             type: 'gemini_detection',
             materiale: parsedResult.materiale,
             tilstand: parsedResult.tilstand
