@@ -71,12 +71,23 @@ serve(async (req) => {
     // Remove base64 prefix if present
     const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
     
+    // Debug: Log all available environment variables
+    console.log('Available environment variables:', Object.keys(Deno.env.toObject()));
+    
     // Get Gemini API key from Supabase secrets
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     
+    console.log('GEMINI_API_KEY present:', !!geminiApiKey);
+    console.log('GEMINI_API_KEY length:', geminiApiKey?.length || 0);
+    
     if (!geminiApiKey) {
       console.error('Gemini API key not found in environment');
-      return new Response(JSON.stringify({ success: false, error: 'API configuration error' }), {
+      console.error('This function requires GEMINI_API_KEY to be set in Supabase Edge Function secrets');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'GEMINI_API_KEY not configured in Edge Function environment',
+        availableEnvVars: Object.keys(Deno.env.toObject()).length
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
