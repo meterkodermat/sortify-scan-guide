@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, X, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void;
@@ -15,20 +16,26 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const startCamera = async () => {
+    console.log("🎥 Starting camera...");
     try {
+      console.log("📱 Requesting camera permission...");
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: "environment" } // Use back camera on mobile
       });
+      console.log("✅ Camera permission granted");
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCapturing(true);
+        console.log("🎬 Camera started successfully");
       }
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.error("❌ Error accessing camera:", error);
+      toast.error("Kunne ikke få adgang til kameraet. Tjek at du har givet tilladelse.");
     }
   };
 
   const capturePhoto = () => {
+    console.log("📸 Taking photo...");
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -40,10 +47,13 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       context?.drawImage(video, 0, 0);
       const imageData = canvas.toDataURL("image/jpeg", 0.8);
       setCapturedImage(imageData);
+      console.log("✅ Photo captured successfully");
       
       // Stop the camera stream
       const stream = video.srcObject as MediaStream;
       stream?.getTracks().forEach(track => track.stop());
+    } else {
+      console.error("❌ Video or canvas ref not available");
     }
   };
 
@@ -53,8 +63,12 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   };
 
   const confirmCapture = () => {
+    console.log("🔄 Confirming capture...");
     if (capturedImage) {
+      console.log("📤 Sending image for analysis");
       onCapture(capturedImage);
+    } else {
+      console.error("❌ No captured image available");
     }
   };
 
