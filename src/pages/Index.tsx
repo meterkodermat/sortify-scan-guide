@@ -28,6 +28,9 @@ const Index = () => {
   const [recentScans, setRecentScans] = useState<WasteItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Debug current view state
+  console.log("🏠 Current view state:", currentView);
+
   const handleImageCapture = async (imageData: string) => {
     setCurrentView('analyzing');
     setIsAnalyzing(true);
@@ -67,10 +70,14 @@ const Index = () => {
   };
 
   if (currentView === 'camera') {
+    console.log("🎬 Rendering CameraCapture component");
     return (
       <CameraCapture
         onCapture={handleImageCapture}
-        onClose={() => setCurrentView('home')}
+        onClose={() => {
+          console.log("🔒 Camera closed by user");
+          setCurrentView('home');
+        }}
       />
     );
   }

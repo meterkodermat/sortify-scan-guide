@@ -10,20 +10,38 @@ interface CameraCaptureProps {
 }
 
 export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
+  console.log("🎥 CameraCapture component initialized");
+  
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  console.log("📊 CameraCapture state - isCapturing:", isCapturing, "capturedImage:", !!capturedImage);
+
   const startCamera = async () => {
     console.log("🎥 Starting camera...");
+    console.log("🌐 User Agent:", navigator.userAgent);
+    console.log("🔒 Page Protocol:", window.location.protocol);
+    console.log("🔍 MediaDevices available:", !!navigator.mediaDevices);
+    console.log("🎦 getUserMedia available:", !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+    
     try {
       console.log("📱 Requesting camera permission...");
       
       // Check if navigator.mediaDevices exists
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("💥 Camera API not supported");
         throw new Error("Camera API not supported");
       }
+      
+      console.log("⚙️ Calling getUserMedia with constraints:", {
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -32,20 +50,27 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
           height: { ideal: 720 }
         } 
       });
-      console.log("✅ Camera permission granted");
+      console.log("✅ Camera permission granted, stream:", stream);
+      console.log("📹 Stream tracks:", stream.getTracks().length);
       
       if (videoRef.current) {
+        console.log("🎬 Setting video srcObject");
         videoRef.current.srcObject = stream;
         setIsCapturing(true);
-        console.log("🎬 Camera started successfully");
+        console.log("🎬 Camera started successfully, isCapturing set to true");
         
         // Wait for video to load before showing it
         videoRef.current.onloadedmetadata = () => {
           console.log("📹 Video metadata loaded");
         };
+      } else {
+        console.error("❌ videoRef.current is null");
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
+      console.error("❌ Error name:", error instanceof Error ? error.name : 'Unknown');
+      console.error("❌ Error message:", error instanceof Error ? error.message : 'Unknown');
+      
       let errorMessage = "Kunne ikke få adgang til kameraet. ";
       
       if (error instanceof Error) {
