@@ -158,7 +158,7 @@ serve(async (req) => {
     console.log('Deployment ID:', Deno.env.get('DENO_DEPLOYMENT_ID') || 'unknown');
     
     // Get Gemini API key from Supabase secrets
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = Deno.env.get('GEMINI');
     
     console.log('GEMINI_API_KEY present:', !!geminiApiKey);
     console.log('GEMINI_API_KEY length:', geminiApiKey?.length || 0);
