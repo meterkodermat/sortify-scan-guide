@@ -12,7 +12,7 @@ interface CameraCaptureProps {
 export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   console.log("🎥 CameraCapture component initialized");
   
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(true); // Start with true to show video immediately
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,10 +92,16 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   // Auto-start camera when component mounts
   useEffect(() => {
     console.log("🚀 CameraCapture component mounted");
-    startCamera();
+    
+    // Small delay to ensure video element is rendered
+    const timer = setTimeout(() => {
+      console.log("⏰ Starting camera after delay");
+      startCamera();
+    }, 100);
     
     // Cleanup function to stop camera when component unmounts
     return () => {
+      clearTimeout(timer);
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => {
