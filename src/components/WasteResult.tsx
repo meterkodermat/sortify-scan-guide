@@ -2,16 +2,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
-import farligtAffaldImg from "@/assets/farligt-affald.png";
-import glasImg from "@/assets/glas.png";
-import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
-import madaffalImg from "@/assets/madaffald.png";
-import metalImg from "@/assets/metal.png";
-import papImg from "@/assets/pap.png";
-import papirImg from "@/assets/papir.png";
-import plastImg from "@/assets/plast.png";
-import restaffalImg from "@/assets/restaffald.png";
-import tekstilaffalImg from "@/assets/tekstilaffald.png";
+import farligtAffaldImg from "@/assets/farligt-affald-official.png";
+import glasImg from "@/assets/glas-official.png";
+import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner-official.png";
+import madaffalImg from "@/assets/madaffald-official.png";
+import metalImg from "@/assets/metal-official.png";
+import papImg from "@/assets/pap-official.png";
+import papirImg from "@/assets/papir-official.png";
+import plastImg from "@/assets/plast-official.png";
+import restaffalImg from "@/assets/restaffald-official.png";
+import tekstilaffalImg from "@/assets/tekstilaffald-official.png";
 
 interface WasteItem {
   id: string;
