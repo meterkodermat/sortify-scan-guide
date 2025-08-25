@@ -151,65 +151,67 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-gradient-card shadow-strong">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      <Card className="flex-1 bg-gradient-card shadow-strong m-0 rounded-none">
+        <div className="flex-1 flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-background/90">
             <h3 className="text-lg font-semibold">Tag et billede</h3>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 flex flex-col">
             {!isCapturing && !capturedImage && (
-              <div className="text-center">
-                <Camera className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <Camera className="h-20 w-20 mx-auto mb-6 text-muted-foreground" />
+                <p className="text-muted-foreground mb-6 text-lg">
                   Klik for at åbne kameraet og tag et billede af dit affald
                 </p>
-                <Button onClick={startCamera} variant="scan" className="w-full">
+                <Button onClick={startCamera} variant="scan" size="lg" className="w-full max-w-xs">
                   <Camera className="h-5 w-5 mr-2" />
                   Åbn kamera
                 </Button>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-sm text-muted-foreground mt-4">
                   Sørg for at give tilladelse til kameraet når browseren spørger
                 </p>
               </div>
             )}
 
             {isCapturing && !capturedImage && (
-              <div className="space-y-4">
-                <div className="relative rounded-lg overflow-hidden">
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 relative">
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full h-64 object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                <Button onClick={capturePhoto} variant="scan" className="w-full">
-                  <Camera className="h-5 w-5 mr-2" />
-                  Tag billede
-                </Button>
+                <div className="p-4 bg-background/90">
+                  <Button onClick={capturePhoto} variant="scan" size="lg" className="w-full">
+                    <Camera className="h-6 w-6 mr-2" />
+                    Tag billede
+                  </Button>
+                </div>
               </div>
             )}
 
             {capturedImage && (
-              <div className="space-y-4">
-                <div className="relative rounded-lg overflow-hidden">
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 relative">
                   <img
                     src={capturedImage}
                     alt="Captured waste item"
-                    className="w-full h-64 object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="flex space-x-2">
-                  <Button onClick={retakePhoto} variant="outline" className="flex-1">
-                    <RotateCcw className="h-4 w-4 mr-2" />
+                <div className="p-4 bg-background/90 flex space-x-3">
+                  <Button onClick={retakePhoto} variant="outline" size="lg" className="flex-1">
+                    <RotateCcw className="h-5 w-5 mr-2" />
                     Tag igen
                   </Button>
-                  <Button onClick={confirmCapture} variant="success" className="flex-1">
+                  <Button onClick={confirmCapture} variant="success" size="lg" className="flex-1">
                     Analyser
                   </Button>
                 </div>

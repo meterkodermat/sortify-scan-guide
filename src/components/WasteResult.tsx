@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
+import { ArrowLeft, Home, Recycle, Info, Trash2, Package, Zap, Droplets, Leaf } from "lucide-react";
 
 interface WasteItem {
   id: string;
@@ -25,6 +25,35 @@ interface WasteResultProps {
   onBack: () => void;
   onHome: () => void;
 }
+
+const getSortingIcon = (category: string) => {
+  const iconClass = "h-12 w-12 mx-auto mb-2";
+  
+  // Normalize category for matching
+  const normalizedCategory = category.toLowerCase();
+  
+  if (normalizedCategory.includes('pap') || normalizedCategory.includes('karton')) {
+    return <Package className={iconClass} />;
+  }
+  if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
+    return <Droplets className={iconClass} />;
+  }
+  if (normalizedCategory.includes('glas')) {
+    return <Zap className={iconClass} />;
+  }
+  if (normalizedCategory.includes('metal')) {
+    return <Package className={iconClass} />;
+  }
+  if (normalizedCategory.includes('mad') || normalizedCategory.includes('organisk') || normalizedCategory.includes('kompost')) {
+    return <Leaf className={iconClass} />;
+  }
+  if (normalizedCategory.includes('farligt') || normalizedCategory.includes('elektronik')) {
+    return <Zap className={iconClass} />;
+  }
+  
+  // Default icon for rest/other categories
+  return <Trash2 className={iconClass} />;
+};
 
 export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
   return (
@@ -107,30 +136,44 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
         {/* Sorting Instructions */}
         <div className="space-y-4">
           {/* Home Sorting */}
-          <Card className="p-6 bg-gradient-card shadow-soft">
-            <div className="flex items-center mb-3">
-              <Home className="h-5 w-5 mr-2 text-primary" />
-              <h3 className="font-semibold">Hjemme sortering</h3>
+          <Card className="p-6 bg-gradient-primary text-primary-foreground shadow-strong">
+            <div className="flex items-center mb-4">
+              <div className="p-2 bg-white/20 rounded-lg mr-3">
+                <Home className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Hjemme sortering</h3>
+                <p className="text-sm opacity-90">Sådan sorterer du hjemme</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-foreground">Kategori:</span>
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                {item.homeCategory}
-              </Badge>
+            <div className="flex items-center justify-center p-4 bg-white/10 rounded-lg">
+              <div className="text-center">
+                {getSortingIcon(item.homeCategory)}
+                <div className="mt-2 text-lg font-bold">
+                  {item.homeCategory}
+                </div>
+              </div>
             </div>
           </Card>
 
           {/* Recycling Center */}
-          <Card className="p-6 bg-gradient-card shadow-soft">
-            <div className="flex items-center mb-3">
-              <Recycle className="h-5 w-5 mr-2 text-accent" />
-              <h3 className="font-semibold">Genbrugsplads</h3>
+          <Card className="p-6 bg-gradient-accent text-accent-foreground shadow-strong">
+            <div className="flex items-center mb-4">
+              <div className="p-2 bg-white/20 rounded-lg mr-3">
+                <Recycle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Genbrugsplads</h3>
+                <p className="text-sm opacity-90">Sådan afleverer du</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-foreground">Kategori:</span>
-              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
-                {item.recyclingCategory}
-              </Badge>
+            <div className="flex items-center justify-center p-4 bg-white/10 rounded-lg">
+              <div className="text-center">
+                {getSortingIcon(item.recyclingCategory)}
+                <div className="mt-2 text-lg font-bold">
+                  {item.recyclingCategory}
+                </div>
+              </div>
             </div>
           </Card>
         </div>
