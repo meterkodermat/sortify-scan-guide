@@ -1,7 +1,17 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Recycle, Info, Trash2, Package, Zap, Droplets, Leaf } from "lucide-react";
+import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
+import farligtAffaldImg from "@/assets/farligt-affald.png";
+import glasImg from "@/assets/glas.png";
+import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
+import madaffalImg from "@/assets/madaffald.png";
+import metalImg from "@/assets/metal.png";
+import papImg from "@/assets/pap.png";
+import papirImg from "@/assets/papir.png";
+import plastImg from "@/assets/plast.png";
+import restaffalImg from "@/assets/restaffald.png";
+import tekstilaffalImg from "@/assets/tekstilaffald.png";
 
 interface WasteItem {
   id: string;
@@ -26,33 +36,57 @@ interface WasteResultProps {
   onHome: () => void;
 }
 
-const getSortingIcon = (category: string) => {
-  const iconClass = "h-12 w-12 mx-auto mb-2";
+const getSortingPictogram = (category: string) => {
+  const imgClass = "w-24 h-24 mx-auto mb-2 object-contain";
   
   // Normalize category for matching
   const normalizedCategory = category.toLowerCase();
   
-  if (normalizedCategory.includes('pap') || normalizedCategory.includes('karton')) {
-    return <Package className={iconClass} />;
-  }
-  if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
-    return <Droplets className={iconClass} />;
-  }
-  if (normalizedCategory.includes('glas')) {
-    return <Zap className={iconClass} />;
-  }
-  if (normalizedCategory.includes('metal')) {
-    return <Package className={iconClass} />;
-  }
-  if (normalizedCategory.includes('mad') || normalizedCategory.includes('organisk') || normalizedCategory.includes('kompost')) {
-    return <Leaf className={iconClass} />;
-  }
-  if (normalizedCategory.includes('farligt') || normalizedCategory.includes('elektronik')) {
-    return <Zap className={iconClass} />;
+  // Card/carton categories
+  if (normalizedCategory.includes('karton') || normalizedCategory.includes('mad- & drikke-kartoner')) {
+    return <img src={madDrikkeKartonerImg} alt="Mad- & drikke-kartoner" className={imgClass} />;
   }
   
-  // Default icon for rest/other categories
-  return <Trash2 className={iconClass} />;
+  // Paper/cardboard
+  if (normalizedCategory.includes('pap') && !normalizedCategory.includes('karton')) {
+    return <img src={papImg} alt="Pap" className={imgClass} />;
+  }
+  if (normalizedCategory.includes('papir')) {
+    return <img src={papirImg} alt="Papir" className={imgClass} />;
+  }
+  
+  // Plastic
+  if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
+    return <img src={plastImg} alt="Plast" className={imgClass} />;
+  }
+  
+  // Glass
+  if (normalizedCategory.includes('glas')) {
+    return <img src={glasImg} alt="Glas" className={imgClass} />;
+  }
+  
+  // Metal
+  if (normalizedCategory.includes('metal')) {
+    return <img src={metalImg} alt="Metal" className={imgClass} />;
+  }
+  
+  // Food waste
+  if (normalizedCategory.includes('mad') || normalizedCategory.includes('organisk') || normalizedCategory.includes('kompost') || normalizedCategory.includes('madaffald')) {
+    return <img src={madaffalImg} alt="Madaffald" className={imgClass} />;
+  }
+  
+  // Dangerous waste
+  if (normalizedCategory.includes('farligt') || normalizedCategory.includes('elektronik')) {
+    return <img src={farligtAffaldImg} alt="Farligt affald" className={imgClass} />;
+  }
+  
+  // Textile waste
+  if (normalizedCategory.includes('tekstil')) {
+    return <img src={tekstilaffalImg} alt="Tekstilaffald" className={imgClass} />;
+  }
+  
+  // Default for rest/other categories
+  return <img src={restaffalImg} alt="Restaffald" className={imgClass} />;
 };
 
 export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
@@ -146,9 +180,9 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 <p className="text-sm opacity-90">Sådan sorterer du hjemme</p>
               </div>
             </div>
-            <div className="flex items-center justify-center p-4 bg-white/10 rounded-lg">
+            <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
               <div className="text-center">
-                {getSortingIcon(item.homeCategory)}
+                {getSortingPictogram(item.homeCategory)}
                 <div className="mt-2 text-lg font-bold">
                   {item.homeCategory}
                 </div>
@@ -167,9 +201,9 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 <p className="text-sm opacity-90">Sådan afleverer du</p>
               </div>
             </div>
-            <div className="flex items-center justify-center p-4 bg-white/10 rounded-lg">
+            <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
               <div className="text-center">
-                {getSortingIcon(item.recyclingCategory)}
+                {getSortingPictogram(item.recyclingCategory)}
                 <div className="mt-2 text-lg font-bold">
                   {item.recyclingCategory}
                 </div>
