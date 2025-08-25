@@ -132,34 +132,70 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               {item.components.map((component, index) => {
                 const getMaterialCategory = (materiale: string) => {
                   switch (materiale) {
-                    case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary' };
-                    case 'plastik': return { home: 'Plast', recycling: 'Hård plast', variant: 'outline' };
-                    case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary' };
-                    case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline' };
-                    case 'organisk': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive' };
-                    case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive' };
-                    default: return { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline' };
+                    case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg };
+                    case 'plastik': return { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg };
+                    case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary', pictogram: glasImg };
+                    case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline', pictogram: metalImg };
+                    case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive', pictogram: madaffalImg };
+                    case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive', pictogram: farligtAffaldImg };
+                    case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald', variant: 'outline', pictogram: tekstilaffalImg };
+                    default: return { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline', pictogram: restaffalImg };
                   }
                 };
                 
                 const category = getMaterialCategory(component.materiale);
                 
                 return (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">
-                        {component.genstand}
-                        {component.tilstand && (
-                          <span className="text-sm text-muted-foreground ml-2">({component.tilstand})</span>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Hjemme: {category.home} • Genbrugsplads: {category.recycling}
+                  <div key={index} className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-lg">
+                      <img src={category.pictogram} alt={component.materiale} className="w-12 h-12 object-contain" />
+                      <div className="flex-1">
+                        <div className="font-medium text-foreground">
+                          {component.genstand}
+                          {component.tilstand && (
+                            <span className="text-sm text-muted-foreground ml-2">({component.tilstand})</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Materiale: {component.materiale}
+                        </div>
                       </div>
                     </div>
-                    <Badge variant={category.variant as any} className="ml-3">
-                      {component.materiale}
-                    </Badge>
+                    
+                    {/* Individual sorting cards for each component */}
+                    <div className="grid grid-cols-1 gap-3 ml-4">
+                      <Card className="p-4 bg-success text-success-foreground">
+                        <div className="flex items-center gap-3">
+                          <Home className="h-5 w-5" />
+                          <div className="flex-1">
+                            <div className="font-semibold">Hjemme sortering</div>
+                            <div className="text-sm opacity-90">Sådan sorterer du hjemme</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center mt-3 p-3 bg-white/10 rounded-lg">
+                          <div className="text-center">
+                            <img src={category.pictogram} alt={category.home} className="w-16 h-16 mx-auto mb-2 object-contain" />
+                            <div className="font-bold">{category.home}</div>
+                          </div>
+                        </div>
+                      </Card>
+                      
+                      <Card className="p-4 bg-accent text-accent-foreground">
+                        <div className="flex items-center gap-3">
+                          <Recycle className="h-5 w-5" />
+                          <div className="flex-1">
+                            <div className="font-semibold">Genbrugsplads</div>
+                            <div className="text-sm opacity-90">Sådan afleverer du</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center mt-3 p-3 bg-white/10 rounded-lg">
+                          <div className="text-center">
+                            <img src={getSortingPictogram(category.recycling).props.src} alt={category.recycling} className="w-16 h-16 mx-auto mb-2 object-contain" />
+                            <div className="font-bold">{category.recycling}</div>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
                   </div>
                 );
               })}
@@ -167,50 +203,52 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </Card>
         )}
 
-        {/* Sorting Instructions */}
-        <div className="space-y-4">
-          {/* Home Sorting */}
-          <Card className="p-6 bg-gradient-primary text-primary-foreground shadow-strong">
-            <div className="flex items-center mb-4">
-              <div className="p-2 bg-white/20 rounded-lg mr-3">
-                <Home className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">Hjemme sortering</h3>
-                <p className="text-sm opacity-90">Sådan sorterer du hjemme</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
-              <div className="text-center">
-                {getSortingPictogram(item.homeCategory)}
-                <div className="mt-2 text-lg font-bold">
-                  {item.homeCategory}
+        {/* Simple Sorting Instructions - Only for single items */}
+        {(!item.components || item.components.length <= 1) && (
+          <div className="space-y-4">
+            {/* Home Sorting */}
+            <Card className="p-6 bg-success text-success-foreground shadow-strong">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-white/20 rounded-lg mr-3">
+                  <Home className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Hjemme sortering</h3>
+                  <p className="text-sm opacity-90">Sådan sorterer du hjemme</p>
                 </div>
               </div>
-            </div>
-          </Card>
+              <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
+                <div className="text-center">
+                  {getSortingPictogram(item.homeCategory)}
+                  <div className="mt-2 text-lg font-bold">
+                    {item.homeCategory}
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-          {/* Recycling Center */}
-          <Card className="p-6 bg-gradient-accent text-accent-foreground shadow-strong">
-            <div className="flex items-center mb-4">
-              <div className="p-2 bg-white/20 rounded-lg mr-3">
-                <Recycle className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">Genbrugsplads</h3>
-                <p className="text-sm opacity-90">Sådan afleverer du</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
-              <div className="text-center">
-                {getSortingPictogram(item.recyclingCategory)}
-                <div className="mt-2 text-lg font-bold">
-                  {item.recyclingCategory}
+            {/* Recycling Center */}
+            <Card className="p-6 bg-accent text-accent-foreground shadow-strong">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-white/20 rounded-lg mr-3">
+                  <Recycle className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Genbrugsplads</h3>
+                  <p className="text-sm opacity-90">Sådan afleverer du</p>
                 </div>
               </div>
-            </div>
-          </Card>
-        </div>
+              <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
+                <div className="text-center">
+                  {getSortingPictogram(item.recyclingCategory)}
+                  <div className="mt-2 text-lg font-bold">
+                    {item.recyclingCategory}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* AI Analysis Process (if available) */}
         {item.aiThoughtProcess && (
