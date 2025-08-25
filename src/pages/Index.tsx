@@ -115,63 +115,89 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-subtle">
       {/* Hero Section */}
-      <div className="relative h-64 bg-gradient-primary overflow-hidden">
+      <div className="relative h-80 bg-gradient-hero overflow-hidden">
         <img
           src={heroImage}
           alt="Sortify - Affaldssortering"
-          className="w-full h-full object-cover opacity-20"
+          className="w-full h-full object-cover opacity-15"
         />
-        <div className="absolute inset-0 flex items-center justify-center text-center p-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-2">
-              <Leaf className="h-8 w-8 text-primary-foreground" />
-              <h1 className="text-3xl font-bold text-primary-foreground">Sortify</h1>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+        <div className="absolute inset-0 flex items-center justify-center text-center p-6">
+          <div className="space-y-6 max-w-lg">
+            <div className="flex items-center justify-center space-x-3">
+              <div className="p-2 bg-white/10 rounded-full backdrop-blur-sm shadow-glow">
+                <Leaf className="h-10 w-10 text-primary-foreground" />
+              </div>
+              <h1 className="text-4xl font-bold text-primary-foreground tracking-tight">Sortify</h1>
             </div>
-            <p className="text-primary-foreground/90 max-w-md">
+            <p className="text-primary-foreground/95 text-lg font-medium leading-relaxed">
               Din intelligente guide til korrekt affaldssortering
             </p>
+            <div className="flex items-center justify-center space-x-6 text-primary-foreground/80 text-sm">
+              <div className="flex items-center space-x-2">
+                <Recycle className="h-4 w-4" />
+                <span>AI-powered</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Leaf className="h-4 w-4" />
+                <span>Miljøvenlig</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="p-6 max-w-md mx-auto space-y-8">
+      <div className="p-8 max-w-lg mx-auto space-y-10">
         {/* Action Buttons */}
-        <div className="space-y-4">
-          <Button
-            onClick={() => {
-              console.log("🔘 Scan button clicked");
-              setCurrentView('camera');
-              console.log("📷 Setting view to camera");
-            }}
-            variant="scan"
-            size="lg"
-            className="w-full h-16 text-lg"
-            disabled={isAnalyzing}
-          >
-            <Camera className="h-6 w-6 mr-3" />
-            Start scanning
-          </Button>
-
-          <div className="relative">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              disabled={isAnalyzing}
-            />
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-semibold text-foreground">Scan dit affald</h2>
+            <p className="text-muted-foreground">Vælg hvordan du vil identificere dit affald</p>
+          </div>
+          
+          <div className="grid gap-4">
             <Button
-              variant="upload"
+              onClick={() => {
+                console.log("🔘 Scan button clicked");
+                setCurrentView('camera');
+                console.log("📷 Setting view to camera");
+              }}
+              variant="scan"
               size="lg"
-              className="w-full h-16 text-lg"
+              className="w-full h-20 text-lg shadow-glow hover:shadow-strong"
               disabled={isAnalyzing}
             >
-              <Upload className="h-6 w-6 mr-3" />
-              Upload billede
+              <div className="flex flex-col items-center space-y-1">
+                <Camera className="h-8 w-8" />
+                <span className="font-semibold">Start Kamera</span>
+                <span className="text-xs opacity-90">Tag et billede nu</span>
+              </div>
             </Button>
+
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                disabled={isAnalyzing}
+              />
+              <Button
+                variant="upload"
+                size="lg"
+                className="w-full h-20 text-lg hover:shadow-card"
+                disabled={isAnalyzing}
+              >
+                <div className="flex flex-col items-center space-y-1">
+                  <Upload className="h-8 w-8" />
+                  <span className="font-semibold">Upload Billede</span>
+                  <span className="text-xs opacity-70">Vælg fra galleri</span>
+                </div>
+              </Button>
+            </div>
           </div>
         </div>
 
