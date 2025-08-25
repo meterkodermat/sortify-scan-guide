@@ -28,8 +28,6 @@ const Index = () => {
   const [recentScans, setRecentScans] = useState<WasteItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Debug current view state
-  console.log("🏠 Current view state:", currentView);
 
   const handleImageCapture = async (imageData: string) => {
     setCurrentView('analyzing');
@@ -70,14 +68,10 @@ const Index = () => {
   };
 
   if (currentView === 'camera') {
-    console.log("🎬 Rendering CameraCapture component");
     return (
       <CameraCapture
         onCapture={handleImageCapture}
-        onClose={() => {
-          console.log("🔒 Camera closed by user");
-          setCurrentView('home');
-        }}
+        onClose={() => setCurrentView('home')}
       />
     );
   }
@@ -135,16 +129,6 @@ const Index = () => {
             <p className="text-primary-foreground/95 text-lg font-medium leading-relaxed">
               Din intelligente guide til korrekt affaldssortering
             </p>
-            <div className="flex items-center justify-center space-x-6 text-primary-foreground/80 text-sm">
-              <div className="flex items-center space-x-2">
-                <Recycle className="h-4 w-4" />
-                <span>AI-powered</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Leaf className="h-4 w-4" />
-                <span>Miljøvenlig</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -160,14 +144,10 @@ const Index = () => {
           
           <div className="grid gap-4">
             <Button
-              onClick={() => {
-                console.log("🔘 Scan button clicked");
-                setCurrentView('camera');
-                console.log("📷 Setting view to camera");
-              }}
+              onClick={() => setCurrentView('camera')}
               variant="scan"
               size="lg"
-              className="w-full h-20 text-lg hover:shadow-card"
+              className="w-full h-20 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
               disabled={isAnalyzing}
             >
               <div className="flex flex-col items-center space-y-1">
