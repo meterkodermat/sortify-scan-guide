@@ -28,9 +28,11 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     try {
       // Check if navigator.mediaDevices exists
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("❌ Camera API not supported");
         throw new Error("Camera API not supported");
       }
       
+      console.log("📱 Requesting camera access...");
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: "environment", // Use back camera on mobile
@@ -39,11 +41,17 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         } 
       });
       
+      console.log("✅ Camera stream obtained:", !!stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        console.log("📺 Video element srcObject set");
         setIsCapturing(true);
         setIsLoading(false);
         console.log("✅ Camera started successfully");
+      } else {
+        console.error("❌ Video ref not available");
+        throw new Error("Video element not ready");
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
@@ -63,6 +71,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         }
       }
       
+      console.error("🚨 Final error message:", errorMessage);
       setCameraError(errorMessage);
       toast.error(errorMessage);
     }

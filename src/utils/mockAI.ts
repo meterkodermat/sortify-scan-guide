@@ -230,14 +230,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     
     return {
       id: Date.now().toString(),
-      name: 'Ukendt genstand',
+      name: 'Ikke fundet i database',
       image: imageData,
       homeCategory: 'Restaffald',
       recyclingCategory: 'Restaffald',
-      description: 'Genstanden kunne ikke identificeres. Sortér som restaffald eller kontakt din lokale genbrugsplads for vejledning.',
+      description: 'Genstanden kunne ikke findes i databasen. Sortér som restaffald eller kontakt din lokale genbrugsplads for vejledning.',
       confidence: 25, // Low but consistent
       timestamp: new Date(),
-      aiThoughtProcess: aiThoughtProcess + `⚠️ FALLBACK: Ukendt genstand.`
+      aiThoughtProcess: aiThoughtProcess + `⚠️ FALLBACK: Ikke fundet i database.`
     };
 
   } catch (error) {
