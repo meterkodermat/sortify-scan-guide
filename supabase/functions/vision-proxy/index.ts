@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyser billede for affaldssortering. Identificér produktets komponenter.\nVIGTIGT: Adskil KUN komponenter, hvis de skal sorteres forskelligt (f.eks. maling og spand). En spand og dens hank af samme materiale skal IKKE adskilles. Gruppér ens genstande (f.eks. bliver forskellig frugt til \"frugt\").\nUdelad \"tilstand\", medmindre den er relevant (f.eks. \"defekt\").\n\nSvar KUN med et JSON-objekt: en liste kaldet \"komponenter\".\n\nEksempel 1: En malerspand med restmaling\n{\n  \"komponenter\": [\n    { \"genstand\": \"spand\", \"materiale\": \"plastik\" },\n    { \"genstand\": \"maling\", \"materiale\": \"farligt affald\" }\n  ]\n}\n\nEksempel 2: En defekt hårtørrer med ledning\n{\n  \"komponenter\": [\n    { \"genstand\": \"elektronik\", \"materiale\": \"blandet\", \"tilstand\": \"defekt\" }\n  ]\n}\n\nEksempel 3: Et net med appelsiner\n{\n  \"komponenter\": [\n    { \"genstand\": \"appelsin\", \"materiale\": \"organisk\" },\n    { \"genstand\": \"net\", \"materiale\": \"plastik\" }\n  ]\n}" },
+            { text: "Analyser billede for affaldssortering. Identificér produktets komponenter.\nVIGTIGT: Adskil KUN komponenter, hvis de skal sorteres forskelligt (f.eks. maling og spand). En spand og dens hank af samme materiale skal IKKE adskilles. Gruppér ens genstande (f.eks. bliver forskellig frugt til \"frugt\").\nUdelad \"tilstand\", medmindre den er relevant (f.eks. \"defekt\").\n\nSvar KUN med et JSON-objekt: en liste kaldet \"komponenter\". Hver komponent skal have \"genstand\", \"materiale\" og \"synonymer\" (3 alternative navne).\n\nEksempel 1: En malerspand med restmaling\n{\n  \"komponenter\": [\n    { \"genstand\": \"spand\", \"materiale\": \"plastik\", \"synonymer\": [\"beholder\", \"kande\", \"bucket\"] },\n    { \"genstand\": \"maling\", \"materiale\": \"farligt affald\", \"synonymer\": [\"lak\", \"farve\", \"coating\"] }\n  ]\n}\n\nEksempel 2: En defekt hårtørrer med ledning\n{\n  \"komponenter\": [\n    { \"genstand\": \"elektronik\", \"materiale\": \"blandet\", \"tilstand\": \"defekt\", \"synonymer\": [\"hårtørrer\", \"føntørrer\", \"blæser\"] }\n  ]\n}\n\nEksempel 3: Et net med appelsiner\n{\n  \"komponenter\": [\n    { \"genstand\": \"appelsin\", \"materiale\": \"organisk\", \"synonymer\": [\"citrusfrugt\", \"orange\", \"frugt\"] },\n    { \"genstand\": \"net\", \"materiale\": \"plastik\", \"synonymer\": [\"pose\", \"emballage\", \"indpakning\"] }\n  ]\n}" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -327,7 +327,8 @@ serve(async (req) => {
             score: 0.9,
             type: 'gemini_detection',
             materiale: component.materiale,
-            tilstand: component.tilstand
+            tilstand: component.tilstand,
+            synonymer: component.synonymer
           }));
         }
         // Fallback: handle old single object format
