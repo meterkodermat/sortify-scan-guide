@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Camera, X, RotateCcw } from "lucide-react";
+import { Camera, X, RotateCcw, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface CameraCaptureProps {
@@ -151,77 +150,110 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      <Card className="flex-1 bg-gradient-card shadow-strong m-0 rounded-none">
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-background/90">
-            <h3 className="text-lg font-semibold">Tag et billede</h3>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Camera View */}
+      {isCapturing && !capturedImage && (
+        <div className="flex-1 relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          
+          {/* Camera Controls Overlay */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-8 pb-12">
+            {/* Close Button */}
+            <button 
+              onClick={onClose}
+              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+            
+            {/* Capture Button */}
+            <button 
+              onClick={capturePhoto}
+              className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg"
+            >
+              <div className="w-16 h-16 rounded-full border-2 border-black"></div>
+            </button>
+            
+            {/* Rotate Camera Button */}
+            <button 
+              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
+            >
+              <RotateCw className="h-6 w-6 text-white" />
+            </button>
           </div>
-
-          <div className="flex-1 flex flex-col">
-            {!isCapturing && !capturedImage && (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                <Camera className="h-20 w-20 mx-auto mb-6 text-muted-foreground" />
-                <p className="text-muted-foreground mb-6 text-lg">
-                  Klik for at åbne kameraet og tag et billede af dit affald
-                </p>
-                <Button onClick={startCamera} variant="scan" size="lg" className="w-full max-w-xs">
-                  <Camera className="h-5 w-5 mr-2" />
-                  Åbn kamera
-                </Button>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Sørg for at give tilladelse til kameraet når browseren spørger
-                </p>
-              </div>
-            )}
-
-            {isCapturing && !capturedImage && (
-              <div className="flex-1 flex flex-col">
-                <div className="flex-1 relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="p-4 bg-background/90">
-                  <Button onClick={capturePhoto} variant="scan" size="lg" className="w-full">
-                    <Camera className="h-6 w-6 mr-2" />
-                    Tag billede
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {capturedImage && (
-              <div className="flex-1 flex flex-col">
-                <div className="flex-1 relative">
-                  <img
-                    src={capturedImage}
-                    alt="Captured waste item"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="p-4 bg-background/90 flex space-x-3">
-                  <Button onClick={retakePhoto} variant="outline" size="lg" className="flex-1">
-                    <RotateCcw className="h-5 w-5 mr-2" />
-                    Tag igen
-                  </Button>
-                  <Button onClick={confirmCapture} variant="success" size="lg" className="flex-1">
-                    Analyser
-                  </Button>
-                </div>
-              </div>
-            )}
+          
+          {/* PHOTO Text */}
+          <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2">
+            <span className="text-yellow-400 text-lg font-semibold tracking-wider">PHOTO</span>
           </div>
-
-          <canvas ref={canvasRef} className="hidden" />
         </div>
-      </Card>
+      )}
+
+      {/* Captured Image View */}
+      {capturedImage && (
+        <div className="flex-1 relative">
+          <img
+            src={capturedImage}
+            alt="Captured waste item"
+            className="w-full h-full object-cover"
+          />
+          
+          {/* Controls for captured image */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-8 pb-12">
+            {/* Retake Button */}
+            <button 
+              onClick={retakePhoto}
+              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
+            >
+              <RotateCcw className="h-6 w-6 text-white" />
+            </button>
+            
+            {/* Confirm Button */}
+            <button 
+              onClick={confirmCapture}
+              className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg"
+            >
+              <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+                <span className="text-white text-sm font-semibold">OK</span>
+              </div>
+            </button>
+            
+            {/* Close Button */}
+            <button 
+              onClick={onClose}
+              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Initial Camera Start View */}
+      {!isCapturing && !capturedImage && (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-white bg-black">
+          <Camera className="h-20 w-20 mx-auto mb-6 text-white/70" />
+          <p className="text-white/70 mb-6 text-lg">
+            Klik for at åbne kameraet og tag et billede af dit affald
+          </p>
+          <button 
+            onClick={startCamera}
+            className="bg-white text-black px-8 py-4 rounded-full text-lg font-semibold"
+          >
+            Åbn kamera
+          </button>
+          <p className="text-sm text-white/50 mt-4">
+            Sørg for at give tilladelse til kameraet når browseren spørger
+          </p>
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };
