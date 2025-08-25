@@ -11,8 +11,10 @@ interface CameraCaptureProps {
 export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   console.log("🎥 CameraCapture component initialized");
   
-  const [isCapturing, setIsCapturing] = useState(true); // Start with true to show video immediately
+  const [isCapturing, setIsCapturing] = useState(false); // Start with false for clearer flow
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -20,27 +22,14 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   const startCamera = async () => {
     console.log("🎥 Starting camera...");
-    console.log("🌐 User Agent:", navigator.userAgent);
-    console.log("🔒 Page Protocol:", window.location.protocol);
-    console.log("🔍 MediaDevices available:", !!navigator.mediaDevices);
-    console.log("🎦 getUserMedia available:", !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+    setIsLoading(true);
+    setCameraError(null);
     
     try {
-      console.log("📱 Requesting camera permission...");
-      
       // Check if navigator.mediaDevices exists
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error("💥 Camera API not supported");
         throw new Error("Camera API not supported");
       }
-      
-      console.log("⚙️ Calling getUserMedia with constraints:", {
-        video: { 
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -49,26 +38,16 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
           height: { ideal: 720 }
         } 
       });
-      console.log("✅ Camera permission granted, stream:", stream);
-      console.log("📹 Stream tracks:", stream.getTracks().length);
       
       if (videoRef.current) {
-        console.log("🎬 Setting video srcObject");
         videoRef.current.srcObject = stream;
         setIsCapturing(true);
-        console.log("🎬 Camera started successfully, isCapturing set to true");
-        
-        // Wait for video to load before showing it
-        videoRef.current.onloadedmetadata = () => {
-          console.log("📹 Video metadata loaded");
-        };
-      } else {
-        console.error("❌ videoRef.current is null");
+        setIsLoading(false);
+        console.log("✅ Camera started successfully");
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
-      console.error("❌ Error name:", error instanceof Error ? error.name : 'Unknown');
-      console.error("❌ Error message:", error instanceof Error ? error.message : 'Unknown');
+      setIsLoading(false);
       
       let errorMessage = "Kunne ikke få adgang til kameraet. ";
       
@@ -84,23 +63,17 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         }
       }
       
+      setCameraError(errorMessage);
       toast.error(errorMessage);
     }
   };
 
-  // Auto-start camera when component mounts
+  // Don't auto-start camera, let user click to start
   useEffect(() => {
     console.log("🚀 CameraCapture component mounted");
     
-    // Small delay to ensure video element is rendered
-    const timer = setTimeout(() => {
-      console.log("⏰ Starting camera after delay");
-      startCamera();
-    }, 100);
-    
     // Cleanup function to stop camera when component unmounts
     return () => {
-      clearTimeout(timer);
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => {
@@ -151,6 +124,89 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Header with instructions */}
+      <div className="p-4 bg-black/80 text-center border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+          <div className="flex-1">
+            <h2 className="text-white font-semibold text-lg">
+              {!isCapturing && !capturedImage ? "Trin 1: Åbn kamera" : 
+               isCapturing && !capturedImage ? "Trin 2: Tag billede" : 
+               "Trin 3: Bekræft billede"}
+            </h2>
+            <p className="text-white/70 text-sm">
+              {!isCapturing && !capturedImage ? "Klik på knappen for at starte" : 
+               isCapturing && !capturedImage ? "Ret kameraet mod dit affald" : 
+               "Er billedet godt? Klik OK for at analysere"}
+            </p>
+          </div>
+          <div className="w-10 h-10" /> {/* Spacer */}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex-1 flex flex-col items-center justify-center text-white">
+          <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full mb-4"></div>
+          <p className="text-lg">Starter kamera...</p>
+          <p className="text-sm text-white/70 mt-2">
+            Giv tilladelse til kameraet når browseren spørger
+          </p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {cameraError && !isLoading && (
+        <div className="flex-1 flex flex-col items-center justify-center text-white p-6">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+            <X className="h-8 w-8 text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold mb-4">Kamera fejl</h3>
+          <p className="text-center text-white/80 mb-6 max-w-sm">
+            {cameraError}
+          </p>
+          <button 
+            onClick={startCamera}
+            className="bg-white text-black px-8 py-3 rounded-full font-semibold"
+          >
+            Prøv igen
+          </button>
+        </div>
+      )}
+
+      {/* Initial Start Screen */}
+      {!isCapturing && !capturedImage && !isLoading && !cameraError && (
+        <div className="flex-1 flex flex-col items-center justify-center text-white p-6">
+          <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-6">
+            <Camera className="h-12 w-12 text-white" />
+          </div>
+          <h3 className="text-2xl font-semibold mb-4">Klar til at scanne?</h3>
+          <p className="text-center text-white/80 mb-8 max-w-sm leading-relaxed">
+            Ret kameraet mod dit affald og tag et tydeligt billede. 
+            Vi hjælper dig med at sortere det korrekt.
+          </p>
+          <button 
+            onClick={startCamera}
+            className="bg-green-500 text-white px-12 py-4 rounded-full text-lg font-semibold shadow-lg hover:bg-green-600 transition-colors"
+          >
+            Start kamera
+          </button>
+          <div className="mt-8 text-center">
+            <p className="text-white/60 text-sm mb-2">Tips:</p>
+            <ul className="text-white/60 text-xs space-y-1">
+              <li>• Hold telefonen stabilt</li>
+              <li>• Sørg for god belysning</li>
+              <li>• Tag billedet tæt på genstanden</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Camera View */}
       {isCapturing && !capturedImage && (
         <div className="flex-1 relative">
@@ -161,35 +217,30 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             className="w-full h-full object-cover"
           />
           
-          {/* Camera Controls Overlay */}
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-8 pb-12">
-            {/* Close Button */}
-            <button 
-              onClick={onClose}
-              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
-            >
-              <X className="h-6 w-6 text-white" />
-            </button>
-            
-            {/* Capture Button */}
-            <button 
-              onClick={capturePhoto}
-              className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg"
-            >
-              <div className="w-16 h-16 rounded-full border-2 border-black"></div>
-            </button>
-            
-            {/* Rotate Camera Button */}
-            <button 
-              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
-            >
-              <RotateCw className="h-6 w-6 text-white" />
-            </button>
+          {/* Capture Guide Overlay */}
+          <div className="absolute inset-4 border-2 border-white/50 rounded-lg pointer-events-none">
+            <div className="absolute -top-8 left-0 right-0 text-center">
+              <span className="bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                Placer genstanden i rammen
+              </span>
+            </div>
           </div>
           
-          {/* PHOTO Text */}
-          <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2">
-            <span className="text-yellow-400 text-lg font-semibold tracking-wider">PHOTO</span>
+          {/* Camera Controls */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8">
+            <div className="flex items-center justify-center">
+              <button 
+                onClick={capturePhoto}
+                className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-xl relative group"
+              >
+                <div className="w-16 h-16 rounded-full border-3 border-black group-active:scale-95 transition-transform"></div>
+                <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                  <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                    Tag billede
+                  </span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -203,53 +254,43 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             className="w-full h-full object-cover"
           />
           
-          {/* Controls for captured image */}
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-8 pb-12">
-            {/* Retake Button */}
-            <button 
-              onClick={retakePhoto}
-              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
-            >
-              <RotateCcw className="h-6 w-6 text-white" />
-            </button>
-            
-            {/* Confirm Button */}
-            <button 
-              onClick={confirmCapture}
-              className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg"
-            >
-              <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">OK</span>
-              </div>
-            </button>
-            
-            {/* Close Button */}
-            <button 
-              onClick={onClose}
-              className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
-            >
-              <X className="h-6 w-6 text-white" />
-            </button>
+          {/* Image Controls */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8">
+            <div className="flex items-center justify-between">
+              {/* Retake */}
+              <button 
+                onClick={retakePhoto}
+                className="flex flex-col items-center space-y-2 text-white"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <RotateCcw className="h-6 w-6" />
+                </div>
+                <span className="text-sm">Tag igen</span>
+              </button>
+              
+              {/* Confirm */}
+              <button 
+                onClick={confirmCapture}
+                className="flex flex-col items-center space-y-2"
+              >
+                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center shadow-xl">
+                  <span className="text-white text-lg font-bold">✓</span>
+                </div>
+                <span className="text-white text-sm font-medium">Analyser nu</span>
+              </button>
+              
+              {/* Close */}
+              <button 
+                onClick={onClose}
+                className="flex flex-col items-center space-y-2 text-white"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <X className="h-6 w-6" />
+                </div>
+                <span className="text-sm">Luk</span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Initial Camera Start View */}
-      {!isCapturing && !capturedImage && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center text-white bg-black">
-          <Camera className="h-20 w-20 mx-auto mb-6 text-white/70" />
-          <p className="text-white/70 mb-6 text-lg">
-            Klik for at åbne kameraet og tag et billede af dit affald
-          </p>
-          <button 
-            onClick={startCamera}
-            className="bg-white text-black px-8 py-4 rounded-full text-lg font-semibold"
-          >
-            Åbn kamera
-          </button>
-          <p className="text-sm text-white/50 mt-4">
-            Sørg for at give tilladelse til kameraet når browseren spørger
-          </p>
         </div>
       )}
 
