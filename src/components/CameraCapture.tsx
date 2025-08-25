@@ -68,9 +68,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     }
   };
 
-  // Don't auto-start camera, let user click to start
+  // Auto-start camera when component mounts
   useEffect(() => {
-    console.log("🚀 CameraCapture component mounted");
+    console.log("🚀 CameraCapture component mounted - starting camera automatically");
+    startCamera();
     
     // Cleanup function to stop camera when component unmounts
     return () => {
@@ -179,31 +180,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         </div>
       )}
 
-      {/* Initial Start Screen */}
+      {/* Initial Start Screen - Skip this, go directly to camera */}
       {!isCapturing && !capturedImage && !isLoading && !cameraError && (
-        <div className="flex-1 flex flex-col items-center justify-center text-white p-6">
-          <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-6">
-            <Camera className="h-12 w-12 text-white" />
-          </div>
-          <h3 className="text-2xl font-semibold mb-4">Klar til at scanne?</h3>
-          <p className="text-center text-white/80 mb-8 max-w-sm leading-relaxed">
-            Ret kameraet mod dit affald og tag et tydeligt billede. 
-            Vi hjælper dig med at sortere det korrekt.
-          </p>
-          <button 
-            onClick={startCamera}
-            className="bg-green-500 text-white px-12 py-4 rounded-full text-lg font-semibold shadow-lg hover:bg-green-600 transition-colors"
-          >
-            Start kamera
-          </button>
-          <div className="mt-8 text-center">
-            <p className="text-white/60 text-sm mb-2">Tips:</p>
-            <ul className="text-white/60 text-xs space-y-1">
-              <li>• Hold telefonen stabilt</li>
-              <li>• Sørg for god belysning</li>
-              <li>• Tag billedet tæt på genstanden</li>
-            </ul>
-          </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full"></div>
         </div>
       )}
 
