@@ -167,7 +167,7 @@ const Index = () => {
               }}
               variant="scan"
               size="lg"
-              className="w-full h-20 text-lg shadow-glow hover:shadow-strong"
+              className="w-full h-20 text-lg hover:shadow-card"
               disabled={isAnalyzing}
             >
               <div className="flex flex-col items-center space-y-1">
