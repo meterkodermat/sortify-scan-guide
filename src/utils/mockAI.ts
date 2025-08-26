@@ -159,14 +159,20 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                       primaryComponent.materiale === 'plastik' ? 'Plast' : 
                       primaryComponent.materiale === 'glas' ? 'Glas' : 
                       primaryComponent.materiale === 'metal' ? 'Metal' : 
+                      primaryComponent.materiale === 'elektronik' ? 'Farligt affald' : 
                       primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                      primaryComponent.materiale === 'organisk' ? 'Madaffald' : 'Restaffald',
+                      primaryComponent.materiale === 'organisk' ? 'Madaffald' : 
+                      primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                      primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Restaffald',
         recyclingCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
                            primaryComponent.materiale === 'plastik' ? 'Hård plast' : 
                            primaryComponent.materiale === 'glas' ? 'Glas' : 
                            primaryComponent.materiale === 'metal' ? 'Metal' : 
+                           primaryComponent.materiale === 'elektronik' ? 'Farligt affald' : 
                            primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                           primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 'Rest efter sortering',
+                           primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 
+                           primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                           primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Rest efter sortering',
         description: labels.length > 1 ? 
           `${labels.length} komponenter fundet - se detaljer nedenfor` : 
           `${primaryComponent.description} - ${primaryComponent.materiale}${primaryComponent.tilstand ? ` (${primaryComponent.tilstand})` : ''}`,
