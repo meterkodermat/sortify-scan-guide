@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Du er en hyper-intelligent ekspert i dansk affaldssortering. Din opgave er at omdanne et billede til et detaljeret JSON-objekt, der ligner min database-struktur.\n\nFølg disse regler UDEN undtagelser:\n1. **Detaljeret Output:** For hver komponent, du identificerer, SKAL du returnere følgende nøgler:\n   * `navn`: Det mest præcise, specifikke navn for genstanden (f.eks. 'iPhone 15', 'malerspand').\n   * `synonymer`: En liste med 3-4 gode alternativer eller kategorier (f.eks. 'smartphone', 'mobiltelefon', 'elektronik').\n   * `materiale`: Genstandens primære materiale.\n   * `tilstand`: KUN hvis det er relevant (f.eks. 'defekt', 'tømt', 'snavset'). Ellers udelad nøglen.\n2. **Smart Opdeling:** Opdel KUN et produkt i flere komponenter, hvis de er lavet af tydeligt forskellige materialer, der skal sorteres forskelligt (f.eks. maling og spand).\n3. **Ærligheds-Princippet:** Hvis du er mindre end 80% sikker, eller hvis billedet er for dårligt, SKAL du returnere én komponent, hvor `navn` er \"Ukendt Genstand\", og `synonymer`-listen er tom. GÆT ALDRIG.\n\nDit svar skal KUN være et JSON-objekt med listen \"komponenter\".\n\nEksempel 2: En malerspand med en rest maling\n{\n  \"komponenter\": [\n    {\n      \"navn\": \"malerspand\",\n      \"synonymer\": [\"bøtte\", \"spand\", \"plastbeholder\"],\n      \"materiale\": \"plastik\"\n    },\n    {\n      \"navn\": \"maling\",\n      \"synonymer\": [\"restmaling\", \"kemikalier\", \"farligt affald\"],\n      \"materiale\": \"farligt affald\"\n    }\n  ]\n}\n\nEksempel 3: Et meget uskarpt billede\n{\n  \"komponenter\": [\n    {\n      \"navn\": \"Ukendt Genstand\",\n      \"synonymer\": [],\n      \"materiale\": \"ukendt\"\n    }\n  ]\n}" },
+            { text: "Du er en hyper-intelligent ekspert i dansk affaldssortering. Din opgave er at omdanne et billede til et detaljeret JSON-objekt, der ligner min database-struktur.\n\nFølg disse regler UDEN undtagelser:\n1. **Detaljeret Output:** For hver komponent, du identificerer, SKAL du returnere følgende nøgler:\n   * `navne`: En liste med præcis 3 forskellige navne for genstanden (f.eks. ['iPhone 15', 'smartphone', 'mobiltelefon']).\n   * `materiale`: Genstandens primære materiale.\n   * `tilstand`: KUN hvis det er relevant (f.eks. 'defekt', 'tømt', 'snavset'). Ellers udelad nøglen.\n2. **Smart Opdeling:** Opdel KUN et produkt i flere komponenter, hvis de er lavet af tydeligt forskellige materialer, der skal sorteres forskelligt (f.eks. maling og spand).\n3. **Ærligheds-Princippet:** Hvis du er mindre end 80% sikker, eller hvis billedet er for dårligt, SKAL du returnere én komponent, hvor `navne` er [\"Ukendt Genstand\", \"\", \"\"]. GÆT ALDRIG.\n\nDit svar skal KUN være et JSON-objekt med listen \"komponenter\".\n\nEksempel 1: En malerspand med en rest maling\n{\n  \"komponenter\": [\n    {\n      \"navne\": [\"malerspand\", \"bøtte\", \"plastbeholder\"],\n      \"materiale\": \"plastik\"\n    },\n    {\n      \"navne\": [\"maling\", \"restmaling\", \"farligt affald\"],\n      \"materiale\": \"farligt affald\"\n    }\n  ]\n}\n\nEksempel 2: Et meget uskarpt billede\n{\n  \"komponenter\": [\n    {\n      \"navne\": [\"Ukendt Genstand\", \"\", \"\"],\n      \"materiale\": \"ukendt\"\n    }\n  ]\n}" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -323,23 +323,23 @@ serve(async (req) => {
         // Handle new komponenter format
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
           allResults = parsedResult.komponenter.map(component => ({
-            description: component.navn,
+            description: component.navne ? component.navne[0] : component.navn, // First name as primary
             score: 0.9,
             type: 'gemini_detection',
             materiale: component.materiale,
             tilstand: component.tilstand,
-            synonymer: component.synonymer
+            navne: component.navne || component.synonymer // Use navne or fall back to synonymer
           }));
         }
         // Fallback: handle old single object format
-        else if (parsedResult.navn) {
+        else if (parsedResult.navne || parsedResult.navn) {
           allResults = [{
-            description: parsedResult.navn,
+            description: parsedResult.navne ? parsedResult.navne[0] : parsedResult.navn,
             score: 0.9,
             type: 'gemini_detection',
             materiale: parsedResult.materiale,
             tilstand: parsedResult.tilstand,
-            synonymer: parsedResult.synonymer
+            navne: parsedResult.navne || parsedResult.synonymer
           }];
         }
       } else {
