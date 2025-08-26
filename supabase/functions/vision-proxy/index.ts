@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyser billede for affaldssortering. Identificér produktets komponenter.\nVIGTIGT: Adskil KUN komponenter, hvis de skal sorteres forskelligt (f.eks. maling og spand). En spand og dens hank af samme materiale skal IKKE adskilles. Gruppér ens genstande (f.eks. bliver forskellig frugt til \"frugt\").\nUdelad \"tilstand\", medmindre den er relevant (f.eks. \"defekt\").\n\nSvar KUN med et JSON-objekt: en liste kaldet \"komponenter\". Hver komponent skal have \"genstand\", \"materiale\" og \"synonymer\" (3 alternative navne).\n\nEksempel 1: En malerspand med restmaling\n{\n  \"komponenter\": [\n    { \"genstand\": \"spand\", \"materiale\": \"plastik\", \"synonymer\": [\"beholder\", \"kande\", \"bucket\"] },\n    { \"genstand\": \"maling\", \"materiale\": \"farligt affald\", \"synonymer\": [\"lak\", \"farve\", \"coating\"] }\n  ]\n}\n\nEksempel 2: En defekt hårtørrer med ledning\n{\n  \"komponenter\": [\n    { \"genstand\": \"elektronik\", \"materiale\": \"blandet\", \"tilstand\": \"defekt\", \"synonymer\": [\"hårtørrer\", \"føntørrer\", \"blæser\"] }\n  ]\n}\n\nEksempel 3: Et net med appelsiner\n{\n  \"komponenter\": [\n    { \"genstand\": \"appelsin\", \"materiale\": \"organisk\", \"synonymer\": [\"citrusfrugt\", \"orange\", \"frugt\"] },\n    { \"genstand\": \"net\", \"materiale\": \"plastik\", \"synonymer\": [\"pose\", \"emballage\", \"indpakning\"] }\n  ]\n}" },
+            { text: "Du er en hyper-intelligent ekspert i dansk affaldssortering. Din opgave er at omdanne et billede til et detaljeret JSON-objekt, der ligner min database-struktur.\n\nFølg disse regler UDEN undtagelser:\n1. **Detaljeret Output:** For hver komponent, du identificerer, SKAL du returnere følgende nøgler:\n   * `navn`: Det mest præcise, specifikke navn for genstanden (f.eks. 'iPhone 15', 'malerspand').\n   * `synonymer`: En liste med 3-4 gode alternativer eller kategorier (f.eks. 'smartphone', 'mobiltelefon', 'elektronik').\n   * `materiale`: Genstandens primære materiale.\n   * `tilstand`: KUN hvis det er relevant (f.eks. 'defekt', 'tømt', 'snavset'). Ellers udelad nøglen.\n2. **Smart Opdeling:** Opdel KUN et produkt i flere komponenter, hvis de er lavet af tydeligt forskellige materialer, der skal sorteres forskelligt (f.eks. maling og spand).\n3. **Ærligheds-Princippet:** Hvis du er mindre end 80% sikker, eller hvis billedet er for dårligt, SKAL du returnere én komponent, hvor `navn` er \"Ukendt Genstand\", og `synonymer`-listen er tom. GÆT ALDRIG.\n\nDit svar skal KUN være et JSON-objekt med listen \"komponenter\".\n\nEksempel 2: En malerspand med en rest maling\n{\n  \"komponenter\": [\n    {\n      \"navn\": \"malerspand\",\n      \"synonymer\": [\"bøtte\", \"spand\", \"plastbeholder\"],\n      \"materiale\": \"plastik\"\n    },\n    {\n      \"navn\": \"maling\",\n      \"synonymer\": [\"restmaling\", \"kemikalier\", \"farligt affald\"],\n      \"materiale\": \"farligt affald\"\n    }\n  ]\n}\n\nEksempel 3: Et meget uskarpt billede\n{\n  \"komponenter\": [\n    {\n      \"navn\": \"Ukendt Genstand\",\n      \"synonymer\": [],\n      \"materiale\": \"ukendt\"\n    }\n  ]\n}" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -323,7 +323,7 @@ serve(async (req) => {
         // Handle new komponenter format
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
           allResults = parsedResult.komponenter.map(component => ({
-            description: component.genstand,
+            description: component.navn,
             score: 0.9,
             type: 'gemini_detection',
             materiale: component.materiale,
@@ -332,13 +332,14 @@ serve(async (req) => {
           }));
         }
         // Fallback: handle old single object format
-        else if (parsedResult.genstand) {
+        else if (parsedResult.navn) {
           allResults = [{
-            description: parsedResult.genstand,
+            description: parsedResult.navn,
             score: 0.9,
             type: 'gemini_detection',
             materiale: parsedResult.materiale,
-            tilstand: parsedResult.tilstand
+            tilstand: parsedResult.tilstand,
+            synonymer: parsedResult.synonymer
           }];
         }
       } else {
