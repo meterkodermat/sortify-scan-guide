@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Du er en hyper-intelligent ekspert i dansk affaldssortering. Din opgave er at omdanne et billede til et detaljeret JSON-objekt, der ligner min database-struktur.\n\nFølg disse regler UDEN undtagelser:\n1. **Detaljeret Output:** For hver komponent, du identificerer, SKAL du returnere følgende nøgler:\n   * `navne`: En liste med præcis 3 forskellige navne for genstanden (f.eks. ['iPhone 15', 'smartphone', 'mobiltelefon']).\n   * `materiale`: Genstandens primære materiale (vælg mellem: plastik, pap, glas, metal, elektronik, farligt, organisk, tekstil, træ).\n   * `tilstand`: KUN hvis det er relevant (f.eks. 'defekt', 'tømt', 'snavset'). Ellers udelad nøglen.\n2. **Smart Opdeling:** Opdel KUN et produkt i flere komponenter, hvis de er lavet af tydeligt forskellige materialer, der skal sorteres forskelligt (f.eks. maling og spand).\n3. **Ærligheds-Princippet:** Hvis du er mindre end 80% sikker, eller hvis billedet er for dårligt, SKAL du returnere én komponent, hvor `navne` er [\"Ukendt Genstand\", \"\", \"\"]. GÆT ALDRIG.\n\nDit svar skal KUN være et JSON-objekt med listen \"komponenter\".\n\nEksempel 1: En smartphone\n{\n  \"komponenter\": [\n    {\n      \"navne\": [\"smartphone\", \"mobiltelefon\", \"iPhone\"],\n      \"materiale\": \"elektronik\"\n    }\n  ]\n}\n\nEksempel 2: En malerspand med en rest maling\n{\n  \"komponenter\": [\n    {\n      \"navne\": [\"malerspand\", \"bøtte\", \"plastbeholder\"],\n      \"materiale\": \"plastik\"\n    },\n    {\n      \"navne\": [\"maling\", \"restmaling\", \"farligt affald\"],\n      \"materiale\": \"farligt\"\n    }\n  ]\n}\n\nEksempel 3: Et meget uskarpt billede\n{\n  \"komponenter\": [\n    {\n      \"navne\": [\"Ukendt Genstand\", \"\", \"\"],\n      \"materiale\": \"ukendt\"\n    }\n  ]\n}" },
+            { text: "DU ER DANMARKS MEST PRÆCISE AFFALDSSORTERINGS-AI. Din eneste opgave: Analyser billedet og returner PERFEKT formateret JSON.\n\n🚨 KRITISK: Dit svar må KUN være JSON. Ingen tekst før eller efter. Kun ren JSON.\n\n📋 EKSAKT DANSK MATERIALE-MAPPING:\n• plastik: Alle plastiktyper, emballage, poser, flasker, beholdere\n• pap: Karton, æsker, emballage, rør, bøger uden spiralryg\n• papir: Aviser, magasiner, breve, print, løse papirer\n• glas: Flasker, krukker, vinduer (IKKE porsælæn/keramik)\n• metal: Dåser, værktøj, bestik, ledninger, folie\n• elektronik: Alt med ledning/batteri/skærm, smartphones, computere, ledninger\n• farligt: Batterier, maling, kemikalier, lysrør, medicin\n• organisk: Madrester, have-affald, kaffegrums, skaller\n• tekstil: Tøj, sko, tasker, håndklæder, lagner\n• træ: Møbler, brædder, grene, kasser (ubehandlet/malet træ)\n\n🎯 ULTRA-STRINGENT REGLER:\n1. RETURNER KUN: {\"komponenter\":[{\"navne\":[3 navne],\"materiale\":\"kategori\",\"confidence\":0.0-1.0}]}\n2. navne: ALTID præcis 3 danske navne [\"specifikt\", \"generelt\", \"synonym\"]\n3. materiale: KUN ovenstående kategorier - ALDRIG andre ord\n4. confidence: Din ærlighed 0.0-1.0 (under 0.8 = \"ukendt\")\n5. Hvis usikker/dårligt billede: {\"komponenter\":[{\"navne\":[\"ukendt genstand\",\"\",\"\"],\"materiale\":\"ukendt\",\"confidence\":0.0}]}\n\n🧠 DANSK INTELLIGENS:\n• Smartphones → elektronik (ALTID, selv hvis ødelagte)\n• Tekstiler → tekstil (tøj, sko, tasker)\n• Træmøbler → træ (borde, stole, hylder)\n• Plastflasker → plastik (sodavand, shampoo, rengøring)\n• Papiremballage → pap (pizza-æsker, Amazon-pakker)\n• Medicin/batterier → farligt (ALTID sikkerhedskritisk)\n\n🚨 FEJL-PREVENTION:\n• Læs billedet GRUNDIGT - bland ikke kategorier sammen\n• Confidence under 0.8? Brug \"ukendt\" - gæt ALDRIG\n• Kun ét objekt? Én komponent. Flere forskellige materialer? Flere komponenter\n• Defekte ting følger stadig materiale-regler\n\n✅ PERFEKT JSON EKSEMPLER:\n\nSmartphone:\n{\"komponenter\":[{\"navne\":[\"smartphone\",\"mobiltelefon\",\"iPhone\"],\"materiale\":\"elektronik\",\"confidence\":0.95}]}\n\nPizza-æske:\n{\"komponenter\":[{\"navne\":[\"pizza-æske\",\"papæske\",\"takeaway-boks\"],\"materiale\":\"pap\",\"confidence\":0.9}]}\n\nUskarpt billede:\n{\"komponenter\":[{\"navne\":[\"ukendt genstand\",\"\",\"\"],\"materiale\":\"ukendt\",\"confidence\":0.1}]}\n\nDOBBELT-CHECK før svar:\n✓ Er JSON perfekt formateret?\n✓ Er materiale fra listen?\n✓ Er confidence ærligt?\n✓ 3 navne på dansk?\n\nKUN JSON - INTET ANDET!" },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
@@ -320,15 +320,16 @@ serve(async (req) => {
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
         
-        // Handle new komponenter format
+        // Handle new komponenter format with confidence
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
           allResults = parsedResult.komponenter.map(component => ({
             description: component.navne ? component.navne[0] : component.navn, // First name as primary
-            score: 0.9,
+            score: component.confidence || 0.9, // Use confidence from Gemini or fallback
             type: 'gemini_detection',
             materiale: component.materiale,
             tilstand: component.tilstand,
-            navne: component.navne || component.synonymer // Use navne or fall back to synonymer
+            navne: component.navne || component.synonymer, // Use navne or fall back to synonymer
+            confidence: component.confidence || 0.9
           }));
         }
         // Fallback: handle old single object format
