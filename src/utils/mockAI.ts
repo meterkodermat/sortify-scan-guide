@@ -1,4 +1,3 @@
-// Phase 4: One Word Strategy - Radical Simplification
 import { supabase } from "@/integrations/supabase/client";
 
 interface WasteItem {
@@ -32,100 +31,8 @@ interface VisionResponse {
   error?: string;
 }
 
-// Hardcoded rules for obvious non-waste items (ONE WORD STRATEGY)
-const nonWasteRules: { [key: string]: string } = {
-  'flamingo': 'Ikke affald',
-  'bird': 'Ikke affald',
-  'swan': 'Ikke affald',
-  'duck': 'Ikke affald',
-  'goose': 'Ikke affald',
-  'animal': 'Ikke affald',
-  'mammal': 'Ikke affald',
-  'wildlife': 'Ikke affald',
-  'pet': 'Ikke affald',
-  'cat': 'Ikke affald',
-  'dog': 'Ikke affald',
-  'horse': 'Ikke affald',
-  'cow': 'Ikke affald',
-  'fish': 'Ikke affald',
-  'person': 'Ikke affald',
-  'human': 'Ikke affald',
-  'face': 'Ikke affald',
-  'people': 'Ikke affald',
-  'man': 'Ikke affald',
-  'woman': 'Ikke affald',
-  'child': 'Ikke affald',
-  'baby': 'Ikke affald',
-  'boy': 'Ikke affald',
-  'girl': 'Ikke affald',
-  'adult': 'Ikke affald'
-};
-
-// Simple fuzzy matching (keep only this utility)
-const calculateFuzzyScore = (term1: string, term2: string): number => {
-  const maxLength = Math.max(term1.length, term2.length);
-  if (maxLength === 0) return 1;
-  
-  // Simple character overlap scoring
-  const term1Lower = term1.toLowerCase();
-  const term2Lower = term2.toLowerCase();
-  
-  if (term1Lower === term2Lower) return 1;
-  if (term1Lower.includes(term2Lower) || term2Lower.includes(term1Lower)) return 0.8;
-  
-  let matches = 0;
-  for (let char of term1Lower) {
-    if (term2Lower.includes(char)) matches++;
-  }
-  
-  return matches / maxLength;
-};
-
-// Simple database search (ONE TERM ONLY) - Reversed logic for partial matching
-const searchDatabase = async (searchTerm: string) => {
-  // Get all database entries and check if searchTerm contains any of them
-  const { data: allEntries } = await supabase
-    .from('demo')
-    .select('*');
-  
-  if (!allEntries?.length) {
-    return null;
-  }
-  
-  // Find entries where the searchTerm contains the database navn
-  const matches = allEntries.filter(entry => {
-    if (!entry.navn) return false;
-    const navn = entry.navn.toLowerCase();
-    const term = searchTerm.toLowerCase();
-    
-    // Check if the search term contains the database navn (minimum 3 chars to avoid false matches)
-    return term.includes(navn) && navn.length >= 3;
-  });
-  
-  if (!matches.length) {
-    return null;
-  }
-  
-  // Return best match - prefer longer navn (more specific matches)
-  let bestMatch = matches[0];
-  let bestScore = bestMatch.navn?.length || 0;
-  
-  for (const match of matches) {
-    const navnLength = match.navn?.length || 0;
-    if (navnLength > bestScore) {
-      bestScore = navnLength;
-      bestMatch = match;
-    }
-  }
-  
-  return bestMatch;
-};
-
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
-    console.log('🚀 One Word Strategy Pipeline Started');
-    
-    // STEP 1: Get vision data
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
@@ -134,131 +41,56 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Kunne ikke analysere billedet');
     }
 
-    // STEP 2: Take results and handle new komponenter format
     const labels = visionData.labels || [];
     
     if (!labels.length) {
       throw new Error('Ingen komponenter fundet i billedet');
     }
 
-    // Check if we have the new format with materiale and tilstand
-    if (labels.length > 0 && labels[0].materiale) {
-      // Handle multiple components - store all components
-      const primaryComponent = labels[0];
-      const allComponents = labels.map(label => 
-        `${label.description} (${label.materiale}${label.tilstand ? `, ${label.tilstand}` : ''})`
-      ).join(', ');
-      
-      let aiThoughtProcess = `🎯 GEMINI ANALYSE: Fandt ${labels.length} komponent(er): ${allComponents}. `;
-      
-      return {
-        id: Date.now().toString(),
-        name: labels.length > 1 ? `${labels.length} komponenter fundet` : primaryComponent.description,
-        image: imageData,
-        homeCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
-                      primaryComponent.materiale === 'plastik' ? 'Plast' : 
-                      primaryComponent.materiale === 'glas' ? 'Glas' : 
-                      primaryComponent.materiale === 'metal' ? 'Metal' : 
-                      primaryComponent.materiale === 'elektronik' ? 'Restaffald' : 
-                      primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                      primaryComponent.materiale === 'organisk' ? 'Madaffald' : 
-                      primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
-                      primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Restaffald',
-        recyclingCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
-                            primaryComponent.materiale === 'plastik' ? 'Hård plast' : 
-                            primaryComponent.materiale === 'glas' ? 'Glas' : 
-                            primaryComponent.materiale === 'metal' ? 'Metal' : 
-                            primaryComponent.materiale === 'elektronik' ? 'Genbrugsstation' : 
-                            primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                            primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 
-                            primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
-                            primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Rest efter sortering',
-        description: labels.length > 1 ? 
-          `${labels.length} komponenter fundet - se detaljer nedenfor` : 
-          `${primaryComponent.description} - ${primaryComponent.materiale}${primaryComponent.tilstand ? ` (${primaryComponent.tilstand})` : ''}`,
-        confidence: Math.round(primaryComponent.score * 100),
-        timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: ${labels.length} komponent(er) identificeret`,
-        components: labels.map(label => ({
-          genstand: label.description,
-          materiale: label.materiale,
-          tilstand: label.tilstand
-        }))
-      };
-    }
-    
-    // Fall back to old logic if new format not available
-    const topLabel = labels[0];
-    const keyword = topLabel.description.toLowerCase();
-    let aiThoughtProcess = `🎯 ONE WORD: "${keyword}" (confidence: ${(topLabel.score * 100).toFixed(1)}%). `;
-
-    // STEP 3: Check hardcoded non-waste rules FIRST
-    if (nonWasteRules[keyword]) {
-      aiThoughtProcess += `✅ REGEL MATCH: ${keyword} -> ${nonWasteRules[keyword]}. `;
-      
-      return {
-        id: Date.now().toString(),
-        name: nonWasteRules[keyword],
-        image: imageData,
-        homeCategory: 'Ikke affald',
-        recyclingCategory: 'Ikke affald',
-        description: 'Dette er ikke affald og skal ikke sorteres.',
-        confidence: 70, // Conservative confidence
-        timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: Hardcodet regel anvendt.`
-      };
-    }
-
-    // STEP 4: Search database with the ONE WORD (English only - no translation)
-    const databaseMatch = await searchDatabase(keyword);
-    
-    if (databaseMatch) {
-      const fuzzyScore = calculateFuzzyScore(keyword, databaseMatch.navn);
-      const confidence = Math.min(70, fuzzyScore * 80); // Max 70% confidence
-      
-      aiThoughtProcess += `📊 DATABASE MATCH: "${databaseMatch.navn}" (fuzzy: ${(fuzzyScore * 100).toFixed(1)}%). `;
-      
-      return {
-        id: Date.now().toString(),
-        name: databaseMatch.navn,
-        image: imageData,
-        homeCategory: databaseMatch.hjem || 'Restaffald',
-        recyclingCategory: databaseMatch.genbrugsplads || 'Restaffald',
-        description: databaseMatch.variation || databaseMatch.navn,
-        confidence: Math.max(30, Math.round(confidence)), // Min 30% confidence
-        timestamp: new Date(),
-        aiThoughtProcess: aiThoughtProcess + `💡 KONKLUSION: Database match fundet.`
-      };
-    }
-
-    // STEP 5: Fallback for unknown items
-    aiThoughtProcess += `❌ INGEN MATCH for "${keyword}". `;
+    const primaryComponent = labels[0];
     
     return {
       id: Date.now().toString(),
-      name: 'Ikke fundet i database',
+      name: primaryComponent.description,
       image: imageData,
-      homeCategory: 'Restaffald',
-      recyclingCategory: 'Restaffald',
-      description: 'Genstanden kunne ikke findes i databasen. Sortér som restaffald eller kontakt din lokale genbrugsplads for vejledning.',
-      confidence: 25, // Low but consistent
+      homeCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
+                    primaryComponent.materiale === 'plastik' ? 'Plast' : 
+                    primaryComponent.materiale === 'glas' ? 'Glas' : 
+                    primaryComponent.materiale === 'metal' ? 'Metal' : 
+                    primaryComponent.materiale === 'elektronik' ? 'Restaffald' : 
+                    primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
+                    primaryComponent.materiale === 'organisk' ? 'Madaffald' : 
+                    primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                    primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Restaffald',
+      recyclingCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
+                         primaryComponent.materiale === 'plastik' ? 'Hård plast' : 
+                         primaryComponent.materiale === 'glas' ? 'Glas' : 
+                         primaryComponent.materiale === 'metal' ? 'Metal' : 
+                         primaryComponent.materiale === 'elektronik' ? 'Genbrugsstation' : 
+                         primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
+                         primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 
+                         primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                         primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Rest efter sortering',
+      description: primaryComponent.description,
+      confidence: Math.round(primaryComponent.score * 100),
       timestamp: new Date(),
-      aiThoughtProcess: aiThoughtProcess + `⚠️ FALLBACK: Ikke fundet i database.`
+      components: labels.map(label => ({
+        genstand: label.description,
+        materiale: label.materiale,
+        tilstand: label.tilstand
+      }))
     };
 
   } catch (error) {
-    console.error('💥 Error in One Word Strategy:', error);
-    
     return {
       id: Date.now().toString(),
       name: 'Analyse fejl',
       image: imageData,
       homeCategory: 'Restaffald',
       recyclingCategory: 'Restaffald',
-      description: 'Der opstod en teknisk fejl under AI-analysen. Prøv at tage et nyt billede.',
+      description: 'Der opstod en teknisk fejl under AI-analysen.',
       confidence: 0,
-      timestamp: new Date(),
-      aiThoughtProcess: `🚨 FEJL: ${error instanceof Error ? error.message : 'Ukendt fejl'}`
+      timestamp: new Date()
     };
   }
 };
