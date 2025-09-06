@@ -47,34 +47,52 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       throw new Error('Ingen komponenter fundet i billedet');
     }
 
-    const primaryComponent = labels[0];
+    // Map each component to its categories
+    const mappedComponents = labels.map(label => ({
+      ...label,
+      homeCategory: label.materiale === 'pap' ? 'Pap' : 
+                    label.materiale === 'plastik' ? 'Plast' : 
+                    label.materiale === 'glas' ? 'Glas' : 
+                    label.materiale === 'metal' ? 'Metal' : 
+                    label.materiale === 'elektronik' ? 'Restaffald' : 
+                    label.materiale === 'farligt' ? 'Farligt affald' : 
+                    label.materiale === 'organisk' ? 'Madaffald' : 
+                    label.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                    label.materiale === 'træ' ? 'Restaffald' : 'Restaffald',
+      recyclingCategory: label.materiale === 'pap' ? 'Pap' : 
+                         label.materiale === 'plastik' ? 'Hård plast' : 
+                         label.materiale === 'glas' ? 'Glas' : 
+                         label.materiale === 'metal' ? 'Metal' : 
+                         label.materiale === 'elektronik' ? 'Genbrugsstation' : 
+                         label.materiale === 'farligt' ? 'Farligt affald' : 
+                         label.materiale === 'organisk' ? 'Ikke muligt' : 
+                         label.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                         label.materiale === 'træ' ? 'Restaffald' : 'Rest efter sortering'
+    }));
+
+    // Check if all components have same sorting categories
+    const firstComponent = mappedComponents[0];
+    const allSameSorting = mappedComponents.every(comp => 
+      comp.homeCategory === firstComponent.homeCategory && 
+      comp.recyclingCategory === firstComponent.recyclingCategory
+    );
+
+    const primaryComponent = mappedComponents[0];
     
     return {
       id: Date.now().toString(),
-      name: primaryComponent.description,
+      name: allSameSorting || mappedComponents.length === 1 ? 
+            primaryComponent.description : 
+            `${mappedComponents.length} forskellige materialer`,
       image: imageData,
-      homeCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
-                    primaryComponent.materiale === 'plastik' ? 'Plast' : 
-                    primaryComponent.materiale === 'glas' ? 'Glas' : 
-                    primaryComponent.materiale === 'metal' ? 'Metal' : 
-                    primaryComponent.materiale === 'elektronik' ? 'Restaffald' : 
-                    primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                    primaryComponent.materiale === 'organisk' ? 'Madaffald' : 
-                    primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
-                    primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Restaffald',
-      recyclingCategory: primaryComponent.materiale === 'pap' ? 'Pap' : 
-                         primaryComponent.materiale === 'plastik' ? 'Hård plast' : 
-                         primaryComponent.materiale === 'glas' ? 'Glas' : 
-                         primaryComponent.materiale === 'metal' ? 'Metal' : 
-                         primaryComponent.materiale === 'elektronik' ? 'Genbrugsstation' : 
-                         primaryComponent.materiale === 'farligt' ? 'Farligt affald' : 
-                         primaryComponent.materiale === 'organisk' ? 'Ikke muligt' : 
-                         primaryComponent.materiale === 'tekstil' ? 'Tekstilaffald' : 
-                         primaryComponent.materiale === 'træ' ? 'Restaffald' : 'Rest efter sortering',
-      description: primaryComponent.description,
+      homeCategory: primaryComponent.homeCategory,
+      recyclingCategory: primaryComponent.recyclingCategory,
+      description: allSameSorting || mappedComponents.length === 1 ? 
+                   primaryComponent.description : 
+                   `Indeholder ${mappedComponents.length} forskellige materialer - se detaljer nedenfor`,
       confidence: Math.round(primaryComponent.score * 100),
       timestamp: new Date(),
-      components: labels.map(label => ({
+      components: allSameSorting ? [] : labels.map(label => ({
         genstand: label.description,
         materiale: label.materiale,
         tilstand: label.tilstand
