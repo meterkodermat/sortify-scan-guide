@@ -77,26 +77,37 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       comp.recyclingCategory === firstComponent.recyclingCategory
     );
 
+    // Check if components can be easily separated (keywords that indicate integrated/attached parts)
+    const integratedKeywords = ['del', 'komponent', 'indbygget', 'fastgjort', 'integreret', 'del af'];
+    const canBeSeparated = !mappedComponents.some(comp => 
+      integratedKeywords.some(keyword => 
+        comp.description?.toLowerCase().includes(keyword)
+      )
+    );
+
+    // Only split if different sorting AND can be separated
+    const shouldSplit = !allSameSorting && canBeSeparated && mappedComponents.length > 1;
+
     const primaryComponent = mappedComponents[0];
     
     return {
       id: Date.now().toString(),
-      name: allSameSorting || mappedComponents.length === 1 ? 
-            primaryComponent.description : 
-            `${mappedComponents.length} forskellige materialer`,
+      name: shouldSplit ? 
+            `${mappedComponents.length} adskilbare materialer` : 
+            primaryComponent.description,
       image: imageData,
       homeCategory: primaryComponent.homeCategory,
       recyclingCategory: primaryComponent.recyclingCategory,
-      description: allSameSorting || mappedComponents.length === 1 ? 
-                   primaryComponent.description : 
-                   `Indeholder ${mappedComponents.length} forskellige materialer - se detaljer nedenfor`,
+      description: shouldSplit ? 
+                   `Indeholder ${mappedComponents.length} materialer der kan adskilles for sortering` : 
+                   primaryComponent.description,
       confidence: Math.round(primaryComponent.score * 100),
       timestamp: new Date(),
-      components: allSameSorting ? [] : labels.map(label => ({
+      components: shouldSplit ? labels.map(label => ({
         genstand: label.description,
         materiale: label.materiale,
         tilstand: label.tilstand
-      }))
+      })) : []
     };
 
   } catch (error) {
