@@ -116,7 +116,9 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
         {/* Identification */}
         <Card className="p-6 bg-gradient-card shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-foreground">{item.name}</h2>
+            <h2 className="text-2xl font-bold text-foreground">
+              {item.name || "Ukendt genstand"}
+            </h2>
             <Badge variant="secondary" className="bg-success text-success-foreground">
               {Math.round(item.confidence)}% sikker
             </Badge>
