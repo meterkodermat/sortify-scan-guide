@@ -77,13 +77,23 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       comp.recyclingCategory === firstComponent.recyclingCategory
     );
 
-    // Check if components can be easily separated (keywords that indicate integrated/attached parts)
-    const integratedKeywords = ['del', 'komponent', 'indbygget', 'fastgjort', 'integreret', 'del af'];
-    const canBeSeparated = !mappedComponents.some(comp => 
+    // Check if components are physically separate and can be easily separated
+    const integratedKeywords = ['del af', 'komponent af', 'indbygget', 'fastgjort', 'integreret', 'del', 'komponent'];
+    const separableKeywords = ['net med', 'pose med', 'beholder med', 'kasse med', 'pakke med', 'bæger med'];
+    
+    const isIntegrated = mappedComponents.some(comp => 
       integratedKeywords.some(keyword => 
         comp.description?.toLowerCase().includes(keyword)
       )
     );
+    
+    const isPhysicallySeparable = mappedComponents.some(comp => 
+      separableKeywords.some(keyword => 
+        comp.description?.toLowerCase().includes(keyword)
+      )
+    );
+    
+    const canBeSeparated = !isIntegrated || isPhysicallySeparable;
 
     // Only split if different sorting AND can be separated
     const shouldSplit = !allSameSorting && canBeSeparated && mappedComponents.length > 1;
