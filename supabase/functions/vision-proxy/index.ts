@@ -268,7 +268,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Analyser billedet og returner JSON format: {\"komponenter\":[{\"description\":\"navn\",\"materiale\":\"kategori\",\"score\":0.5}]}. Materialer: plastik, pap, papir, glas, metal, elektronik, farligt, organisk, tekstil, træ. Kun JSON svar." },
+            { text: "Du er en ekspert i **praktisk affaldssortering** for en almindelig borger. Din vigtigste opgave er at identificere, hvordan en person i virkeligheden ville sortere de genstande, du ser. Du skal IKKE lave en videnskabelig analyse af alle materialer. Fokusér udelukkende på de **sorterbare enheder**, som brugeren selv skal adskille.\n\nAnalyser billedet og identificer kun de dele, som en almindelig person skal sortere separat:\n\nFor hver sorterbar enhed, angiv:\n- description: Hvad genstanden er (som en almindelig person ville kalde den)\n- materiale: Hvilket materiale det primært er (pap, plastik, glas, metal, elektronik, farligt, organisk, tekstil, træ)\n- tilstand: Tilstanden hvis relevant for sortering\n\nEksempel: \"Net med appelsiner\" = to enheder: \"net\" (plastik) og \"appelsiner\" (organisk)\nEksempel: \"Plastikflaske med etiket\" = én enhed: \"plastikflaske\" (plastik) - etiketten behøver ikke fjernes\n\nReturner JSON format: {\"komponenter\":[{\"description\":\"navn\",\"materiale\":\"kategori\",\"score\":0.9}]}. Kun JSON svar." },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
