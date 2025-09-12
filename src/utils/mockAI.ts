@@ -31,23 +31,56 @@ interface VisionResponse {
   error?: string;
 }
 
-// Search database for waste item matches
+// Search database for waste item matches with comprehensive search
 const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
-  // Create search query for multiple terms
-  const searchQuery = searchTerms.join(' | ');
-  
-  const { data, error } = await supabase
-    .from('demo')
-    .select('*')
-    .or(`navn.ilike.%${searchTerms[0]}%,synonymer.ilike.%${searchTerms[0]}%,variation.ilike.%${searchTerms[0]}%,materiale.ilike.%${searchTerms[0]}%`)
-    .limit(10);
+  if (!searchTerms.length) return [];
 
-  if (error) {
+  try {
+    // Search for each term across all relevant fields
+    const searchPromises = searchTerms.map(async (term) => {
+      const cleanTerm = term.toLowerCase().trim();
+      if (cleanTerm.length < 2) return [];
+
+      const { data, error } = await supabase
+        .from('demo')
+        .select('*')
+        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
+        .limit(20);
+
+      if (error) {
+        console.error('Database search error for term:', cleanTerm, error);
+        return [];
+      }
+
+      return data || [];
+    });
+
+    const allResults = await Promise.all(searchPromises);
+    const flatResults = allResults.flat();
+    
+    // Remove duplicates and score results
+    const uniqueResults = Array.from(
+      new Map(flatResults.map(item => [item.id, item])).values()
+    );
+
+    // Sort by relevance - exact name matches first, then synonyms, then variations
+    return uniqueResults.sort((a, b) => {
+      const aExactMatch = searchTerms.some(term => 
+        a.navn?.toLowerCase().includes(term.toLowerCase())
+      );
+      const bExactMatch = searchTerms.some(term => 
+        b.navn?.toLowerCase().includes(term.toLowerCase())
+      );
+
+      if (aExactMatch && !bExactMatch) return -1;
+      if (!aExactMatch && bExactMatch) return 1;
+      return 0;
+    }).slice(0, 5); // Top 5 results
+
+  } catch (error) {
     console.error('Database search error:', error);
     return [];
   }
-
-  return data || [];
 };
 
 // Enhanced search with multiple terms
