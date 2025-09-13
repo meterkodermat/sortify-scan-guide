@@ -41,6 +41,8 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) return [];
 
+      console.log(`Searching database for term: "${cleanTerm}"`);
+
       const { data, error } = await supabase
         .from('demo')
         .select('*')
@@ -52,6 +54,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         return [];
       }
 
+      console.log(`Found ${data?.length || 0} results for "${cleanTerm}":`, data?.map(item => item.navn));
       return data || [];
     });
 
@@ -92,23 +95,25 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     if (label.description) terms.push(label.description);
     if (label.translatedText) terms.push(label.translatedText);
     
-    // Don't search by material type alone as it's too broad
-    // Only use material if we have a specific object name
+    // Also search for specific object + material combinations
     if (label.materiale && label.description) {
       terms.push(`${label.description} ${label.materiale}`);
     }
     return terms;
   });
 
-  console.log('Search terms:', allSearchTerms);
+  console.log('Search terms before filtering:', allSearchTerms);
 
-  // Remove duplicates and clean terms
+  // Remove duplicates and clean terms - be more lenient with term length
   const uniqueTerms = [...new Set(allSearchTerms)]
     .filter(term => term && typeof term === 'string')
     .map(term => term.toLowerCase().trim())
-    .filter(term => term.length > 2);
+    .filter(term => term.length >= 2); // Allow shorter terms like "tv", "pc"
+
+  console.log('Final search terms:', uniqueTerms);
 
   const matches = await searchWasteInDatabase(uniqueTerms);
+  console.log('Database search results:', matches);
   return matches;
 };
 
