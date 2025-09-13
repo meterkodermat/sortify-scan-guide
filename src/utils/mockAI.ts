@@ -66,10 +66,10 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
     // Sort by relevance - exact name matches first, then synonyms, then variations
     return uniqueResults.sort((a, b) => {
       const aExactMatch = searchTerms.some(term => 
-        a.navn?.toLowerCase().includes(term.toLowerCase())
+        term && a.navn && a.navn.toLowerCase().includes(term.toLowerCase())
       );
       const bExactMatch = searchTerms.some(term => 
-        b.navn?.toLowerCase().includes(term.toLowerCase())
+        term && b.navn && b.navn.toLowerCase().includes(term.toLowerCase())
       );
 
       if (aExactMatch && !bExactMatch) return -1;
@@ -105,16 +105,26 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
+    console.log('Starting waste identification...');
+    
     // Step 1: Get vision analysis
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
 
-    if (visionError || !visionData?.success || !visionData?.labels?.length) {
-      throw new Error('Kunne ikke analysere billedet');
+    console.log('Vision data received:', visionData);
+    console.log('Vision error:', visionError);
+
+    if (visionError) {
+      throw new Error(`Gemini API fejl: ${visionError.message || 'Ukendt fejl'}`);
+    }
+
+    if (!visionData?.success) {
+      throw new Error(`Analyse fejlede: ${visionData?.error || 'Ukendt fejl'}`);
     }
 
     const labels = visionData.labels || [];
+    console.log('Parsed labels:', labels);
     
     if (!labels.length) {
       throw new Error('Ingen komponenter fundet i billedet');
