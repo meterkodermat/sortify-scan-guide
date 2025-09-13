@@ -177,45 +177,23 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     } else {
       // Fallback to basic categorization from vision data
       const primaryLabel = labels[0];
-      console.log('Using fallback categorization for:', primaryLabel);
-      
-      // Smart categorization based on description and material
-      let homeCategory = 'Restaffald';
-      let recyclingCategory = 'Restaffald';
-      
-      const description = (primaryLabel.description || '').toLowerCase();
-      const material = (primaryLabel.materiale || '').toLowerCase();
-      
-      // Special handling for specific items
-      if (description.includes('batteri') || description.includes('battery')) {
-        if (description.includes('bil') || description.includes('car') || description.includes('auto')) {
-          homeCategory = 'Ikke muligt';
-          recyclingCategory = 'Bilbatterier';
-        } else {
-          homeCategory = 'Farligt affald';
-          recyclingCategory = 'Batterier';
-        }
-      } else if (material === 'farligt') {
-        homeCategory = 'Farligt affald';
-        recyclingCategory = 'Farligt affald';
-      } else {
-        // Standard material categorization
-        homeCategory = material === 'pap' ? 'Pap' : 
-                       material === 'plastik' ? 'Plast' : 
-                       material === 'glas' ? 'Glas' : 
-                       material === 'metal' ? 'Metal' : 
-                       material === 'elektronik' ? 'Restaffald' : 
-                       material === 'organisk' ? 'Madaffald' : 
-                       material === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+      const homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+                          primaryLabel.materiale === 'plastik' ? 'Plast' : 
+                          primaryLabel.materiale === 'glas' ? 'Glas' : 
+                          primaryLabel.materiale === 'metal' ? 'Metal' : 
+                          primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
+                          primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                          primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
+                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
 
-        recyclingCategory = material === 'pap' ? 'Pap' : 
-                           material === 'plastik' ? 'Hård plast' : 
-                           material === 'glas' ? 'Glas' : 
-                           material === 'metal' ? 'Metal' : 
-                           material === 'elektronik' ? 'Genbrugsstation' : 
-                           material === 'organisk' ? 'Ikke muligt' : 
-                           material === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
-      }
+      const recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+                               primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
+                               primaryLabel.materiale === 'glas' ? 'Glas' : 
+                               primaryLabel.materiale === 'metal' ? 'Metal' : 
+                               primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
+                               primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                               primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
+                               primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
 
       return {
         id: Date.now().toString(),
