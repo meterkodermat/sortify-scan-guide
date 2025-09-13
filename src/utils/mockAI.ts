@@ -86,7 +86,8 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 // Enhanced search with multiple terms
 const findBestMatches = async (labels: VisionLabel[]) => {
   const allSearchTerms = labels.flatMap(label => {
-    const terms = [label.description];
+    const terms = [];
+    if (label.description) terms.push(label.description);
     if (label.translatedText) terms.push(label.translatedText);
     if (label.materiale) terms.push(label.materiale);
     return terms;
@@ -94,6 +95,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
   // Remove duplicates and clean terms
   const uniqueTerms = [...new Set(allSearchTerms)]
+    .filter(term => term && typeof term === 'string')
     .map(term => term.toLowerCase().trim())
     .filter(term => term.length > 2);
 
