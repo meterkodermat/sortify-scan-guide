@@ -36,56 +36,32 @@ interface WasteResultProps {
   onHome: () => void;
 }
 
+const pictogramMap = [
+  { keywords: ['karton', 'mad- & drikke-kartoner'], src: madDrikkeKartonerImg, alt: 'Mad- & drikke-kartoner' },
+  { keywords: ['papir'], src: papirImg, alt: 'Papir' },
+  { keywords: ['pap'], src: papImg, alt: 'Pap' },
+  { keywords: ['plast', 'plastic'], src: plastImg, alt: 'Plast' },
+  { keywords: ['glas'], src: glasImg, alt: 'Glas' },
+  { keywords: ['metal'], src: metalImg, alt: 'Metal' },
+  { keywords: ['mad', 'organisk', 'kompost', 'madaffald'], src: madaffalImg, alt: 'Madaffald' },
+  { keywords: ['farligt', 'elektronik'], src: farligtAffaldImg, alt: 'Farligt affald' },
+  { keywords: ['tekstil'], src: tekstilaffalImg, alt: 'Tekstilaffald' },
+];
+
 const getSortingPictogram = (category: string) => {
   const imgClass = "w-24 h-24 mx-auto mb-2 object-contain";
-  
-  // Normalize category for matching
   const normalizedCategory = category.toLowerCase();
-  
-  // Card/carton categories
-  if (normalizedCategory.includes('karton') || normalizedCategory.includes('mad- & drikke-kartoner')) {
-    return <img src={madDrikkeKartonerImg} alt="Mad- & drikke-kartoner" className={imgClass} />;
+
+  for (const pictogram of pictogramMap) {
+    if (pictogram.keywords.some(keyword => normalizedCategory.includes(keyword))) {
+      // Special case for 'pap' to avoid matching 'papir' or 'karton' incorrectly
+      if (pictogram.alt === 'Pap' && (normalizedCategory.includes('papir') || normalizedCategory.includes('karton'))) {
+        continue;
+      }
+      return <img src={pictogram.src} alt={pictogram.alt} className={imgClass} />;
+    }
   }
-  
-  // Paper/cardboard
-  if (normalizedCategory.includes('pap') && !normalizedCategory.includes('karton')) {
-    return <img src={papImg} alt="Pap" className={imgClass} />;
-  }
-  if (normalizedCategory.includes('papir')) {
-    return <img src={papirImg} alt="Papir" className={imgClass} />;
-  }
-  
-  // Plastic
-  if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
-    return <img src={plastImg} alt="Plast" className={imgClass} />;
-  }
-  
-  // Glass
-  if (normalizedCategory.includes('glas')) {
-    return <img src={glasImg} alt="Glas" className={imgClass} />;
-  }
-  
-  // Metal
-  if (normalizedCategory.includes('metal')) {
-    return <img src={metalImg} alt="Metal" className={imgClass} />;
-  }
-  
-  // Food waste
-  if (normalizedCategory.includes('mad') || normalizedCategory.includes('organisk') || normalizedCategory.includes('kompost') || normalizedCategory.includes('madaffald')) {
-    return <img src={madaffalImg} alt="Madaffald" className={imgClass} />;
-  }
-  
-  // Dangerous waste
-  if (normalizedCategory.includes('farligt') || normalizedCategory.includes('elektronik')) {
-    return <img src={farligtAffaldImg} alt="Farligt affald" className={imgClass} />;
-  }
-  
-  // Textile waste
-  if (normalizedCategory.includes('tekstil')) {
-    return <img src={tekstilaffalImg} alt="Tekstilaffald" className={imgClass} />;
-  }
-  
-  // Default for rest/other categories
+
   return <img src={restaffalImg} alt="Restaffald" className={imgClass} />;
 };
 
@@ -130,17 +106,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
             <div className="space-y-3">
               {item.components.map((component, index) => {
+                const materialCategoryMap: { [key: string]: { home: string; recycling: string; variant: 'secondary' | 'outline' | 'destructive'; pictogram: string; } } = {
+                  'pap': { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg },
+                  'plastik': { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg },
+                  'glas': { home: 'Glas', recycling: 'Glas', variant: 'secondary', pictogram: glasImg },
+                  'metal': { home: 'Metal', recycling: 'Metal', variant: 'outline', pictogram: metalImg },
+                  'madaffald': { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive', pictogram: madaffalImg },
+                  'farligt': { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive', pictogram: farligtAffaldImg },
+                  'tekstil': { home: 'Tekstilaffald', recycling: 'Tekstilaffald', variant: 'outline', pictogram: tekstilaffalImg },
+                  'default': { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline', pictogram: restaffalImg }
+                };
+
                 const getMaterialCategory = (materiale: string) => {
-                  switch (materiale) {
-                    case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg };
-                    case 'plastik': return { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg };
-                    case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary', pictogram: glasImg };
-                    case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline', pictogram: metalImg };
-                    case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive', pictogram: madaffalImg };
-                    case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive', pictogram: farligtAffaldImg };
-                    case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald', variant: 'outline', pictogram: tekstilaffalImg };
-                    default: return { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline', pictogram: restaffalImg };
-                  }
+                  return materialCategoryMap[materiale] || materialCategoryMap['default'];
                 };
                 
                 const category = getMaterialCategory(component.materiale);

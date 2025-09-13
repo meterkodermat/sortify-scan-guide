@@ -382,7 +382,7 @@ serve(async (req) => {
     });
 
     // No translation needed for One Word Strategy - keep English results
-    let translatedResults = allResults;
+    const translatedResults = allResults;
 
     return new Response(JSON.stringify({ 
       success: true, 

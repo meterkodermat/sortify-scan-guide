@@ -31,8 +31,19 @@ interface VisionResponse {
   error?: string;
 }
 
+interface DemoRecord {
+  id: number;
+  navn: string;
+  synonymer: string | null;
+  variation: string | null;
+  materiale: string | null;
+  hjem: string;
+  genbrugsplads: string;
+  tilstand?: string | null;
+}
+
 // Search database for waste item matches with comprehensive search
-const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
+const searchWasteInDatabase = async (searchTerms: string[]): Promise<DemoRecord[]> => {
   if (!searchTerms.length) return [];
 
   try {
