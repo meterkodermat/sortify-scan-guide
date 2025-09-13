@@ -85,13 +85,22 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 
 // Enhanced search with multiple terms
 const findBestMatches = async (labels: VisionLabel[]) => {
+  console.log('Labels from Gemini:', labels);
+  
   const allSearchTerms = labels.flatMap(label => {
     const terms = [];
     if (label.description) terms.push(label.description);
     if (label.translatedText) terms.push(label.translatedText);
-    if (label.materiale) terms.push(label.materiale);
+    
+    // Don't search by material type alone as it's too broad
+    // Only use material if we have a specific object name
+    if (label.materiale && label.description) {
+      terms.push(`${label.description} ${label.materiale}`);
+    }
     return terms;
   });
+
+  console.log('Search terms:', allSearchTerms);
 
   // Remove duplicates and clean terms
   const uniqueTerms = [...new Set(allSearchTerms)]
@@ -132,6 +141,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     // Step 2: Search database for matches
     const dbMatches = await findBestMatches(labels);
+    console.log('Database matches found:', dbMatches.length);
     
     let bestMatch = null;
     let confidence = 0;
@@ -140,6 +150,9 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       // Find best match based on label confidence and database relevance
       bestMatch = dbMatches[0];
       confidence = Math.round(labels[0].score * 100);
+      console.log('Using database match:', bestMatch.navn);
+    } else {
+      console.log('No database matches found, using AI categorization');
     }
 
     // Step 3: Build result from database or fallback to vision data
