@@ -323,24 +323,46 @@ serve(async (req) => {
         // Handle new komponenter format with confidence
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
           allResults = parsedResult.komponenter.map(component => ({
-            description: component.navne ? component.navne[0] : component.navn, // First name as primary
-            score: component.confidence || 0.9, // Use confidence from Gemini or fallback
+            description: component.description || component.navne?.[0] || component.navn || 'ukendt objekt', // First name as primary
+            score: component.score || component.confidence || 0.9, // Use confidence from Gemini or fallback
             type: 'gemini_detection',
             materiale: component.materiale,
             tilstand: component.tilstand,
             navne: component.navne || component.synonymer, // Use navne or fall back to synonymer
-            confidence: component.confidence || 0.9
+            confidence: component.score || component.confidence || 0.9
           }));
         }
         // Fallback: handle old single object format
-        else if (parsedResult.navne || parsedResult.navn) {
+        else if (parsedResult.navne || parsedResult.navn || parsedResult.description) {
           allResults = [{
-            description: parsedResult.navne ? parsedResult.navne[0] : parsedResult.navn,
-            score: 0.9,
+            description: parsedResult.description || (parsedResult.navne ? parsedResult.navne[0] : parsedResult.navn) || 'ukendt objekt',
+            score: parsedResult.score || 0.9,
             type: 'gemini_detection',
             materiale: parsedResult.materiale,
             tilstand: parsedResult.tilstand,
             navne: parsedResult.navne || parsedResult.synonymer
+          }];
+        }
+        // Handle case where only material is returned - create a generic description
+        else if (parsedResult.materiale) {
+          const materialDescriptions = {
+            'elektronik': 'elektronisk genstand',
+            'plastik': 'plastikgenstand', 
+            'pap': 'papgenstand',
+            'glas': 'glasgenstand',
+            'metal': 'metalgenstand',
+            'farligt': 'farlig genstand',
+            'organisk': 'madaffald',
+            'tekstil': 'tekstilgenstand',
+            'træ': 'trægenstand'
+          };
+          
+          allResults = [{
+            description: materialDescriptions[parsedResult.materiale] || 'ukendt genstand',
+            score: 0.7, // Lower confidence for generic material-only detection
+            type: 'gemini_detection',
+            materiale: parsedResult.materiale,
+            tilstand: parsedResult.tilstand
           }];
         }
       } else {

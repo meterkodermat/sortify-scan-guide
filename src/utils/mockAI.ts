@@ -23,6 +23,8 @@ interface VisionLabel {
   translatedText?: string;
   materiale?: string;
   tilstand?: string;
+  navne?: string[];
+  confidence?: number;
 }
 
 interface VisionResponse {
@@ -95,10 +97,35 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     if (label.description) terms.push(label.description);
     if (label.translatedText) terms.push(label.translatedText);
     
+    // Include alternative names if available
+    if (label.navne && Array.isArray(label.navne)) {
+      terms.push(...label.navne);
+    }
+    
     // Also search for specific object + material combinations
     if (label.materiale && label.description) {
       terms.push(`${label.description} ${label.materiale}`);
     }
+    
+    // If we only have material, add common objects of that material type
+    if (label.materiale && !label.description) {
+      const materialTerms = {
+        'elektronik': ['mobiltelefon', 'computer', 'tv', 'batteri', 'elektronik'],
+        'plastik': ['plastikflaske', 'pose', 'beholder'],
+        'pap': ['karton', 'æske', 'pizzaboks'],
+        'glas': ['flaske', 'glas', 'krukke'],
+        'metal': ['dåse', 'aluminium'],
+        'farligt': ['batteri', 'maling', 'kemikalier'],
+        'organisk': ['madaffald', 'frugt', 'grøntsager'],
+        'tekstil': ['tøj', 'sko', 'tekstil'],
+        'træ': ['møbler', 'træ', 'plade']
+      };
+      
+      if (materialTerms[label.materiale]) {
+        terms.push(...materialTerms[label.materiale]);
+      }
+    }
+    
     return terms;
   });
 
