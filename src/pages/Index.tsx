@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { CameraCapture } from "@/components/CameraCapture";
 import { WasteResult } from "@/components/WasteResult";
 import { RecentScans } from "@/components/RecentScans";
+import { SearchMode } from "@/components/SearchMode";
+import { AreaSelector } from "@/components/AreaSelector";
 import { identifyWaste } from "@/utils/mockAI";
-import { Camera, Upload, Leaf, Recycle } from "lucide-react";
+import { Camera, Upload, Leaf, Recycle, Search, Settings } from "lucide-react";
 import { toast } from "sonner";
 import heroImage from "@/assets/hero-image.jpg";
 
@@ -20,13 +22,14 @@ interface WasteItem {
   timestamp: Date;
 }
 
-type ViewState = 'home' | 'camera' | 'result' | 'analyzing';
+type ViewState = 'area-select' | 'home' | 'search' | 'camera' | 'result' | 'analyzing';
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('home');
+  const [currentView, setCurrentView] = useState<ViewState>('area-select');
   const [currentResult, setCurrentResult] = useState<WasteItem | null>(null);
   const [recentScans, setRecentScans] = useState<WasteItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedArea, setSelectedArea] = useState<string>('');
 
 
   const handleImageCapture = async (imageData: string) => {
@@ -66,6 +69,33 @@ const Index = () => {
     setCurrentResult(scan);
     setCurrentView('result');
   };
+
+  const handleAreaSelected = (area: string) => {
+    setSelectedArea(area);
+    setCurrentView('home');
+  };
+
+  const handleSearchResult = (result: WasteItem) => {
+    setCurrentResult(result);
+    // Add to recent scans (keep only last 10)
+    setRecentScans(prev => [result, ...prev.slice(0, 9)]);
+    setCurrentView('result');
+  };
+
+  if (currentView === 'area-select') {
+    return (
+      <AreaSelector onAreaSelected={handleAreaSelected} />
+    );
+  }
+
+  if (currentView === 'search') {
+    return (
+      <SearchMode
+        onBack={() => setCurrentView('home')}
+        onResult={handleSearchResult}
+      />
+    );
+  }
 
   if (currentView === 'camera') {
     return (
@@ -118,6 +148,20 @@ const Index = () => {
           className="w-full h-full object-cover opacity-15"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+        
+        {/* Demo Button in corner */}
+        <div className="absolute top-4 right-4">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setCurrentView('area-select')}
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Demo
+          </Button>
+        </div>
+        
         <div className="absolute inset-0 flex items-center justify-center text-center p-6">
           <div className="space-y-6 max-w-lg">
             <div className="flex items-center justify-center space-x-3">
@@ -129,6 +173,11 @@ const Index = () => {
             <p className="text-primary-foreground/95 text-lg font-medium leading-relaxed">
               Din intelligente guide til korrekt affaldssortering
             </p>
+            {selectedArea && (
+              <p className="text-primary-foreground/80 text-sm">
+                Område: {selectedArea === 'demo' ? 'Demo Database' : selectedArea}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -138,11 +187,24 @@ const Index = () => {
         {/* Action Buttons */}
         <div className="space-y-6">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-semibold text-foreground">Scan dit affald</h2>
+            <h2 className="text-2xl font-semibold text-foreground">Find dit affald</h2>
             <p className="text-muted-foreground">Vælg hvordan du vil identificere dit affald</p>
           </div>
           
           <div className="grid gap-4">
+            <Button
+              onClick={() => setCurrentView('search')}
+              variant="default"
+              size="lg"
+              className="w-full h-20 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <div className="flex flex-col items-center space-y-1">
+                <Search className="h-8 w-8" />
+                <span className="font-semibold">Søg i database</span>
+                <span className="text-xs opacity-90">Manual søgning</span>
+              </div>
+            </Button>
+
             <Button
               onClick={() => setCurrentView('camera')}
               variant="scan"

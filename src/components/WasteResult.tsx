@@ -190,7 +190,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                         </div>
                         <div className="flex items-center justify-center mt-3 p-3 bg-white/10 rounded-lg">
                           <div className="text-center">
-                            <img src={getSortingPictogram(category.recycling).props.src} alt={category.recycling} className="w-16 h-16 mx-auto mb-2 object-contain" />
                             <div className="font-bold">{category.recycling}</div>
                           </div>
                         </div>
@@ -240,7 +239,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               </div>
               <div className="flex items-center justify-center p-6 bg-white/10 rounded-lg">
                 <div className="text-center">
-                  {getSortingPictogram(item.recyclingCategory)}
                   <div className="mt-2 text-lg font-bold">
                     {item.recyclingCategory}
                   </div>
