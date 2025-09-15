@@ -98,13 +98,50 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
 
     setIsAiSuggesting(true);
     try {
-      // Create a mock image data URL for the AI to work with text
-      const mockImageData = `data:text/plain;base64,${btoa(searchTerm)}`;
-      const result = await identifyWaste(mockImageData);
-      
-      // Update the result to indicate it's an AI suggestion
-      result.name = `AI forslag: ${result.name}`;
-      result.confidence = Math.max(50, result.confidence); // AI suggestions are less certain
+      // Use the Supabase vision function directly with the search term
+      const { data, error } = await supabase.functions.invoke('vision-proxy', {
+        body: { textQuery: searchTerm }
+      });
+
+      if (error) {
+        throw new Error(`AI fejl: ${error.message || 'Ukendt fejl'}`);
+      }
+
+      if (!data?.success) {
+        throw new Error(`AI analyse fejl: ${data?.error || 'Ukendt fejl'}`);
+      }
+
+      const labels = data.labels || [];
+      if (!labels.length) {
+        throw new Error('AI kunne ikke identificere genstanden');
+      }
+
+      // Create result from AI analysis
+      const primaryLabel = labels[0];
+      const result: WasteItem = {
+        id: Date.now().toString(),
+        name: `AI forslag: ${primaryLabel.description || searchTerm}`,
+        image: '',
+        homeCategory: primaryLabel.materiale === 'pap' ? 'Pap' : 
+                     primaryLabel.materiale === 'plastik' ? 'Plast' : 
+                     primaryLabel.materiale === 'glas' ? 'Glas' : 
+                     primaryLabel.materiale === 'metal' ? 'Metal' : 
+                     primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
+                     primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                     primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
+                     primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald',
+        recyclingCategory: primaryLabel.materiale === 'pap' ? 'Pap' : 
+                          primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
+                          primaryLabel.materiale === 'glas' ? 'Glas' : 
+                          primaryLabel.materiale === 'metal' ? 'Metal' : 
+                          primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
+                          primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                          primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
+                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald',
+        description: primaryLabel.description || searchTerm,
+        confidence: Math.round(primaryLabel.score * 100) || 75,
+        timestamp: new Date(),
+      };
       
       onResult(result);
       toast.success('AI forslag genereret!');
