@@ -152,8 +152,15 @@ serve(async (req) => {
       let materiale = 'ukendt';
       let description = textQuery;
       
-      // Specific item categorization
-      if (normalizedQuery.includes('net') && (normalizedQuery.includes('appelsin') || normalizedQuery.includes('frugt') || normalizedQuery.includes('grøntsag'))) {
+      // Specific item categorization with emphasis on fruits being organic
+      if (normalizedQuery.includes('appelsin') || normalizedQuery.includes('orange') || 
+          normalizedQuery.includes('citrus') || normalizedQuery.includes('frugt') ||
+          normalizedQuery.includes('banan') || normalizedQuery.includes('æble')) {
+        materiale = 'organisk';
+        description = normalizedQuery.includes('appelsin') ? 'Appelsin' : 
+                     normalizedQuery.includes('orange') ? 'Orange' : 
+                     normalizedQuery.includes('banan') ? 'Banan' : 'Frugt';
+      } else if (normalizedQuery.includes('net') && (normalizedQuery.includes('appelsin') || normalizedQuery.includes('frugt') || normalizedQuery.includes('grøntsag'))) {
         materiale = 'plastik';
         description = 'Frugt/grøntsagsnet';
       } else if (normalizedQuery.includes('æg')) {
@@ -170,7 +177,7 @@ serve(async (req) => {
         materiale = 'glas';
       } else if (normalizedQuery.includes('metal') || normalizedQuery.includes('dåse')) {
         materiale = 'metal';
-      } else if (normalizedQuery.includes('mad') || normalizedQuery.includes('frugt')) {
+      } else if (normalizedQuery.includes('mad')) {
         materiale = 'organisk';
       } else if (normalizedQuery.includes('tøj') || normalizedQuery.includes('tekstil')) {
         materiale = 'tekstil';
@@ -318,7 +325,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Du er en ekspert i **praktisk affaldssortering** for en almindelig borger. Din vigtigste opgave er at identificere de specifikke genstande i billedet og hvordan en person i virkeligheden ville sortere dem.\n\n**KRITISKE KRAV - LÆS NØJE:**\n\n1. **SPECIFIKKE OBJEKTER:** Identificer SPECIFIKKE objekter som \"bilbatteri\", \"mobiltelefon\", \"plastikflaske\", \"æg\", \"appelsinnet\" osv.\n\n2. **UNDGÅ FEJLIDENTIFIKATION:**\n   - Hvis du ser et NET omkring frugt/grøntsager (fx appelsinnet, løgnet): Kald det \"[frugttype]net\" (fx \"appelsinnet\") og kategoriser som \"plastik\" - ALDRIG \"telefon\", \"fastnettelefon\", \"netværk\" eller byer/steder\n   - Hvis du ser ÆG: Kald det \"æg\" og kategoriser som \"organisk\" materiale - ALDRIG restaffald\n   - Hvis du ser en TELEFON: Kald det \"mobiltelefon\" eller \"fastnettelefon\" kun hvis det faktisk ER en telefon\n   - Undgå ALTID at bruge byer, steder eller netværkstermer som beskrivelser\n\n3. **MATERIALE KATEGORIER:**\n   - \"plastik\": flasker, poser, net, bøtter\n   - \"organisk\": madaffald, frugt, æg, grøntsager\n   - \"elektronik\": telefoner, computere, batterier\n   - \"farligt\": batterier, maling, kemikalier\n   - \"pap\": æsker, karton\n   - \"glas\": flasker, krukker\n   - \"metal\": dåser, aluminium\n   - \"tekstil\": tøj, sko\n\n**SPECIFIKKE EKSEMPLER:**\n✅ RIGTIGT:\n- NET omkring appelsiner → {\"description\": \"appelsinnet\", \"materiale\": \"plastik\"}\n- NET omkring løg → {\"description\": \"løgnet\", \"materiale\": \"plastik\"}\n- ÆG → {\"description\": \"æg\", \"materiale\": \"organisk\"}\n- MOBILTELEFON → {\"description\": \"mobiltelefon\", \"materiale\": \"elektronik\"}\n- PLASTIKFLASKE → {\"description\": \"plastikflaske\", \"materiale\": \"plastik\"}\n\n❌ FORKERT:\n- Net kaldt \"fastnettelefon\", \"netværk\", \"Aalborg\" eller andre byer\n- Æg kategoriseret som andet end \"organisk\"\n- Generelle termer som \"elektronik\", \"plastik\" uden specifikt objekt\n\nAnalyser billedet og identificer alle synlige genstande med ekstrem præcision.\n\nReturner JSON format: {\"komponenter\":[{\"description\":\"specifikt_navn\",\"materiale\":\"kategori\",\"score\":0.9}]}. Kun JSON svar." },
+            { text: "Du er en ekspert i **praktisk affaldssortering** for en almindelig borger. Din vigtigste opgave er at identificere de specifikke genstande i billedet og hvordan en person i virkeligheden ville sortere dem.\n\n**KRITISKE KRAV - LÆS NØJE:**\n\n1. **SPECIFIKKE OBJEKTER:** Identificer SPECIFIKKE objekter som \"bilbatteri\", \"mobiltelefon\", \"plastikflaske\", \"æg\", \"appelsinnet\" osv.\n\n2. **UNDGÅ FEJLIDENTIFIKATION:**\n   - Hvis du ser APPELSINER, CITRONER, BANANER eller anden FRUGT: Kald det \"appelsin\", \"citron\", \"banan\" osv. og kategoriser som \"organisk\" - ALDRIG \"plastik\" eller \"restaffald\"\n   - Hvis du ser et NET omkring frugt/grøntsager (fx appelsinnet, løgnet): Kald det \"[frugttype]net\" (fx \"appelsinnet\") og kategoriser som \"plastik\" - ALDRIG \"telefon\", \"fastnettelefon\", \"netværk\" eller byer/steder\n   - Hvis du ser ÆG: Kald det \"æg\" og kategoriser som \"organisk\" materiale - ALDRIG restaffald\n   - Hvis du ser en TELEFON: Kald det \"mobiltelefon\" eller \"fastnettelefon\" kun hvis det faktisk ER en telefon\n   - Undgå ALTID at bruge byer, steder eller netværkstermer som beskrivelser\n\n3. **MATERIALE KATEGORIER:**\n   - \"plastik\": flasker, poser, net, bøtter\n   - \"organisk\": madaffald, frugt, æg, grøntsager, appelsiner, bananer\n   - \"elektronik\": telefoner, computere, batterier\n   - \"farligt\": batterier, maling, kemikalier\n   - \"pap\": æsker, karton\n   - \"glas\": flasker, krukker\n   - \"metal\": dåser, aluminium\n   - \"tekstil\": tøj, sko\n\n**SPECIFIKKE EKSEMPLER:**\n✅ RIGTIGT:\n- APPELSINER → {\"description\": \"appelsin\", \"materiale\": \"organisk\"}\n- NET omkring appelsiner → {\"description\": \"appelsinnet\", \"materiale\": \"plastik\"}\n- NET omkring løg → {\"description\": \"løgnet\", \"materiale\": \"plastik\"}\n- ÆG → {\"description\": \"æg\", \"materiale\": \"organisk\"}\n- MOBILTELEFON → {\"description\": \"mobiltelefon\", \"materiale\": \"elektronik\"}\n- PLASTIKFLASKE → {\"description\": \"plastikflaske\", \"materiale\": \"plastik\"}\n\n❌ FORKERT:\n- Appelsiner kaldt \"plastfolie\" eller kategoriseret som \"plastik\"\n- Net kaldt \"fastnettelefon\", \"netværk\", \"Aalborg\" eller andre byer\n- Æg kategoriseret som andet end \"organisk\"\n- Frugt kategoriseret som \"restaffald\"\n- Generelle termer som \"elektronik\", \"plastik\" uden specifikt objekt\n\nAnalyser billedet og identificer alle synlige genstande med ekstrem præcision.\n\nReturner JSON format: {\"komponenter\":[{\"description\":\"specifikt_navn\",\"materiale\":\"kategori\",\"score\":0.9}]}. Kun JSON svar." },
             { 
               inline_data: {
                 mime_type: "image/jpeg",
