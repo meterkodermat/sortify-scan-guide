@@ -3,10 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Sparkles, ArrowLeft } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { identifyWaste } from "@/utils/mockAI";
 import { toast } from "sonner";
+
+// Import pictograms
+import farligtAffaldIcon from "@/assets/farligt-affald-official.png";
+import glasIcon from "@/assets/glas-official.png";
+import madDrikkeKartonerIcon from "@/assets/mad-drikke-kartoner-official.png";
+import madaffaldsIcon from "@/assets/madaffald-official.png";
+import metalIcon from "@/assets/metal-official.png";
+import papIcon from "@/assets/pap-official.png";
+import papirIcon from "@/assets/papir-official.png";
+import plastIcon from "@/assets/plast-official.png";
+import restaffaldsIcon from "@/assets/restaffald-official.png";
+import tekstilaffaldsIcon from "@/assets/tekstilaffald-official.png";
 
 interface WasteItem {
   id: string;
@@ -34,11 +45,25 @@ interface SearchModeProps {
   onResult: (item: WasteItem) => void;
 }
 
+const getIconForCategory = (category: string): string => {
+  const categoryLower = category?.toLowerCase() || '';
+  
+  if (categoryLower.includes('farligt')) return farligtAffaldIcon;
+  if (categoryLower.includes('glas')) return glasIcon;
+  if (categoryLower.includes('mad') && categoryLower.includes('kartoner')) return madDrikkeKartonerIcon;
+  if (categoryLower.includes('madaffald') || categoryLower.includes('organisk')) return madaffaldsIcon;
+  if (categoryLower.includes('metal')) return metalIcon;
+  if (categoryLower.includes('pap') && !categoryLower.includes('papir')) return papIcon;
+  if (categoryLower.includes('papir')) return papirIcon;
+  if (categoryLower.includes('plast')) return plastIcon;
+  if (categoryLower.includes('tekstil')) return tekstilaffaldsIcon;
+  return restaffaldsIcon; // Default to restaffald
+};
+
 export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<DatabaseItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
 
   const searchDatabase = async (term: string) => {
     if (!term || term.length < 2) {
@@ -76,12 +101,23 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
   };
 
   const handleSelectItem = (item: DatabaseItem) => {
+    // Fix orange categorization - oranges should go in food waste
+    let homeCategory = item.hjem || 'Restaffald';
+    let recyclingCategory = item.genbrugsplads || 'Restaffald';
+    
+    // Special handling for oranges and other organic items
+    const itemName = item.navn?.toLowerCase() || '';
+    if (itemName.includes('appelsin') || itemName.includes('citrus') || itemName.includes('frugt')) {
+      homeCategory = 'Madaffald';
+      recyclingCategory = 'Ikke muligt';
+    }
+
     const result: WasteItem = {
       id: Date.now().toString(),
       name: item.navn,
-      image: '', // No image for database searches
-      homeCategory: item.hjem || 'Restaffald',
-      recyclingCategory: item.genbrugsplads || 'Restaffald',
+      image: getIconForCategory(homeCategory),
+      homeCategory,
+      recyclingCategory,
       description: item.variation || item.navn,
       confidence: 100, // Database results are 100% certain
       timestamp: new Date(),
@@ -90,68 +126,6 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
     onResult(result);
   };
 
-  const getAiSuggestion = async () => {
-    if (!searchTerm || searchTerm.length < 2) {
-      toast.error('Indtast mindst 2 tegn for AI-forslag');
-      return;
-    }
-
-    setIsAiSuggesting(true);
-    try {
-      // Use the Supabase vision function directly with the search term
-      const { data, error } = await supabase.functions.invoke('vision-proxy', {
-        body: { textQuery: searchTerm }
-      });
-
-      if (error) {
-        throw new Error(`AI fejl: ${error.message || 'Ukendt fejl'}`);
-      }
-
-      if (!data?.success) {
-        throw new Error(`AI analyse fejl: ${data?.error || 'Ukendt fejl'}`);
-      }
-
-      const labels = data.labels || [];
-      if (!labels.length) {
-        throw new Error('AI kunne ikke identificere genstanden');
-      }
-
-      // Create result from AI analysis
-      const primaryLabel = labels[0];
-      const result: WasteItem = {
-        id: Date.now().toString(),
-        name: `AI forslag: ${primaryLabel.description || searchTerm}`,
-        image: '',
-        homeCategory: primaryLabel.materiale === 'pap' ? 'Pap' : 
-                     primaryLabel.materiale === 'plastik' ? 'Plast' : 
-                     primaryLabel.materiale === 'glas' ? 'Glas' : 
-                     primaryLabel.materiale === 'metal' ? 'Metal' : 
-                     primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
-                     primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                     primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
-                     primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald',
-        recyclingCategory: primaryLabel.materiale === 'pap' ? 'Pap' : 
-                          primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
-                          primaryLabel.materiale === 'glas' ? 'Glas' : 
-                          primaryLabel.materiale === 'metal' ? 'Metal' : 
-                          primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
-                          primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                          primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
-                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald',
-        description: primaryLabel.description || searchTerm,
-        confidence: Math.round(primaryLabel.score * 100) || 75,
-        timestamp: new Date(),
-      };
-      
-      onResult(result);
-      toast.success('AI forslag genereret!');
-    } catch (error) {
-      console.error('AI suggestion error:', error);
-      toast.error('Kunne ikke generere AI forslag. Prøv igen.');
-    } finally {
-      setIsAiSuggesting(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -176,20 +150,9 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
                 value={searchTerm}
                 onChange={handleSearchChange}
                 className="pl-10"
-                disabled={isSearching || isAiSuggesting}
+                disabled={isSearching}
               />
             </div>
-            
-            {/* AI Suggestion Button */}
-            <Button 
-              onClick={getAiSuggestion}
-              disabled={!searchTerm || searchTerm.length < 2 || isAiSuggesting || isSearching}
-              variant="outline"
-              className="w-full"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              {isAiSuggesting ? 'Genererer AI forslag...' : 'Få AI forslag'}
-            </Button>
           </div>
         </Card>
 
@@ -207,28 +170,35 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
             <h3 className="font-semibold mb-4">Søgeresultater ({searchResults.length})</h3>
             <div className="space-y-3">
               {searchResults.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelectItem(item)}
-                  className="p-4 border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-foreground">{item.navn}</h4>
-                      {item.variation && item.variation !== item.navn && (
-                        <p className="text-sm text-muted-foreground">{item.variation}</p>
-                      )}
-                      {item.materiale && (
-                        <Badge variant="secondary" className="mt-1">
-                          {item.materiale}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      <div>{item.hjem || 'Restaffald'}</div>
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectItem(item)}
+                    className="p-4 border rounded-lg cursor-pointer hover:bg-muted/20 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <img 
+                          src={getIconForCategory(item.hjem || 'Restaffald')} 
+                          alt={item.hjem || 'Restaffald'} 
+                          className="w-10 h-10 object-contain"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-foreground">{item.navn}</h4>
+                          {item.variation && item.variation !== item.navn && (
+                            <p className="text-sm text-muted-foreground">{item.variation}</p>
+                          )}
+                          {item.materiale && (
+                            <Badge variant="secondary" className="mt-1">
+                              {item.materiale}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <div>{item.hjem || 'Restaffald'}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
               ))}
             </div>
           </Card>
@@ -238,7 +208,7 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
           <Card className="p-6 bg-gradient-card shadow-card">
             <div className="text-center text-muted-foreground">
               <p>Ingen resultater fundet for "{searchTerm}"</p>
-              <p className="text-sm mt-1">Prøv AI forslag eller søg efter andre termer</p>
+              <p className="text-sm mt-1">Prøv andre søgetermer</p>
             </div>
           </Card>
         )}
@@ -248,9 +218,8 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
           <div className="text-sm text-muted-foreground">
             <p className="font-medium mb-1">Sådan bruger du søgning:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>Standard søgning viser kun resultater fra databasen</li>
-              <li>Klik "AI forslag" for at få AI's bud på sortering</li>
               <li>Søg efter genstandens navn eller materiale</li>
+              <li>Vælg det rigtige resultat fra listen</li>
             </ul>
           </div>
         </Card>
