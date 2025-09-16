@@ -34,6 +34,18 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     setCameraError(null);
     
     try {
+      // Check if video element is available
+      if (!videoRef.current) {
+        console.error("❌ Video ref not available yet");
+        // Wait a bit more and try again
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (!videoRef.current) {
+          throw new Error("Video element not ready after waiting");
+        }
+      }
+      
+      console.log("✅ Video element is ready");
+      
       // Check if navigator.mediaDevices exists
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("❌ Camera API not supported");
@@ -72,27 +84,46 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         videoRef.current.srcObject = stream;
         console.log("📺 Video element srcObject set");
         
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          console.log("📺 Video metadata loaded:", {
-            videoWidth: videoRef.current?.videoWidth,
-            videoHeight: videoRef.current?.videoHeight,
-            readyState: videoRef.current?.readyState
-          });
-          setIsCapturing(true);
-          setIsLoading(false);
-          console.log("✅ Camera started successfully");
-        };
+        // Wait for video to be ready with timeout
+        const videoReady = new Promise<void>((resolve, reject) => {
+          const video = videoRef.current;
+          if (!video) {
+            reject(new Error("Video element disappeared"));
+            return;
+          }
+          
+          const timeout = setTimeout(() => {
+            reject(new Error("Video load timeout"));
+          }, 10000); // 10 second timeout
+          
+          const onReady = () => {
+            clearTimeout(timeout);
+            console.log("📺 Video metadata loaded:", {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              readyState: video.readyState
+            });
+            resolve();
+          };
+          
+          if (video.readyState >= 1) {
+            // Already ready
+            onReady();
+          } else {
+            video.onloadedmetadata = onReady;
+            video.oncanplay = onReady;
+          }
+        });
         
-        // Add error handling for video element
-        videoRef.current.onerror = (e) => {
-          console.error("❌ Video element error:", e);
-          setCameraError("Fejl ved afspilning af kamera feed");
-        };
+        await videoReady;
+        
+        setIsCapturing(true);
+        setIsLoading(false);
+        console.log("✅ Camera started successfully");
         
       } else {
-        console.error("❌ Video ref not available");
-        throw new Error("Video element not ready");
+        console.error("❌ Video ref became unavailable");
+        throw new Error("Video element became unavailable");
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
@@ -116,6 +147,8 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
           errorMessage += "Kamera indstillinger understøttes ikke.";
         } else if (error.message.includes("HTTPS")) {
           errorMessage += "HTTPS kræves for kamera adgang.";
+        } else if (error.message.includes("Video element")) {
+          errorMessage += "Kamera interface fejl - prøv at genindlæse siden.";
         } else {
           errorMessage += error.message;
         }
@@ -129,11 +162,17 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   // Auto-start camera when component mounts
   useEffect(() => {
-    console.log("🚀 CameraCapture component mounted - starting camera automatically");
-    startCamera();
+    console.log("🚀 CameraCapture component mounted");
+    
+    // Small delay to ensure video element is rendered
+    const timer = setTimeout(() => {
+      console.log("⏰ Starting camera after delay to ensure video element is ready");
+      startCamera();
+    }, 100);
     
     // Cleanup function to stop camera when component unmounts
     return () => {
+      clearTimeout(timer);
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => {
