@@ -96,11 +96,10 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5 mr-2" />
             Tilbage
           </Button>
           <Button variant="ghost" onClick={onHome}>
-            <Home className="h-5 w-5" />
+            Hjem
           </Button>
         </div>
 
