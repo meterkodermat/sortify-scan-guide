@@ -249,24 +249,48 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     // Step 3: Build result from database or fallback to vision data
     if (bestMatch) {
+      // Count identical items and create description
+      const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
+      const itemName = itemCount > 1 ? `${bestMatch.navn || primaryLabel.description} (${itemCount} stk.)` : bestMatch.navn || primaryLabel.description;
+      
+      // Get unique components (not matching primary item)
+      const uniqueComponents = [];
+      const componentMap = new Map();
+      
+      labels.forEach(label => {
+        if (label.description !== primaryLabel.description) {
+          const key = `${label.description}-${label.materiale || ''}`;
+          if (!componentMap.has(key)) {
+            componentMap.set(key, {
+              genstand: label.description,
+              materiale: label.materiale || bestMatch.materiale || 'Ukendt',
+              tilstand: label.tilstand,
+              count: 1
+            });
+          } else {
+            componentMap.get(key).count++;
+          }
+        }
+      });
+      
+      uniqueComponents.push(...componentMap.values());
+
       // Use database data
       return {
         id: Date.now().toString(),
-        name: bestMatch.navn || primaryLabel.description,
+        name: itemName,
         image: imageData,
         homeCategory: bestMatch.hjem || 'Restaffald',
         recyclingCategory: bestMatch.genbrugsplads || 'Restaffald',
-        description: `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}`,
+        description: `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}${itemCount > 1 ? `. Indeholder ${itemCount} styk.` : ''}`,
         confidence: confidence,
         timestamp: new Date(),
-        aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}`,
-        components: labels.length > 1 ? labels
-          .filter(label => label.description !== primaryLabel.description) // Remove primary item from components
-          .map(label => ({
-            genstand: label.description,
-            materiale: label.materiale || bestMatch.materiale || 'Ukendt',
-            tilstand: label.tilstand
-          })) : []
+        aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande.` : ''}`,
+        components: uniqueComponents.map(comp => ({
+          genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
+          materiale: comp.materiale,
+          tilstand: comp.tilstand
+        }))
       };
     } else {
       // Fallback to basic categorization from vision data
@@ -311,23 +335,47 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                            primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
       }
 
+      // Count identical items and create description
+      const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
+      const itemName = itemCount > 1 ? `${primaryLabel.description} (${itemCount} stk.)` : primaryLabel.description;
+      
+      // Get unique components (not matching primary item)
+      const uniqueComponents = [];
+      const componentMap = new Map();
+      
+      labels.forEach(label => {
+        if (label.description !== primaryLabel.description) {
+          const key = `${label.description}-${label.materiale || ''}`;
+          if (!componentMap.has(key)) {
+            componentMap.set(key, {
+              genstand: label.description,
+              materiale: label.materiale || 'Ukendt',
+              tilstand: label.tilstand,
+              count: 1
+            });
+          } else {
+            componentMap.get(key).count++;
+          }
+        }
+      });
+      
+      uniqueComponents.push(...componentMap.values());
+
       return {
         id: Date.now().toString(),
-        name: primaryLabel.description,
+        name: itemName,
         image: imageData,
         homeCategory: homeCategory,
         recyclingCategory: recyclingCategory,
-        description: primaryLabel.description,
+        description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} styk detekteret` : ''}`,
         confidence: Math.round(primaryLabel.score * 100),
         timestamp: new Date(),
-        aiThoughtProcess: 'Ikke fundet i database - bruger AI-kategorisering',
-        components: labels.length > 1 ? labels
-          .filter(label => label.description !== primaryLabel.description) // Remove primary item from components
-          .map(label => ({
-            genstand: label.description,
-            materiale: label.materiale || 'Ukendt',
-            tilstand: label.tilstand
-          })) : []
+        aiThoughtProcess: `Ikke fundet i database - bruger AI-kategorisering${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande.` : ''}`,
+        components: uniqueComponents.map(comp => ({
+          genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
+          materiale: comp.materiale,
+          tilstand: comp.tilstand
+        }))
       };
     }
 
