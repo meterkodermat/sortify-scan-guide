@@ -96,10 +96,8 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onBack}>
-            Tilbage
           </Button>
           <Button variant="ghost" onClick={onHome}>
-            Hjem
           </Button>
         </div>
 
