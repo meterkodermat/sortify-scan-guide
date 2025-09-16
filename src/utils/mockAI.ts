@@ -177,11 +177,71 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     
     let bestMatch = null;
     let confidence = 0;
+    let primaryLabel = labels[0];
+
+    // Smart logic to determine the main item vs components
+    if (labels.length > 1) {
+      // Check if we have food items with packaging - prioritize the food
+      const foodItems = labels.filter(label => 
+        label.materiale === 'organisk' || 
+        (label.description && (
+          label.description.toLowerCase().includes('appelsin') ||
+          label.description.toLowerCase().includes('frugt') ||
+          label.description.toLowerCase().includes('grøntsag') ||
+          label.description.toLowerCase().includes('mad')
+        ))
+      );
+      
+      const packagingItems = labels.filter(label => 
+        label.materiale === 'plastik' || 
+        (label.description && (
+          label.description.toLowerCase().includes('plastik') ||
+          label.description.toLowerCase().includes('folie') ||
+          label.description.toLowerCase().includes('pose') ||
+          label.description.toLowerCase().includes('net')
+        ))
+      );
+
+      // If we have food items with packaging, prioritize the food
+      if (foodItems.length > 0 && packagingItems.length > 0) {
+        primaryLabel = foodItems[0];
+        console.log('Detected food with packaging, prioritizing food item:', primaryLabel.description);
+      }
+      // If we have multiple food items, take the highest confidence one
+      else if (foodItems.length > 1) {
+        primaryLabel = foodItems.reduce((highest, current) => 
+          current.score > highest.score ? current : highest
+        );
+        console.log('Multiple food items detected, using highest confidence:', primaryLabel.description);
+      }
+    }
 
     if (dbMatches.length > 0) {
-      // Find best match based on label confidence and database relevance
-      bestMatch = dbMatches[0];
-      confidence = Math.round(labels[0].score * 100);
+      // Find best match that corresponds to our primary label
+      bestMatch = dbMatches.find(match => {
+        const matchName = match.navn.toLowerCase();
+        const labelDesc = primaryLabel.description.toLowerCase();
+        
+        // Direct name match
+        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
+          return true;
+        }
+        
+        // Material match
+        if (match.materiale && primaryLabel.materiale && 
+            match.materiale.toLowerCase() === primaryLabel.materiale.toLowerCase()) {
+          return true;
+        }
+        
+        return false;
+      });
+      
+      // If no direct match found, use the first one
+      if (!bestMatch) {
+        bestMatch = dbMatches[0];
+      }
+      
+      confidence = Math.round(primaryLabel.score * 100);
       console.log('Using database match:', bestMatch.navn);
     } else {
       console.log('No database matches found, using AI categorization');
@@ -192,23 +252,24 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       // Use database data
       return {
         id: Date.now().toString(),
-        name: bestMatch.navn || labels[0].description,
+        name: bestMatch.navn || primaryLabel.description,
         image: imageData,
         homeCategory: bestMatch.hjem || 'Restaffald',
         recyclingCategory: bestMatch.genbrugsplads || 'Restaffald',
-        description: `${bestMatch.variation || bestMatch.navn || labels[0].description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}`,
+        description: `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}`,
         confidence: confidence,
         timestamp: new Date(),
         aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}`,
-        components: labels.length > 1 ? labels.map(label => ({
-          genstand: label.description,
-          materiale: label.materiale || bestMatch.materiale || 'Ukendt',
-          tilstand: label.tilstand
-        })) : []
+        components: labels.length > 1 ? labels
+          .filter(label => label.description !== primaryLabel.description) // Remove primary item from components
+          .map(label => ({
+            genstand: label.description,
+            materiale: label.materiale || bestMatch.materiale || 'Ukendt',
+            tilstand: label.tilstand
+          })) : []
       };
     } else {
       // Fallback to basic categorization from vision data
-      const primaryLabel = labels[0];
       
       // Special handling for specific items
       let homeCategory, recyclingCategory;
@@ -260,11 +321,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         confidence: Math.round(primaryLabel.score * 100),
         timestamp: new Date(),
         aiThoughtProcess: 'Ikke fundet i database - bruger AI-kategorisering',
-        components: labels.length > 1 ? labels.map(label => ({
-          genstand: label.description,
-          materiale: label.materiale || 'Ukendt',
-          tilstand: label.tilstand
-        })) : []
+        components: labels.length > 1 ? labels
+          .filter(label => label.description !== primaryLabel.description) // Remove primary item from components
+          .map(label => ({
+            genstand: label.description,
+            materiale: label.materiale || 'Ukendt',
+            tilstand: label.tilstand
+          })) : []
       };
     }
 
