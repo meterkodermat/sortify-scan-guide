@@ -9,7 +9,7 @@ import { AreaSelector } from "@/components/AreaSelector";
 import { identifyWaste } from "@/utils/mockAI";
 import { Camera, Upload, Leaf, Recycle, Search, Settings } from "lucide-react";
 import { toast } from "sonner";
-import heroImage from "@/assets/hero-image.jpg";
+
 
 interface WasteItem {
   id: string;
@@ -142,11 +142,6 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-subtle">
       {/* Hero Section */}
       <div className="relative h-80 bg-gradient-hero overflow-hidden">
-        <img
-          src={heroImage}
-          alt="Sortify - Affaldssortering"
-          className="w-full h-full object-cover opacity-15"
-        />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
         
         {/* Demo Button in corner */}
