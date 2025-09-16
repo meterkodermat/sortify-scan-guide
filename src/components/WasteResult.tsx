@@ -113,26 +113,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
         {/* Identification */}
         <Card className="p-6 bg-gradient-card shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-foreground">Fundet genstand</h2>
+            <h2 className="text-2xl font-bold text-foreground">{item.name}</h2>
             <Badge variant="secondary" className="bg-success text-success-foreground">
               {Math.round(item.confidence)}% sikker
             </Badge>
           </div>
-          
-          {/* Main identified item - always show prominently */}
-          <div className="bg-primary/10 rounded-lg p-4 mb-4 border-2 border-primary/20">
-            <h3 className="text-2xl font-bold text-primary mb-2">{item.name}</h3>
-            <p className="text-muted-foreground text-base">{item.description}</p>
-          </div>
+          <p className="text-muted-foreground">{item.description}</p>
         </Card>
 
         {/* Individual Components (if many different materials found) */}
-        {item.components && item.components.length > 0 ? (
+        {item.components && item.components.length > 0 && (
           <Card className="p-6 bg-gradient-card shadow-card">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
-              Sådan sorterer du de {item.components.length} dele:
-            </h3>
-            <div className="space-y-6">
+            <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
+            <div className="space-y-3">
               {item.components.map((component, index) => {
                 const getMaterialCategory = (materiale: string) => {
                   switch (materiale.toLowerCase()) {
@@ -158,54 +151,51 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 const category = getMaterialCategory(component.materiale);
                 
                 return (
-                  <div key={index} className="border-2 border-muted/30 rounded-lg p-4 bg-card">
-                    {/* Component header */}
-                    <div className="flex items-center gap-3 mb-4 bg-muted/10 rounded-lg p-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center font-bold text-primary text-sm border-2 border-primary/20">
-                        {index + 1}
-                      </div>
+                  <div key={index} className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-lg">
+                      <img src={category.pictogram} alt={component.materiale} className="w-12 h-12 object-contain" />
                       <div className="flex-1">
-                        <div className="font-bold text-xl text-foreground">
+                        <div className="font-medium text-foreground">
                           {component.genstand}
                           {component.tilstand && (
-                            <span className="text-sm text-muted-foreground ml-2 font-normal">({component.tilstand})</span>
+                            <span className="text-sm text-muted-foreground ml-2">({component.tilstand})</span>
                           )}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Materiale: <span className="font-medium">{component.materiale}</span>
+                          Materiale: {component.materiale}
                         </div>
                       </div>
                     </div>
                     
                     {/* Individual sorting cards for each component */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="p-4 bg-muted/20 border-2 border-muted/40">
-                        <div className="flex items-center gap-3 mb-3">
+                    <div className="grid grid-cols-1 gap-3 ml-4">
+                      <Card className="p-4 bg-muted/30 text-foreground border-2 border-muted/50">
+                        <div className="flex items-center gap-3">
                           <Home className="h-5 w-5 text-muted-foreground" />
                           <div className="flex-1">
-                            <div className="font-semibold text-foreground">Hjemme sortering</div>
-                            <div className="text-xs text-muted-foreground">Sådan sorterer du hjemme</div>
+                            <div className="font-semibold">Hjemme sortering</div>
+                            <div className="text-sm text-muted-foreground">Sådan sorterer du hjemme</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-center p-3 bg-muted/10 rounded-lg border border-muted/30">
+                        <div className="flex items-center justify-center mt-3 p-3 bg-background rounded-lg border border-muted/30">
                           <div className="text-center">
-                            <img src={category.pictogram} alt={category.home} className="w-12 h-12 mx-auto mb-2 object-contain" />
-                            <div className="font-bold text-sm text-foreground">{category.home}</div>
+                            <img src={category.pictogram} alt={category.home} className="w-16 h-16 mx-auto mb-2 object-contain" />
+                            <div className="font-bold text-foreground">{category.home}</div>
                           </div>
                         </div>
                       </Card>
                       
-                      <Card className="p-4 bg-muted/20 border-2 border-muted/40">
-                        <div className="flex items-center gap-3 mb-3">
+                      <Card className="p-4 bg-muted/30 text-foreground border-2 border-muted/50">
+                        <div className="flex items-center gap-3">
                           <Recycle className="h-5 w-5 text-muted-foreground" />
                           <div className="flex-1">
-                            <div className="font-semibold text-foreground">Genbrugsplads</div>
-                            <div className="text-xs text-muted-foreground">Sådan afleverer du</div>
+                            <div className="font-semibold">Genbrugsplads</div>
+                            <div className="text-sm text-muted-foreground">Sådan afleverer du</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-center p-3 bg-muted/10 rounded-lg border border-muted/30">
+                        <div className="flex items-center justify-center mt-3 p-3 bg-background rounded-lg border border-muted/30">
                           <div className="text-center">
-                            <div className="font-bold text-sm text-foreground">{category.recycling}</div>
+                            <div className="font-bold text-foreground">{category.recycling}</div>
                           </div>
                         </div>
                       </Card>
@@ -215,21 +205,22 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               })}
             </div>
           </Card>
-        ) : (
-          /* Main Item Sorting Instructions - only show if no components */
-          <div className="space-y-4">
+        )}
+
+        {/* Main Item Sorting Instructions */}
+        <div className="space-y-4">
             {/* Home Sorting */}
-            <Card className="p-6 bg-muted/20 border-2 border-muted/40 shadow-strong">
+            <Card className="p-6 bg-muted/30 text-foreground border-2 border-muted/50 shadow-strong">
               <div className="flex items-center mb-4">
-                <div className="p-2 bg-muted/30 rounded-lg mr-3">
+                <div className="p-2 bg-muted/20 rounded-lg mr-3">
                   <Home className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-foreground">Hjemme sortering</h3>
+                  <h3 className="font-bold text-lg">Hjemme sortering</h3>
                   <p className="text-sm text-muted-foreground">Sådan sorterer du hjemme</p>
                 </div>
               </div>
-              <div className="flex items-center justify-center p-6 bg-muted/10 rounded-lg border border-muted/30">
+              <div className="flex items-center justify-center p-6 bg-background rounded-lg border border-muted/30">
                 <div className="text-center">
                   {getSortingPictogram(item.homeCategory)}
                   <div className="mt-2 text-lg font-bold text-foreground">
@@ -240,17 +231,17 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             </Card>
 
             {/* Recycling Center */}
-            <Card className="p-6 bg-muted/20 border-2 border-muted/40 shadow-strong">
+            <Card className="p-6 bg-muted/30 text-foreground border-2 border-muted/50 shadow-strong">
               <div className="flex items-center mb-4">
-                <div className="p-2 bg-muted/30 rounded-lg mr-3">
+                <div className="p-2 bg-muted/20 rounded-lg mr-3">
                   <Recycle className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-foreground">Genbrugsplads</h3>
+                  <h3 className="font-bold text-lg">Genbrugsplads</h3>
                   <p className="text-sm text-muted-foreground">Sådan afleverer du</p>
                 </div>
               </div>
-              <div className="flex items-center justify-center p-6 bg-muted/10 rounded-lg border border-muted/30">
+              <div className="flex items-center justify-center p-6 bg-background rounded-lg border border-muted/30">
                 <div className="text-center">
                   <div className="mt-2 text-lg font-bold text-foreground">
                     {item.recyclingCategory}
@@ -259,7 +250,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               </div>
             </Card>
           </div>
-        )}
 
         {/* AI Analysis Process (if available) */}
         {item.aiThoughtProcess && (
