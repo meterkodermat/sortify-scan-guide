@@ -15,58 +15,146 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  console.log("🎥 CameraCapture component rendered", {
+    isLoading,
+    error,
+    capturedImage: !!capturedImage,
+    stream: !!stream
+  });
+
   // Initialize camera
   useEffect(() => {
     let mounted = true;
 
     const initCamera = async () => {
+      console.log("📱 Starting camera initialization...");
+      
       try {
-        console.log("📱 Initializing camera...");
-        
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error("Kamera API understøttes ikke");
+        // Check basic support
+        console.log("🔍 Checking browser capabilities:", {
+          navigator: typeof navigator !== 'undefined',
+          mediaDevices: !!navigator?.mediaDevices,
+          getUserMedia: !!navigator?.mediaDevices?.getUserMedia,
+          isSecureContext: window?.isSecureContext,
+          userAgent: navigator?.userAgent,
+          protocol: window?.location?.protocol
+        });
+
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          throw new Error("getUserMedia ikke understøttet");
         }
 
         if (!window.isSecureContext) {
-          throw new Error("HTTPS kræves for kamera adgang");
+          throw new Error("Kræver HTTPS for kamera adgang");
         }
 
+        console.log("📞 getUserMedia request starting...");
+        
+        // Try with basic constraints first
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            facingMode: { ideal: "environment" }
           }
         });
 
-        if (!mounted) return;
+        console.log("✅ getUserMedia success:", {
+          stream: !!mediaStream,
+          tracks: mediaStream?.getTracks?.()?.length || 0,
+          videoTracks: mediaStream?.getVideoTracks?.()?.length || 0
+        });
 
-        console.log("✅ Camera stream obtained");
+        if (!mounted) {
+          console.log("⚠️ Component unmounted, stopping stream");
+          mediaStream?.getTracks?.()?.forEach?.(track => track.stop());
+          return;
+        }
+
         setStream(mediaStream);
 
-        // Set up video element
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-          videoRef.current.onloadedmetadata = () => {
+        // Wait for video element and setup
+        let attempts = 0;
+        const setupVideo = () => {
+          attempts++;
+          console.log(`🎬 Setting up video element (attempt ${attempts})`);
+          
+          if (!videoRef.current) {
+            console.log("⚠️ Video element not ready, retrying...");
+            if (attempts < 10) {
+              setTimeout(setupVideo, 100);
+            } else {
+              throw new Error("Video element aldrig blevet klar");
+            }
+            return;
+          }
+
+          const video = videoRef.current;
+          video.srcObject = mediaStream;
+          video.muted = true;
+          video.playsInline = true;
+          
+          console.log("📺 Video srcObject set, waiting for metadata...");
+
+          const onLoadedMetadata = () => {
+            console.log("✅ Video metadata loaded:", {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              readyState: video.readyState
+            });
+            
             if (mounted) {
-              console.log("✅ Video ready");
               setIsLoading(false);
               setError(null);
             }
           };
-        }
+
+          const onError = (e: Event) => {
+            console.error("❌ Video error:", e);
+            if (mounted) {
+              setError("Video fejl - kan ikke afspille kamera feed");
+              setIsLoading(false);
+            }
+          };
+
+          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+          video.addEventListener('error', onError);
+
+          // Fallback - if metadata doesn't load within 5 seconds
+          setTimeout(() => {
+            if (mounted && isLoading) {
+              console.log("⏰ Metadata timeout, trying to play anyway");
+              setIsLoading(false);
+              setError(null);
+            }
+          }, 5000);
+        };
+
+        setupVideo();
 
       } catch (err) {
-        if (!mounted) return;
+        console.error("❌ Camera initialization failed:", err);
         
-        console.error("❌ Camera error:", err);
+        if (!mounted) return;
         
         let errorMessage = "Kunne ikke få adgang til kameraet. ";
         if (err instanceof Error) {
+          console.error("❌ Error details:", {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
+          });
+          
           if (err.name === "NotAllowedError") {
-            errorMessage += "Giv tilladelse til kameraet.";
+            errorMessage += "Du skal give tilladelse til kameraet. Tryk på 'Tillad' når browseren spørger.";
           } else if (err.name === "NotFoundError") {
-            errorMessage += "Intet kamera fundet.";
+            errorMessage += "Intet kamera fundet på denne enhed.";
+          } else if (err.name === "NotSupportedError") {
+            errorMessage += "Kameraet understøttes ikke i denne browser.";
+          } else if (err.name === "NotReadableError") {
+            errorMessage += "Kameraet er i brug af et andet program.";
+          } else if (err.name === "OverconstrainedError") {
+            errorMessage += "Kamera indstillinger ikke understøttet.";
           } else {
             errorMessage += err.message;
           }
@@ -78,12 +166,18 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       }
     };
 
-    initCamera();
+    // Small delay to ensure component is fully mounted
+    const timer = setTimeout(initCamera, 100);
 
     return () => {
       mounted = false;
+      clearTimeout(timer);
+      console.log("🧹 Cleaning up camera component");
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          console.log("🛑 Stopping track:", track.kind);
+          track.stop();
+        });
       }
     };
   }, []);
