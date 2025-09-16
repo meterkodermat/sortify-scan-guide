@@ -8,16 +8,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Import pictograms
-import farligtAffaldIcon from "@/assets/farligt-affald-official.png";
-import glasIcon from "@/assets/glas-official.png";
-import madDrikkeKartonerIcon from "@/assets/mad-drikke-kartoner-official.png";
-import madaffaldsIcon from "@/assets/madaffald-official.png";
-import metalIcon from "@/assets/metal-official.png";
-import papIcon from "@/assets/pap-official.png";
-import papirIcon from "@/assets/papir-official.png";
-import plastIcon from "@/assets/plast-official.png";
-import restaffaldsIcon from "@/assets/restaffald-official.png";
-import tekstilaffaldsIcon from "@/assets/tekstilaffald-official.png";
+import farligtAffaldIcon from "@/assets/farligtaffald.png";
+import glasIcon from "@/assets/glas.png";
+import madDrikkeKartonerIcon from "@/assets/mad-drikke-kartoner.png";
+import madaffaldsIcon from "@/assets/madaffald.png";
+import metalIcon from "@/assets/metal.png";
+import papIcon from "@/assets/pap.png";
+import papirIcon from "@/assets/papir.png";
+import plastIcon from "@/assets/plast.png";
+import restaffaldsIcon from "@/assets/restaffald.png";
+import tekstilaffaldsIcon from "@/assets/tekstilaftald.png";
 
 interface WasteItem {
   id: string;
