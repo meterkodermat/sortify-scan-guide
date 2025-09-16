@@ -271,9 +271,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
 
         {/* Actions */}
         <div className="flex space-x-3">
-          <Button variant="outline" onClick={onBack} className="flex-1">
-            Scan igen
-          </Button>
           <Button variant="default" onClick={onHome} className="flex-1">
             Hjem
           </Button>
