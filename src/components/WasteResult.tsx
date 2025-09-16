@@ -275,7 +275,7 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             Scan igen
           </Button>
           <Button variant="default" onClick={onHome} className="flex-1">
-            Tilbage til start
+            Hjem
           </Button>
         </div>
       </div>
