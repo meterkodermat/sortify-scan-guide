@@ -134,29 +134,14 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header with instructions */}
-      <div className="p-4 bg-black/80 text-center border-b border-white/10">
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
-          >
-            <X className="h-5 w-5 text-white" />
-          </button>
-          <div className="flex-1">
-            <h2 className="text-white font-semibold text-lg">
-              {!isCapturing && !capturedImage ? "Trin 1: Åbn kamera" : 
-               isCapturing && !capturedImage ? "Trin 2: Tag billede" : 
-               "Trin 3: Bekræft billede"}
-            </h2>
-            <p className="text-white/70 text-sm">
-              {!isCapturing && !capturedImage ? "Klik på knappen for at starte" : 
-               isCapturing && !capturedImage ? "Ret kameraet mod dit affald" : 
-               "Er billedet godt? Klik OK for at analysere"}
-            </p>
-          </div>
-          <div className="w-10 h-10" /> {/* Spacer */}
-        </div>
+      {/* Close button */}
+      <div className="absolute top-4 right-4 z-10">
+        <button 
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center"
+        >
+          <X className="h-5 w-5 text-white" />
+        </button>
       </div>
 
       {/* Loading State */}
@@ -164,9 +149,6 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         <div className="flex-1 flex flex-col items-center justify-center text-white">
           <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full mb-4"></div>
           <p className="text-lg">Starter kamera...</p>
-          <p className="text-sm text-white/70 mt-2">
-            Giv tilladelse til kameraet når browseren spørger
-          </p>
         </div>
       )}
 
@@ -189,13 +171,6 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         </div>
       )}
 
-      {/* Initial Start Screen - Skip this, go directly to camera */}
-      {!isCapturing && !capturedImage && !isLoading && !cameraError && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full"></div>
-        </div>
-      )}
-
       {/* Camera View */}
       {isCapturing && !capturedImage && (
         <div className="flex-1 relative">
@@ -206,28 +181,17 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             className="w-full h-full object-cover"
           />
           
-          {/* Capture Guide Overlay */}
-          <div className="absolute inset-4 border-2 border-white/50 rounded-lg pointer-events-none">
-            <div className="absolute -top-8 left-0 right-0 text-center">
-              <span className="bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                Placer genstanden i rammen
-              </span>
-            </div>
-          </div>
-          
-          {/* Camera Controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8">
-            <div className="flex items-center justify-center">
+          {/* Take Photo Interface - centered */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            {/* Green background similar to the uploaded image */}
+            <div className="bg-green-700/80 backdrop-blur-sm rounded-3xl px-12 py-8 flex flex-col items-center space-y-6 shadow-2xl">
+              <h1 className="text-white text-4xl font-light tracking-wide">Take Photo</h1>
+              
               <button 
                 onClick={capturePhoto}
-                className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-xl relative group"
+                className="w-20 h-20 rounded-2xl bg-white/90 flex items-center justify-center shadow-xl hover:bg-white transition-all duration-200 active:scale-95"
               >
-                <div className="w-16 h-16 rounded-full border-3 border-black group-active:scale-95 transition-transform"></div>
-                <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-                  <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                    Tag billede
-                  </span>
-                </div>
+                <Camera className="h-10 w-10 text-black" />
               </button>
             </div>
           </div>
