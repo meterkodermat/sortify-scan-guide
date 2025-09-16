@@ -11,37 +11,14 @@ interface AreaSelectorProps {
 export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
+  // Only areas with supporting databases
   const areas = [
-    {
-      id: 'demo',
-      name: 'Demo Database',
-      description: 'Test og demonstration af systemet',
-      icon: Database,
-      color: 'bg-blue-500',
-      isDemo: true
-    },
     {
       id: 'copenhagen',
       name: 'København',
-      description: 'Københavns Kommune',
+      description: 'Københavns Kommune - Database tilgængelig',
       icon: MapPin,
       color: 'bg-green-500',
-      isDemo: false
-    },
-    {
-      id: 'aarhus',
-      name: 'Aarhus',
-      description: 'Aarhus Kommune',
-      icon: MapPin,
-      color: 'bg-purple-500',
-      isDemo: false
-    },
-    {
-      id: 'odense',
-      name: 'Odense',
-      description: 'Odense Kommune',
-      icon: MapPin,
-      color: 'bg-orange-500',
       isDemo: false
     }
   ];
@@ -57,7 +34,17 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4 relative">
+      {/* Demo button in corner */}
+      <Button
+        variant="outline"
+        onClick={() => onAreaSelected('demo')}
+        className="absolute top-4 right-4 flex items-center gap-2"
+      >
+        <Database className="h-4 w-4" />
+        Demo
+      </Button>
+
       <Card className="w-full max-w-md p-8 bg-gradient-card shadow-strong">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center mb-4">
