@@ -22,6 +22,14 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   const startCamera = async () => {
     console.log("🎥 Starting camera...");
+    console.log("🔍 Browser info:", {
+      userAgent: navigator.userAgent,
+      hasMediaDevices: !!navigator.mediaDevices,
+      hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      protocol: window.location.protocol,
+      isSecureContext: window.isSecureContext
+    });
+    
     setIsLoading(true);
     setCameraError(null);
     
@@ -29,32 +37,70 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       // Check if navigator.mediaDevices exists
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("❌ Camera API not supported");
+        console.error("❌ MediaDevices:", navigator.mediaDevices);
         throw new Error("Camera API not supported");
       }
       
-      console.log("📱 Requesting camera access...");
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: "environment", // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+      // Check if we're in a secure context (HTTPS)
+      if (!window.isSecureContext) {
+        console.error("❌ Not in secure context (HTTPS required)");
+        throw new Error("HTTPS required for camera access");
+      }
       
-      console.log("✅ Camera stream obtained:", !!stream);
+      console.log("📱 Requesting camera access...");
+      
+      // Try with simplified constraints first
+      const constraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
+        }
+      };
+      
+      console.log("📝 Camera constraints:", constraints);
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      console.log("✅ Camera stream obtained:", {
+        stream: !!stream,
+        tracks: stream.getTracks().length,
+        videoTracks: stream.getVideoTracks().length
+      });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         console.log("📺 Video element srcObject set");
-        setIsCapturing(true);
-        setIsLoading(false);
-        console.log("✅ Camera started successfully");
+        
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          console.log("📺 Video metadata loaded:", {
+            videoWidth: videoRef.current?.videoWidth,
+            videoHeight: videoRef.current?.videoHeight,
+            readyState: videoRef.current?.readyState
+          });
+          setIsCapturing(true);
+          setIsLoading(false);
+          console.log("✅ Camera started successfully");
+        };
+        
+        // Add error handling for video element
+        videoRef.current.onerror = (e) => {
+          console.error("❌ Video element error:", e);
+          setCameraError("Fejl ved afspilning af kamera feed");
+        };
+        
       } else {
         console.error("❌ Video ref not available");
         throw new Error("Video element not ready");
       }
     } catch (error) {
       console.error("❌ Error accessing camera:", error);
+      console.error("❌ Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setIsLoading(false);
       
       let errorMessage = "Kunne ikke få adgang til kameraet. ";
@@ -66,6 +112,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
           errorMessage += "Intet kamera fundet på enheden.";
         } else if (error.name === "NotSupportedError") {
           errorMessage += "Kamera understøttes ikke i denne browser.";
+        } else if (error.name === "OverconstrainedError") {
+          errorMessage += "Kamera indstillinger understøttes ikke.";
+        } else if (error.message.includes("HTTPS")) {
+          errorMessage += "HTTPS kræves for kamera adgang.";
         } else {
           errorMessage += error.message;
         }
@@ -178,7 +228,14 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             ref={videoRef}
             autoPlay
             playsInline
+            muted
             className="w-full h-full object-cover"
+            onCanPlay={() => console.log("📺 Video can play")}
+            onLoadedData={() => console.log("📺 Video loaded data")}
+            onError={(e) => {
+              console.error("❌ Video element error:", e);
+              setCameraError("Fejl ved afspilning af kamera feed");
+            }}
           />
           
           {/* Take Photo Interface - centered */}
