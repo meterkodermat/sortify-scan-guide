@@ -271,7 +271,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     // For specific food items like oranges, don't force a database match if no good one exists
       if (!bestMatch && primaryLabel.materiale === 'organisk') {
         console.log('No specific database match found for food item, using AI categorization');
-        // Don't use any database match for specific food items
+        // Don't set bestMatch to null here - let the AI categorization handle it properly
       } else if (!bestMatch) {
         // For non-food items, use any available match
         bestMatch = dbMatches[0];

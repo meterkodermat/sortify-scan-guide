@@ -128,11 +128,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <div className="space-y-3">
               {item.components.map((component, index) => {
                 const getMaterialCategory = (materiale: string) => {
-                  switch (materiale) {
+                  switch (materiale.toLowerCase()) {
                     case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg };
-                    case 'plastik': return { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg };
+                    case 'plastik': 
+                      // Special handling for nets and soft plastics
+                      if (component.genstand.toLowerCase().includes('net') || 
+                          component.genstand.toLowerCase().includes('folie') ||
+                          component.genstand.toLowerCase().includes('film')) {
+                        return { home: 'Plast', recycling: 'Blød plast', variant: 'outline', pictogram: plastImg };
+                      }
+                      return { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg };
                     case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary', pictogram: glasImg };
                     case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline', pictogram: metalImg };
+                    case 'organisk':
                     case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive', pictogram: madaffalImg };
                     case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive', pictogram: farligtAffaldImg };
                     case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald', variant: 'outline', pictogram: tekstilaffalImg };
