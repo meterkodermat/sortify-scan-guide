@@ -236,7 +236,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     }
 
     if (dbMatches.length > 0) {
-      // Find best match that corresponds to our primary label, avoiding generic packaging matches
+      // Find best match that corresponds to our primary label, avoiding inappropriate matches
       bestMatch = dbMatches.find(match => {
         const matchName = match.navn.toLowerCase();
         const labelDesc = primaryLabel.description.toLowerCase();
@@ -247,6 +247,11 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           matchName.includes('pose') || 
           matchName.includes('folie')
         )) {
+          return false;
+        }
+        
+        // Skip generic food waste for specific food items
+        if (primaryLabel.materiale === 'organisk' && matchName === 'madrester') {
           return false;
         }
         
@@ -263,33 +268,19 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         return false;
       });
       
-      // If no direct match found for food items, look for food-related matches
+      // For specific food items like oranges, don't force a database match if no good one exists
       if (!bestMatch && primaryLabel.materiale === 'organisk') {
-        bestMatch = dbMatches.find(match => 
-          match.materiale && match.materiale.toLowerCase().includes('organisk') ||
-          match.hjem && match.hjem.toLowerCase() === 'madaffald'
-        );
-      }
-      
-      // If still no match, avoid generic packaging for food items
-      if (!bestMatch) {
-        bestMatch = dbMatches.find(match => {
-          const matchName = match.navn.toLowerCase();
-          // For food items, avoid using packaging as main item
-          if (primaryLabel.materiale === 'organisk' && matchName === 'net') {
-            return false;
-          }
-          return true;
-        });
-      }
-      
-      // Last resort - use first match if nothing else worked
-      if (!bestMatch) {
+        console.log('No specific database match found for food item, using AI categorization');
+        bestMatch = null; // Force fallback to AI categorization
+      } else if (!bestMatch) {
+        // For non-food items, use any available match
         bestMatch = dbMatches[0];
       }
       
-      confidence = Math.round(primaryLabel.score * 100);
-      console.log('Using database match:', bestMatch.navn);
+      if (bestMatch) {
+        confidence = Math.round(primaryLabel.score * 100);
+        console.log('Using database match:', bestMatch.navn);
+      }
     } else {
       console.log('No database matches found, using AI categorization');
     }
