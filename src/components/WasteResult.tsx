@@ -121,8 +121,8 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           <p className="text-muted-foreground">{item.description}</p>
         </Card>
 
-        {/* Individual Components (if multiple found) */}
-        {item.components && item.components.length > 1 && (
+        {/* Individual Components (if many different materials found) */}
+        {item.components && item.components.length > 0 && (
           <Card className="p-6 bg-gradient-card shadow-card">
             <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
             <div className="space-y-3">
@@ -199,9 +199,8 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </Card>
         )}
 
-        {/* Simple Sorting Instructions - Only for single items */}
-        {(!item.components || item.components.length <= 1) && (
-          <div className="space-y-4">
+        {/* Main Item Sorting Instructions */}
+        <div className="space-y-4">
             {/* Home Sorting */}
             <Card className="p-6 bg-success text-success-foreground shadow-strong">
               <div className="flex items-center mb-4">
@@ -243,7 +242,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               </div>
             </Card>
           </div>
-        )}
 
         {/* AI Analysis Process (if available) */}
         {item.aiThoughtProcess && (

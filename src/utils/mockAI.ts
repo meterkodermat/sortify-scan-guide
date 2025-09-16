@@ -268,10 +268,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         return false;
       });
       
-      // For specific food items like oranges, don't force a database match if no good one exists
+    // For specific food items like oranges, don't force a database match if no good one exists
       if (!bestMatch && primaryLabel.materiale === 'organisk') {
         console.log('No specific database match found for food item, using AI categorization');
-        bestMatch = null; // Force fallback to AI categorization
+        // Don't use any database match for specific food items
       } else if (!bestMatch) {
         // For non-food items, use any available match
         bestMatch = dbMatches[0];
