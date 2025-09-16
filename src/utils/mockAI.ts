@@ -68,18 +68,37 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       new Map(flatResults.map(item => [item.id, item])).values()
     );
 
-    // Sort by relevance - exact name matches first, then synonyms, then variations
+    // Sort by relevance - prioritize specific matches over generic categories
     return uniqueResults.sort((a, b) => {
-      const aExactMatch = searchTerms.some(term => 
-        term && a.navn && a.navn.toLowerCase().includes(term.toLowerCase())
-      );
-      const bExactMatch = searchTerms.some(term => 
-        term && b.navn && b.navn.toLowerCase().includes(term.toLowerCase())
-      );
-
-      if (aExactMatch && !bExactMatch) return -1;
-      if (!aExactMatch && bExactMatch) return 1;
-      return 0;
+      // Calculate specificity scores
+      const getSpecificityScore = (item, terms) => {
+        const itemName = item.navn.toLowerCase();
+        let score = 0;
+        
+        for (const term of terms) {
+          if (!term) continue;
+          const cleanTerm = term.toLowerCase();
+          
+          // Exact name match gets highest score
+          if (itemName === cleanTerm) score += 100;
+          // Specific item name contains search term
+          else if (itemName.includes(cleanTerm)) score += 50;
+          // Avoid generic matches like "frugt" for specific items like "appelsin"
+          else if (itemName === 'frugt' && cleanTerm === 'appelsin') score -= 50;
+          else if (itemName === 'mad' && cleanTerm.length > 3) score -= 30;
+          // Synonym matches
+          else if (item.synonymer && item.synonymer.toLowerCase().includes(cleanTerm)) score += 25;
+          // Material matches
+          else if (item.materiale && item.materiale.toLowerCase().includes(cleanTerm)) score += 10;
+        }
+        
+        return score;
+      };
+      
+      const aScore = getSpecificityScore(a, searchTerms);
+      const bScore = getSpecificityScore(b, searchTerms);
+      
+      return bScore - aScore; // Higher score first
     }).slice(0, 5); // Top 5 results
 
   } catch (error) {
