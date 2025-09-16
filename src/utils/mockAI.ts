@@ -236,26 +236,54 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     }
 
     if (dbMatches.length > 0) {
-      // Find best match that corresponds to our primary label
+      // Find best match that corresponds to our primary label, avoiding generic packaging matches
       bestMatch = dbMatches.find(match => {
         const matchName = match.navn.toLowerCase();
         const labelDesc = primaryLabel.description.toLowerCase();
         
-        // Direct name match
-        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
+        // Skip packaging items when looking for food items
+        if (primaryLabel.materiale === 'organisk' && (
+          matchName === 'net' || 
+          matchName.includes('pose') || 
+          matchName.includes('folie')
+        )) {
+          return false;
+        }
+        
+        // Direct name match (prioritize exact matches)
+        if (matchName === labelDesc) {
           return true;
         }
         
-        // Material match
-        if (match.materiale && primaryLabel.materiale && 
-            match.materiale.toLowerCase() === primaryLabel.materiale.toLowerCase()) {
+        // Partial name match
+        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
           return true;
         }
         
         return false;
       });
       
-      // If no direct match found, use the first one
+      // If no direct match found for food items, look for food-related matches
+      if (!bestMatch && primaryLabel.materiale === 'organisk') {
+        bestMatch = dbMatches.find(match => 
+          match.materiale && match.materiale.toLowerCase().includes('organisk') ||
+          match.hjem && match.hjem.toLowerCase() === 'madaffald'
+        );
+      }
+      
+      // If still no match, avoid generic packaging for food items
+      if (!bestMatch) {
+        bestMatch = dbMatches.find(match => {
+          const matchName = match.navn.toLowerCase();
+          // For food items, avoid using packaging as main item
+          if (primaryLabel.materiale === 'organisk' && matchName === 'net') {
+            return false;
+          }
+          return true;
+        });
+      }
+      
+      // Last resort - use first match if nothing else worked
       if (!bestMatch) {
         bestMatch = dbMatches[0];
       }
