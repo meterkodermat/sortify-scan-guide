@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Camera, X, RotateCcw, RotateCw } from "lucide-react";
+import { Camera, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface CameraCaptureProps {
@@ -9,217 +8,146 @@ interface CameraCaptureProps {
 }
 
 export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
-  console.log("🎥 CameraCapture component initialized");
-  
-  const [isCapturing, setIsCapturing] = useState(false); // Start with false for clearer flow
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  console.log("📊 CameraCapture state - isCapturing:", isCapturing, "capturedImage:", !!capturedImage);
-
-  const startCamera = async () => {
-    console.log("🎥 Starting camera...");
-    console.log("🔍 Browser info:", {
-      userAgent: navigator.userAgent,
-      hasMediaDevices: !!navigator.mediaDevices,
-      hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-      protocol: window.location.protocol,
-      isSecureContext: window.isSecureContext
-    });
-    
-    setIsLoading(true);
-    setCameraError(null);
-    
-    try {
-      // Check if video element is available
-      if (!videoRef.current) {
-        console.error("❌ Video ref not available yet");
-        // Wait a bit more and try again
-        await new Promise(resolve => setTimeout(resolve, 200));
-        if (!videoRef.current) {
-          throw new Error("Video element not ready after waiting");
-        }
-      }
-      
-      console.log("✅ Video element is ready");
-      
-      // Check if navigator.mediaDevices exists
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error("❌ Camera API not supported");
-        console.error("❌ MediaDevices:", navigator.mediaDevices);
-        throw new Error("Camera API not supported");
-      }
-      
-      // Check if we're in a secure context (HTTPS)
-      if (!window.isSecureContext) {
-        console.error("❌ Not in secure context (HTTPS required)");
-        throw new Error("HTTPS required for camera access");
-      }
-      
-      console.log("📱 Requesting camera access...");
-      
-      // Try with simplified constraints first
-      const constraints = {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 }
-        }
-      };
-      
-      console.log("📝 Camera constraints:", constraints);
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      console.log("✅ Camera stream obtained:", {
-        stream: !!stream,
-        tracks: stream.getTracks().length,
-        videoTracks: stream.getVideoTracks().length
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        console.log("📺 Video element srcObject set");
-        
-        // Wait for video to be ready with timeout
-        const videoReady = new Promise<void>((resolve, reject) => {
-          const video = videoRef.current;
-          if (!video) {
-            reject(new Error("Video element disappeared"));
-            return;
-          }
-          
-          const timeout = setTimeout(() => {
-            reject(new Error("Video load timeout"));
-          }, 10000); // 10 second timeout
-          
-          const onReady = () => {
-            clearTimeout(timeout);
-            console.log("📺 Video metadata loaded:", {
-              videoWidth: video.videoWidth,
-              videoHeight: video.videoHeight,
-              readyState: video.readyState
-            });
-            resolve();
-          };
-          
-          if (video.readyState >= 1) {
-            // Already ready
-            onReady();
-          } else {
-            video.onloadedmetadata = onReady;
-            video.oncanplay = onReady;
-          }
-        });
-        
-        await videoReady;
-        
-        setIsCapturing(true);
-        setIsLoading(false);
-        console.log("✅ Camera started successfully");
-        
-      } else {
-        console.error("❌ Video ref became unavailable");
-        throw new Error("Video element became unavailable");
-      }
-    } catch (error) {
-      console.error("❌ Error accessing camera:", error);
-      console.error("❌ Error details:", {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setIsLoading(false);
-      
-      let errorMessage = "Kunne ikke få adgang til kameraet. ";
-      
-      if (error instanceof Error) {
-        if (error.name === "NotAllowedError") {
-          errorMessage += "Giv tilladelse til kameraet i browserindstillingerne.";
-        } else if (error.name === "NotFoundError") {
-          errorMessage += "Intet kamera fundet på enheden.";
-        } else if (error.name === "NotSupportedError") {
-          errorMessage += "Kamera understøttes ikke i denne browser.";
-        } else if (error.name === "OverconstrainedError") {
-          errorMessage += "Kamera indstillinger understøttes ikke.";
-        } else if (error.message.includes("HTTPS")) {
-          errorMessage += "HTTPS kræves for kamera adgang.";
-        } else if (error.message.includes("Video element")) {
-          errorMessage += "Kamera interface fejl - prøv at genindlæse siden.";
-        } else {
-          errorMessage += error.message;
-        }
-      }
-      
-      console.error("🚨 Final error message:", errorMessage);
-      setCameraError(errorMessage);
-      toast.error(errorMessage);
-    }
-  };
-
-  // Auto-start camera when component mounts
+  // Initialize camera
   useEffect(() => {
-    console.log("🚀 CameraCapture component mounted");
-    
-    // Small delay to ensure video element is rendered
-    const timer = setTimeout(() => {
-      console.log("⏰ Starting camera after delay to ensure video element is ready");
-      startCamera();
-    }, 100);
-    
-    // Cleanup function to stop camera when component unmounts
-    return () => {
-      clearTimeout(timer);
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => {
-          console.log("🛑 Stopping camera track");
-          track.stop();
+    let mounted = true;
+
+    const initCamera = async () => {
+      try {
+        console.log("📱 Initializing camera...");
+        
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Kamera API understøttes ikke");
+        }
+
+        if (!window.isSecureContext) {
+          throw new Error("HTTPS kræves for kamera adgang");
+        }
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         });
+
+        if (!mounted) return;
+
+        console.log("✅ Camera stream obtained");
+        setStream(mediaStream);
+
+        // Set up video element
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.onloadedmetadata = () => {
+            if (mounted) {
+              console.log("✅ Video ready");
+              setIsLoading(false);
+              setError(null);
+            }
+          };
+        }
+
+      } catch (err) {
+        if (!mounted) return;
+        
+        console.error("❌ Camera error:", err);
+        
+        let errorMessage = "Kunne ikke få adgang til kameraet. ";
+        if (err instanceof Error) {
+          if (err.name === "NotAllowedError") {
+            errorMessage += "Giv tilladelse til kameraet.";
+          } else if (err.name === "NotFoundError") {
+            errorMessage += "Intet kamera fundet.";
+          } else {
+            errorMessage += err.message;
+          }
+        }
+        
+        setError(errorMessage);
+        setIsLoading(false);
+        toast.error(errorMessage);
+      }
+    };
+
+    initCamera();
+
+    return () => {
+      mounted = false;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
 
   const capturePhoto = () => {
-    console.log("📸 Taking photo...");
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
+    if (!videoRef.current || !canvasRef.current) return;
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
 
-      context?.drawImage(video, 0, 0);
-      const imageData = canvas.toDataURL("image/jpeg", 0.8);
-      setCapturedImage(imageData);
-      console.log("✅ Photo captured successfully");
-      
-      // Stop the camera stream
-      const stream = video.srcObject as MediaStream;
-      stream?.getTracks().forEach(track => track.stop());
-    } else {
-      console.error("❌ Video or canvas ref not available");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    context?.drawImage(video, 0, 0);
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+    setCapturedImage(imageData);
+
+    // Stop stream
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
     }
   };
 
   const retakePhoto = () => {
     setCapturedImage(null);
-    startCamera();
+    setIsLoading(true);
+    setError(null);
+    
+    // Re-initialize camera
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    }).then(mediaStream => {
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.onloadedmetadata = () => {
+          setIsLoading(false);
+        };
+      }
+    }).catch(err => {
+      setError("Kunne ikke genstarte kameraet");
+      setIsLoading(false);
+    });
   };
 
   const confirmCapture = () => {
-    console.log("🔄 Confirming capture...");
     if (capturedImage) {
-      console.log("📤 Sending image for analysis");
       onCapture(capturedImage);
-    } else {
-      console.error("❌ No captured image available");
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -234,7 +162,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       </div>
 
       {/* Loading State */}
-      {isLoading && (
+      {isLoading && !error && !capturedImage && (
         <div className="flex-1 flex flex-col items-center justify-center text-white">
           <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full mb-4"></div>
           <p className="text-lg">Starter kamera...</p>
@@ -242,26 +170,26 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       )}
 
       {/* Error State */}
-      {cameraError && !isLoading && (
+      {error && !capturedImage && (
         <div className="flex-1 flex flex-col items-center justify-center text-white p-6">
           <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
             <X className="h-8 w-8 text-red-400" />
           </div>
           <h3 className="text-xl font-semibold mb-4">Kamera fejl</h3>
           <p className="text-center text-white/80 mb-6 max-w-sm">
-            {cameraError}
+            {error}
           </p>
           <button 
-            onClick={startCamera}
+            onClick={() => window.location.reload()}
             className="bg-white text-black px-8 py-3 rounded-full font-semibold"
           >
-            Prøv igen
+            Genindlæs siden
           </button>
         </div>
       )}
 
       {/* Camera View */}
-      {isCapturing && !capturedImage && (
+      {!isLoading && !error && !capturedImage && (
         <div className="flex-1 relative">
           <video
             ref={videoRef}
@@ -269,17 +197,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             playsInline
             muted
             className="w-full h-full object-cover"
-            onCanPlay={() => console.log("📺 Video can play")}
-            onLoadedData={() => console.log("📺 Video loaded data")}
-            onError={(e) => {
-              console.error("❌ Video element error:", e);
-              setCameraError("Fejl ved afspilning af kamera feed");
-            }}
           />
           
-          {/* Take Photo Interface - centered */}
+          {/* Take Photo Interface */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {/* Green background similar to the uploaded image */}
             <div className="bg-green-700/80 backdrop-blur-sm rounded-3xl px-12 py-8 flex flex-col items-center space-y-6 shadow-2xl">
               <h1 className="text-white text-4xl font-light tracking-wide">Take Photo</h1>
               
@@ -303,10 +224,8 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             className="w-full h-full object-cover"
           />
           
-          {/* Image Controls */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-8">
             <div className="flex items-center justify-between">
-              {/* Retake */}
               <button 
                 onClick={retakePhoto}
                 className="flex flex-col items-center space-y-2 text-white"
@@ -317,7 +236,6 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
                 <span className="text-sm">Tag igen</span>
               </button>
               
-              {/* Confirm */}
               <button 
                 onClick={confirmCapture}
                 className="flex flex-col items-center space-y-2"
@@ -328,7 +246,6 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
                 <span className="text-white text-sm font-medium">Analyser nu</span>
               </button>
               
-              {/* Close */}
               <button 
                 onClick={onClose}
                 className="flex flex-col items-center space-y-2 text-white"
