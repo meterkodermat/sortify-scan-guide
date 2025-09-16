@@ -291,23 +291,21 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
       const itemName = itemCount > 1 ? `${bestMatch.navn || primaryLabel.description} (${itemCount} stk.)` : bestMatch.navn || primaryLabel.description;
       
-      // Get unique components (not matching primary item)
+      // Get unique components - always include all items for clear sorting instructions
       const uniqueComponents = [];
       const componentMap = new Map();
       
       labels.forEach(label => {
-        if (label.description !== primaryLabel.description) {
-          const key = `${label.description}-${label.materiale || ''}`;
-          if (!componentMap.has(key)) {
-            componentMap.set(key, {
-              genstand: label.description,
-              materiale: label.materiale || bestMatch.materiale || 'Ukendt',
-              tilstand: label.tilstand,
-              count: 1
-            });
-          } else {
-            componentMap.get(key).count++;
-          }
+        const key = `${label.description}-${label.materiale || ''}`;
+        if (!componentMap.has(key)) {
+          componentMap.set(key, {
+            genstand: label.description,
+            materiale: label.materiale || bestMatch.materiale || 'Ukendt',
+            tilstand: label.tilstand,
+            count: 1
+          });
+        } else {
+          componentMap.get(key).count++;
         }
       });
       
@@ -377,23 +375,21 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
       const itemName = itemCount > 1 ? `${primaryLabel.description} (${itemCount} stk.)` : primaryLabel.description;
       
-      // Get unique components (not matching primary item)
+      // Get all unique components for detailed sorting instructions
       const uniqueComponents = [];
       const componentMap = new Map();
       
       labels.forEach(label => {
-        if (label.description !== primaryLabel.description) {
-          const key = `${label.description}-${label.materiale || ''}`;
-          if (!componentMap.has(key)) {
-            componentMap.set(key, {
-              genstand: label.description,
-              materiale: label.materiale || 'Ukendt',
-              tilstand: label.tilstand,
-              count: 1
-            });
-          } else {
-            componentMap.get(key).count++;
-          }
+        const key = `${label.description}-${label.materiale || ''}`;
+        if (!componentMap.has(key)) {
+          componentMap.set(key, {
+            genstand: label.description,
+            materiale: label.materiale || 'Ukendt',
+            tilstand: label.tilstand,
+            count: 1
+          });
+        } else {
+          componentMap.get(key).count++;
         }
       });
       
