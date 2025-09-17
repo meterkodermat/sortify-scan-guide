@@ -126,7 +126,9 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           <Card className="p-6 bg-gradient-card shadow-card">
             <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
             <div className="space-y-3">
-              {item.components.map((component, index) => {
+              {item.components.filter(component => 
+                !component.genstand.toLowerCase().includes(item.name.toLowerCase().split(' ')[0])
+              ).map((component, index) => {
                 const getMaterialCategory = (materiale: string) => {
                   switch (materiale.toLowerCase()) {
                     case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg };
