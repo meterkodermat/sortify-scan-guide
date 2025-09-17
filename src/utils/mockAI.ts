@@ -297,9 +297,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     }
 
     // Step 2: Search database for matches with enhanced logging
-    console.log('🔍 About to search database with labels:', labels);
+    console.log('🔍 About to search database with labels:', labels.map(l => `${l.description} (${l.materiale})`));
     const dbMatches = await findBestMatches(labels);
     console.log('✅ Database search completed. Matches found:', dbMatches.length);
+    console.log('📋 RAW GEMINI LABELS:', JSON.stringify(labels, null, 2));
     
     if (dbMatches.length > 0) {
       console.log('📊 Database matches details:', dbMatches.map(m => ({
@@ -368,12 +369,38 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         );
         console.log('📦 MULTIPLE PACKAGING ITEMS: Using highest confidence:', primaryLabel.description);
       }
+      else {
+        // General case: multiple items, none are food/packaging combinations
+        console.log('🔧 GENERAL MULTIPLE ITEMS: Selecting best primary item');
+        
+        // Sort by confidence score and select highest, but avoid generic items
+        const sortedByConfidence = [...labels].sort((a, b) => b.score - a.score);
+        console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
+        
+        // Try to avoid generic items like "bøjle" if we have more specific items
+        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt'];
+        const specificItems = sortedByConfidence.filter(label => 
+          !genericItems.some(generic => label.description.toLowerCase().includes(generic))
+        );
+        
+        if (specificItems.length > 0) {
+          primaryLabel = specificItems[0]; // Highest confidence specific item
+          console.log('🎯 SELECTED SPECIFIC ITEM as primary:', primaryLabel.description);
+        } else {
+          primaryLabel = sortedByConfidence[0]; // Fallback to highest confidence
+          console.log('🎯 FALLBACK TO HIGHEST CONFIDENCE:', primaryLabel.description);
+        }
+      }
     } else {
       console.log('📝 SINGLE ITEM DETECTED:', primaryLabel.description);
     }
 
+    console.log(`🎯 PRIMARY ITEM SELECTED: "${primaryLabel.description}" (material: ${primaryLabel.materiale}, score: ${primaryLabel.score})`);
+    console.log(`📊 ALL ITEMS FOR CONTEXT:`, labels.map(l => `${l.description} (${l.materiale}, score: ${l.score})`));
+
     if (dbMatches.length > 0) {
       // Find best match that corresponds to our primary label, including synonym matching
+      console.log('🔍 SEARCHING FOR BEST DB MATCH for primary item:', primaryLabel.description);
       bestMatch = dbMatches.find(match => {
         const matchName = match.navn.toLowerCase();
         const labelDesc = primaryLabel.description.toLowerCase();
@@ -486,12 +513,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       
       labels.forEach(label => {
         const key = `${label.description}-${label.materiale || ''}`;
+        console.log(`🔧 PROCESSING LABEL: "${label.description}" with material "${label.materiale}" -> key: "${key}"`);
+        
         if (!componentMap.has(key)) {
           const componentMatch = componentMatchMap.get(label.description);
+          console.log(`🔍 DB MATCH for "${label.description}":`, componentMatch ? `Found: ${componentMatch.materiale}` : 'Not found');
+          
+          const finalMaterial = label.materiale || (componentMatch ? (componentMatch.materiale || 'Ukendt') : 'Ukendt');
+          console.log(`🎯 FINAL MATERIAL for "${label.description}": "${finalMaterial}" (Gemini: "${label.materiale}", DB: "${componentMatch?.materiale || 'none'}")`);
           
           componentMap.set(key, {
             genstand: label.description,
-            materiale: label.materiale || (componentMatch ? (componentMatch.materiale || 'Ukendt') : 'Ukendt'),
+            materiale: finalMaterial,
             tilstand: componentMatch ? (componentMatch.tilstand || '') : (label.tilstand || ''),
             count: 1,
             hasDbMatch: !!componentMatch
