@@ -90,16 +90,35 @@ const getSortingPictogram = (category: string) => {
 };
 
 export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
+  console.log('WasteResult received item:', item);
+  
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <Button variant="ghost" onClick={onHome}>
+            <Home className="h-5 w-5" />
           </Button>
         </div>
+
+        {/* Main Item Title */}
+        <Card className="p-6 bg-gradient-card shadow-card">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              {item.name || 'Ukendt genstand'}
+            </h1>
+            <Badge variant="secondary" className="bg-success text-success-foreground">
+              {Math.round(item.confidence)}% sikker
+            </Badge>
+            {item.description && (
+              <p className="text-muted-foreground mt-3">{item.description}</p>
+            )}
+          </div>
+        </Card>
 
         {/* Image */}
         <Card className="overflow-hidden bg-gradient-card shadow-card">
@@ -108,19 +127,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             alt={item.name}
             className="w-full h-64 object-cover"
           />
-        </Card>
-
-        {/* Identification */}
-        <Card className="p-6 bg-gradient-card shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-foreground">{item.name || 'Ukendt genstand'}</h2>
-            <Badge variant="secondary" className="bg-success text-success-foreground">
-              {Math.round(item.confidence)}% sikker
-            </Badge>
-          </div>
-          {item.description && (
-            <p className="text-muted-foreground">{item.description}</p>
-          )}
         </Card>
 
         {/* Individual Components (if many different materials found) */}
