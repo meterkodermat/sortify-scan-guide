@@ -501,6 +501,37 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         }
       });
       
+      // FALLBACK LOGIC: Add missing fruit for fruit nets
+      const hasApelsinnet = componentMap.has('appelsinnet-plastik') || componentMap.has('appelsinnet-');
+      const hasApelsin = [...componentMap.keys()].some(key => key.startsWith('appelsin-'));
+      
+      if (hasApelsinnet && !hasApelsin) {
+        console.log('🍊 FALLBACK: Appelsinnet detected but no appelsiner - adding appelsin component');
+        componentMap.set('appelsin-organisk', {
+          genstand: 'appelsin',
+          materiale: 'organisk',
+          tilstand: 'frisk',
+          count: 3, // Typical number of oranges in a net
+          hasDbMatch: false,
+          addedByFallback: true
+        });
+      }
+      
+      const hasCitronnet = componentMap.has('citronnet-plastik') || componentMap.has('citronnet-');
+      const hasCitron = [...componentMap.keys()].some(key => key.startsWith('citron-'));
+      
+      if (hasCitronnet && !hasCitron) {
+        console.log('🍋 FALLBACK: Citronnet detected but no citroner - adding citron component');
+        componentMap.set('citron-organisk', {
+          genstand: 'citron',
+          materiale: 'organisk',
+          tilstand: 'frisk',
+          count: 4, // Typical number of lemons in a net
+          hasDbMatch: false,
+          addedByFallback: true
+        });
+      }
+      
       uniqueComponents.push(...componentMap.values());
       
       console.log('🔧 COMPONENT BREAKDOWN:', uniqueComponents.map(c => `${c.genstand} x${c.count} (${c.materiale})`));
