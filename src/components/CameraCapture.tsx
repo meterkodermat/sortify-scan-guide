@@ -30,18 +30,21 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
           throw new Error("Kamera API ikke understøttet");
         }
 
-        if (!window.isSecureContext) {
-          throw new Error("HTTPS kræves for kamera");
-        }
-
         console.log("🎬 Requesting camera permission...");
         
+        // Try a simpler camera request first
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
+          video: true
+        }).catch(async (err) => {
+          console.log("🔄 Simple request failed, trying with constraints...", err);
+          // Fallback with specific constraints
+          return navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment",
+              width: { min: 640, ideal: 1280, max: 1920 },
+              height: { min: 480, ideal: 720, max: 1080 }
+            }
+          });
         });
 
         if (!mounted) {
@@ -52,54 +55,64 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         console.log("✅ Got camera stream");
         streamRef.current = stream;
 
-        // Wait for video element to be available
-        const checkVideo = () => {
-          if (!videoRef.current) {
-            console.log("⏳ Waiting for video element...");
-            setTimeout(checkVideo, 50);
-            return;
+        // Setup video element
+        if (!videoRef.current) {
+          console.log("⏳ Video element not ready yet");
+          setTimeout(() => startCamera(), 100);
+          return;
+        }
+
+        console.log("📺 Setting up video element");
+        const video = videoRef.current;
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        
+        const setupVideo = async () => {
+          try {
+            await video.play();
+            console.log("✅ Video playing");
+            
+            // Wait for video to have actual dimensions
+            const waitForDimensions = () => {
+              if (video.videoWidth > 0 && video.videoHeight > 0) {
+                console.log("✅ Video dimensions ready:", video.videoWidth, "x", video.videoHeight);
+                if (mounted) {
+                  setCameraReady(true);
+                  setIsLoading(false);
+                  setError(null);
+                }
+              } else {
+                console.log("⏳ Waiting for video dimensions...");
+                setTimeout(waitForDimensions, 100);
+              }
+            };
+            
+            waitForDimensions();
+            
+          } catch (playError) {
+            console.error("❌ Video play error:", playError);
+            // Force ready state even if autoplay fails
+            if (mounted) {
+              setCameraReady(true);
+              setIsLoading(false);
+            }
           }
-
-          console.log("📺 Setting up video element");
-          const video = videoRef.current;
-          video.srcObject = stream;
-          video.muted = true;
-          video.playsInline = true;
-          
-          const onLoadedData = () => {
-            console.log("✅ Video ready!");
-            if (mounted) {
-              setCameraReady(true);
-              setIsLoading(false);
-              setError(null);
-            }
-          };
-
-          const onError = () => {
-            console.error("❌ Video error");
-            if (mounted) {
-              setError("Kan ikke afspille kamera");
-              setIsLoading(false);
-            }
-          };
-
-          video.addEventListener('loadeddata', onLoadedData, { once: true });
-          video.addEventListener('error', onError);
-          
-          // Auto-play for mobile
-          video.play().catch(console.error);
-          
-          // Backup timer
-          setTimeout(() => {
-            if (mounted && !cameraReady) {
-              console.log("⏰ Video backup ready");
-              setCameraReady(true);
-              setIsLoading(false);
-            }
-          }, 2000);
         };
 
-        checkVideo();
+        video.addEventListener('loadedmetadata', setupVideo, { once: true });
+        
+        // Backup timer - force ready after 3 seconds
+        setTimeout(() => {
+          if (mounted && !cameraReady) {
+            console.log("⏰ Forcing camera ready (timeout)");
+            setCameraReady(true);
+            setIsLoading(false);
+          }
+        }, 3000);
+
+        // Video setup is handled above
 
       } catch (err) {
         console.error("❌ Camera error:", err);
