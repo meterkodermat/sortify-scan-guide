@@ -134,41 +134,43 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           />
         </Card>
 
-        {/* Main Item Sorting Instructions */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
-          
-          {/* Home Sorting */}
-          <Card className="p-4 bg-card border-2 border-muted/50">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-muted/20 rounded-lg">
-                <Home className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">Hjemme sortering</h3>
-                <div className="flex items-center gap-3 mt-2">
-                  {getSortingPictogram(item.homeCategory)}
-                  <span className="font-semibold text-lg">{item.homeCategory}</span>
+        {/* Main Item Sorting Instructions - Only show for single items */}
+        {uniqueComponents.length === 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
+            
+            {/* Home Sorting */}
+            <Card className="p-4 bg-card border-2 border-muted/50">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-muted/20 rounded-lg">
+                  <Home className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">Hjemme sortering</h3>
+                  <div className="flex items-center gap-3 mt-2">
+                    {getSortingPictogram(item.homeCategory)}
+                    <span className="font-semibold text-lg">{item.homeCategory}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {/* Recycling Center */}
-          <Card className="p-4 bg-card border-2 border-muted/50">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-muted/20 rounded-lg">
-                <Recycle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">Genbrugsplads</h3>
-                <div className="mt-2">
-                  <span className="font-semibold text-lg">{item.recyclingCategory}</span>
+            {/* Recycling Center */}
+            <Card className="p-4 bg-card border-2 border-muted/50">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-muted/20 rounded-lg">
+                  <Recycle className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">Genbrugsplads</h3>
+                  <div className="mt-2">
+                    <span className="font-semibold text-lg">{item.recyclingCategory}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
         {/* Individual Components - Only if they exist and are different from main item */}
         {uniqueComponents.length > 0 && (
