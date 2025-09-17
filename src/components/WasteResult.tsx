@@ -187,7 +187,17 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 switch (materiale.toLowerCase()) {
                   case 'pap': return { home: 'Pap', recycling: 'Pap' };
                   case 'plastik': 
-                    return { home: 'Plast', recycling: 'Plast' };
+                    // Distinguish between hard and soft plastic based on item type
+                    if (itemName.includes('net') || 
+                        itemName.includes('pose') || 
+                        itemName.includes('folie') ||
+                        itemName.includes('film') ||
+                        itemName.includes('sæk') ||
+                        itemName.includes('indpakning')) {
+                      return { home: 'Plast', recycling: 'Blød plast' };
+                    } else {
+                      return { home: 'Plast', recycling: 'Hård plast' };
+                    }
                   case 'glas': return { home: 'Glas', recycling: 'Glas' };
                   case 'metal': return { home: 'Metal', recycling: 'Metal' };
                   case 'organisk':
