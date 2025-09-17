@@ -491,7 +491,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           componentMap.set(key, {
             genstand: label.description,
-            materiale: componentMatch ? (componentMatch.materiale || 'Ukendt') : (label.materiale || 'Ukendt'),
+            materiale: label.materiale || (componentMatch ? (componentMatch.materiale || 'Ukendt') : 'Ukendt'),
             tilstand: componentMatch ? (componentMatch.tilstand || '') : (label.tilstand || ''),
             count: 1,
             hasDbMatch: !!componentMatch
