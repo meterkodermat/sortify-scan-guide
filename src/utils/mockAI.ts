@@ -467,18 +467,34 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log(`🍊 SINGLE ITEM DESCRIPTION: ${itemName}`);
       }
       
-      // Get unique components - ENHANCED to show all different items clearly
+      // Get unique components - ENHANCED with individual database lookups
       const uniqueComponents = [];
       const componentMap = new Map();
+      
+      // First, search for database matches for each unique component
+      const uniqueDescriptions = [...new Set(labels.map(l => l.description))];
+      const componentSearchPromises = uniqueDescriptions.map(async (description: string) => {
+        const componentMatches = await searchWasteInDatabase([description]);
+        return { 
+          description, 
+          match: componentMatches.length > 0 ? (componentMatches[0] as any) : null 
+        };
+      });
+      
+      const componentMatches = await Promise.all(componentSearchPromises);
+      const componentMatchMap = new Map<string, any>(componentMatches.map(cm => [cm.description, cm.match]));
       
       labels.forEach(label => {
         const key = `${label.description}-${label.materiale || ''}`;
         if (!componentMap.has(key)) {
+          const componentMatch = componentMatchMap.get(label.description);
+          
           componentMap.set(key, {
             genstand: label.description,
-            materiale: label.materiale || bestMatch.materiale || 'Ukendt',
-            tilstand: label.tilstand,
-            count: 1
+            materiale: componentMatch ? (componentMatch.materiale || 'Ukendt') : (label.materiale || 'Ukendt'),
+            tilstand: componentMatch ? (componentMatch.tilstand || '') : (label.tilstand || ''),
+            count: 1,
+            hasDbMatch: !!componentMatch
           });
         } else {
           componentMap.get(key).count++;
