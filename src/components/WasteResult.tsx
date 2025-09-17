@@ -81,6 +81,7 @@ const getSortingPictogram = (category: string) => {
 
 export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
   console.log('WasteResult received item:', item);
+  console.log('WasteResult received components:', item.components);
   
   // Group identical components to avoid repetition
   const groupedComponents = item.components ? 
@@ -93,9 +94,14 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
       return groups;
     }, {} as Record<string, any>) : {};
 
+  console.log('Grouped components:', groupedComponents);
+
   const uniqueComponents = Object.values(groupedComponents).filter(
     (component: any) => component.genstand.toLowerCase() !== item.name.toLowerCase()
   );
+  
+  console.log('After filtering (removed main item):', uniqueComponents);
+  console.log('Main item name for comparison:', item.name.toLowerCase());
   
   return (
     <div className="min-h-screen bg-background p-4">

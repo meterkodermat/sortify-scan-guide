@@ -489,6 +489,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       
       console.log('🔧 COMPONENT BREAKDOWN:', uniqueComponents.map(c => `${c.genstand} x${c.count} (${c.materiale})`));
 
+      console.log('🎯 FINAL COMPONENTS BEING SENT:', uniqueComponents.map(comp => ({
+        genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
+        materiale: comp.materiale,
+        tilstand: comp.tilstand
+      })));
+
       // Use database data
       return {
         id: Date.now().toString(),
@@ -572,6 +578,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       });
       
       uniqueComponents.push(...componentMap.values());
+
+      console.log('🔧 FALLBACK COMPONENT BREAKDOWN:', uniqueComponents.map(c => `${c.genstand} x${c.count} (${c.materiale})`));
+      
+      console.log('🎯 FALLBACK FINAL COMPONENTS BEING SENT:', uniqueComponents.map(comp => ({
+        genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
+        materiale: comp.materiale,
+        tilstand: comp.tilstand
+      })));
 
       return {
         id: Date.now().toString(),
