@@ -163,19 +163,20 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
       
-      // Smart category-specific term expansion
+      // Smart category-specific term expansion - REMOVE GENERIC TERMS
       if (desc.includes('appelsin') || desc.includes('orange')) {
-        searchTerms.push('appelsin', 'frugt', 'citrusfrugt', 'orange');
-        console.log('🍊 Orange detected - adding fruit-specific terms');
+        searchTerms.push('appelsin'); // ONLY specific term, not 'frugt'
+        console.log('🍊 Orange detected - adding ONLY specific "appelsin" term');
       }
       
       if (desc.includes('citrus')) {
-        searchTerms.push('citrus', 'frugt', 'appelsin', 'citron');
+        searchTerms.push('citrus', 'citrusfrugt'); // Remove generic 'frugt', 'appelsin'
       }
       
-      if (desc.includes('frugt') || desc.includes('fruit')) {
-        searchTerms.push('frugt', 'madaffald');
-      }
+      // REMOVE generic fruit and food handling - too broad
+      // if (desc.includes('frugt') || desc.includes('fruit')) {
+      //   searchTerms.push('frugt', 'madaffald');
+      // }
       
       if (desc.includes('net') && (desc.includes('appelsin') || desc.includes('frugt') || desc.includes('grøntsag'))) {
         searchTerms.push('net', 'frugtnet', 'appelsinnet', 'grøntsagsnet');
@@ -206,10 +207,11 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       const material = label.materiale.toLowerCase();
       searchTerms.push(label.materiale);
       
-      if (material.includes('organisk')) {
-        searchTerms.push('madaffald', 'frugt', 'grøntsager', 'organisk');
-        console.log('🌱 Organic material detected - adding food terms');
-      }
+      // REMOVE generic organic material handling - causes wrong matches
+      // if (material.includes('organisk')) {
+      //   searchTerms.push('madaffald', 'frugt', 'grøntsager', 'organisk');
+      //   console.log('🌱 Organic material detected - adding food terms');
+      // }
       
       if (material.includes('plastik')) {
         searchTerms.push('plastik', 'plast');
