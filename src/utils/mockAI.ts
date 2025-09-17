@@ -408,6 +408,20 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         
         console.log(`🔍 MATCHING: Comparing "${labelDesc}" against "${matchName}" (synonyms: "${matchSynonyms.substring(0, 50)}...")`);
         
+        // Skip generic items when we have specific Gemini detections
+        if (labelDesc && (
+          labelDesc.includes('træbjælke') || 
+          labelDesc.includes('bjælke') ||
+          labelDesc.includes('brædt') ||
+          labelDesc.includes('plank')
+        )) {
+          // For wood items, avoid generic matches like "bøjle"
+          if (matchName === 'bøjle' || matchName.includes('bøjler')) {
+            console.log(`⚠️ SKIPPING: ${matchName} - too generic for specific wood item "${labelDesc}"`);
+            return false;
+          }
+        }
+        
         // Skip packaging items when looking for food items
         if (primaryLabel.materiale === 'organisk' && (
           matchName === 'net' || 
@@ -453,13 +467,45 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         return false;
       });
       
-    // For specific food items like oranges, don't force a database match if no good one exists
-      if (!bestMatch && primaryLabel.materiale === 'organisk') {
-        console.log('No specific database match found for food item, using AI categorization');
-        // Don't set bestMatch to null here - let the AI categorization handle it properly
+      // Enhanced matching logic to avoid generic matches
+      if (!bestMatch && dbMatches.length > 0) {
+        console.log('⚠️ No exact database match found for primary item:', primaryLabel.description);
+        console.log('🤔 Considering whether to use database fallback or Gemini detection...');
+        
+        // For specific items, prefer Gemini detection over generic database matches
+        const isSpecificDetection = (
+          primaryLabel.description.includes('træbjælke') ||
+          primaryLabel.description.includes('bjælke') ||
+          primaryLabel.description.includes('appelsin') ||
+          primaryLabel.description.includes('brædt') ||
+          primaryLabel.description.includes('plank')
+        );
+        
+        const hasGenericMatches = dbMatches.some(match => {
+          const matchName = match.navn.toLowerCase();
+          return matchName === 'bøjle' || matchName === 'emne' || matchName === 'genstand' || matchName === 'objekt';
+        });
+        
+        if (isSpecificDetection && hasGenericMatches) {
+          console.log('🎯 PREFERRING GEMINI DETECTION over generic database matches');
+          bestMatch = null; // Force fallback to use Gemini data
+        } else {
+          // Use material-based fallback to most relevant database match
+          const materialMatch = dbMatches.find(match => 
+            match.materiale && 
+            match.materiale.toLowerCase() === (primaryLabel.materiale || '').toLowerCase()
+          );
+          
+          if (materialMatch && materialMatch.navn.toLowerCase() !== 'bøjle') {
+            bestMatch = materialMatch;
+            console.log('📊 Using material-based database match:', bestMatch.navn);
+          } else {
+            bestMatch = null; // Use Gemini detection instead
+            console.log('🎯 No good database match, using Gemini detection');
+          }
+        }
       } else if (!bestMatch) {
-        // For non-food items, use any available match
-        bestMatch = dbMatches[0];
+        console.log('❌ No database matches found');
       }
       
       if (bestMatch) {
