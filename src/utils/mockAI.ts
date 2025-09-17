@@ -38,20 +38,34 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   if (!searchTerms.length) return [];
 
   try {
-    // Search for each term across all relevant fields
+    console.log(`🔍 Starting database search with terms:`, searchTerms);
+    
+    // First, try searching for exact multi-word phrases (like "blød plast")
+    const exactPhrasePromises = searchTerms
+      .filter(term => term.includes(' ')) // Only multi-word terms
+      .map(async (phrase) => {
+        const cleanPhrase = phrase.toLowerCase().trim();
+        console.log(`🎯 Searching for exact phrase: "${cleanPhrase}"`);
+        
+        const { data, error } = await supabase
+          .from('demo')
+          .select('*')
+          .or(`navn.ilike.%${cleanPhrase}%,synonymer.ilike.%${cleanPhrase}%,variation.ilike.%${cleanPhrase}%,materiale.ilike.%${cleanPhrase}%`)
+          .limit(20);
+          
+        if (!error && data?.length) {
+          console.log(`✅ Found exact phrase matches for "${cleanPhrase}":`, data.map(item => item.navn));
+          return data;
+        }
+        return [];
+      });
+    
+    // Then search for individual terms
     const searchPromises = searchTerms.map(async (term) => {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) return [];
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
-
-      // Special handling for plastic terms
-      let searchColumns = `navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`;
-      
-      // If searching for plastic terms, also include broader searches
-      if (cleanTerm.includes('plast') || cleanTerm.includes('blød') || cleanTerm.includes('plastik')) {
-        console.log(`🔍 Special plastic search for: "${cleanTerm}"`);
-      }
 
       const { data, error } = await supabase
         .from('demo')
@@ -59,9 +73,25 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
         .limit(20);
 
-      // Also search for common plastic combinations if searching for plastic
+      // Special search for "blød plast" and "hård plast"
       let extraData = [];
+      if (cleanTerm === 'blød' || cleanTerm.includes('blød')) {
+        console.log(`🎯 Special search for blød plast items`);
+        const { data: softPlasticData, error: softError } = await supabase
+          .from('demo')
+          .select('*')
+          .or(`materiale.ilike.%blød%,synonymer.ilike.%blød plast%,navn.ilike.%blød%`)
+          .limit(20);
+        
+        if (!softError && softPlasticData) {
+          console.log(`Found soft plastic matches:`, softPlasticData.map(item => item.navn));
+          extraData = softPlasticData;
+        }
+      }
+      
+      // Also search for common plastic combinations if searching for plastic
       if (cleanTerm.includes('plast') || cleanTerm.includes('plastik')) {
+        console.log(`🎯 Special plastic search for: "${cleanTerm}"`);
         const { data: plasticData, error: plasticError } = await supabase
           .from('demo')
           .select('*')
@@ -69,7 +99,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
           .limit(20);
         
         if (!plasticError && plasticData) {
-          extraData = plasticData;
+          extraData = [...extraData, ...plasticData];
         }
       }
 
@@ -85,36 +115,44 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       return combinedData || [];
     });
 
-    const allResults = await Promise.all(searchPromises);
-    const flatResults = allResults.flat();
+    // Execute all searches in parallel
+    const [exactPhraseResults, termResults] = await Promise.all([
+      Promise.all(exactPhrasePromises),
+      Promise.all(searchPromises)
+    ]);
+    
+    const allResults = [...exactPhraseResults.flat(), ...termResults.flat()];
     
     // Remove duplicates and score results
     const uniqueResults = Array.from(
-      new Map(flatResults.map(item => [item.id, item])).values()
+      new Map(allResults.map(item => [item.id, item])).values()
     );
+
+    console.log(`🎯 Total unique results found: ${uniqueResults.length}`);
 
     // Sort by relevance - prioritize specific matches over generic categories
     return uniqueResults.sort((a, b) => {
       // Calculate specificity scores
       const getSpecificityScore = (item, terms) => {
         const itemName = item.navn.toLowerCase();
+        const itemSynonyms = (item.synonymer || '').toLowerCase();
         let score = 0;
         
         for (const term of terms) {
           if (!term) continue;
           const cleanTerm = term.toLowerCase();
           
-          // Exact name match gets highest score
-          if (itemName === cleanTerm) score += 100;
+          // Exact synonym match gets highest score (for "blød plast" matches)
+          if (itemSynonyms.includes(cleanTerm)) score += 100;
+          // Exact name match gets high score
+          else if (itemName === cleanTerm) score += 90;
           // Specific item name contains search term
           else if (itemName.includes(cleanTerm)) score += 50;
-          // Avoid generic matches like "frugt" for specific items like "appelsin"
+          // Avoid generic matches for specific items
           else if (itemName === 'frugt' && cleanTerm === 'appelsin') score -= 50;
           else if (itemName === 'mad' && cleanTerm.length > 3) score -= 30;
-          // Synonym matches
-          else if (item.synonymer && item.synonymer.toLowerCase().includes(cleanTerm)) score += 25;
           // Material matches
-          else if (item.materiale && item.materiale.toLowerCase().includes(cleanTerm)) score += 10;
+          else if (item.materiale && item.materiale.toLowerCase().includes(cleanTerm)) score += 25;
         }
         
         return score;
@@ -122,6 +160,8 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       
       const aScore = getSpecificityScore(a, searchTerms);
       const bScore = getSpecificityScore(b, searchTerms);
+      
+      console.log(`Scoring: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
       
       return bScore - aScore; // Higher score first
     }).slice(0, 5); // Top 5 results
@@ -148,16 +188,18 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     
     // Also search for specific object + material combinations
     if (label.materiale && label.description) {
-      terms.push(`${label.description} ${label.materiale}`);
+      const combination = `${label.description} ${label.materiale}`;
+      terms.push(combination);
+      console.log(`🔗 Adding material combination: "${combination}"`);
     }
     
         // If we only have material, add common objects of that material type
         if (label.materiale && !label.description) {
           const materialTerms = {
             'elektronik': ['mobiltelefon', 'computer', 'tv', 'batteri', 'elektronik'],
-            'plastik': ['plastikflaske', 'pose', 'beholder', 'net', 'plastiknet', 'folie', 'bobleplast'],
-            'blød plastik': ['pose', 'folie', 'net', 'bobleplast', 'plastikpose'],
-            'hård plastik': ['plastikflaske', 'beholder', 'æske'],
+            'plastik': ['plastikflaske', 'pose', 'beholder', 'net', 'plastiknet', 'folie', 'bobleplast', 'blød plast', 'hård plast'],
+            'blød plastik': ['pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'blød plast'],
+            'hård plastik': ['plastikflaske', 'beholder', 'æske', 'hård plast'],
             'pap': ['karton', 'æske', 'pizzaboks'],
             'glas': ['flaske', 'glas', 'krukke'],
             'metal': ['dåse', 'aluminium'],
@@ -169,13 +211,20 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       
           if (materialTerms[label.materiale]) {
             terms.push(...materialTerms[label.materiale]);
+            console.log(`🧱 Adding material-specific terms for "${label.materiale}":`, materialTerms[label.materiale]);
           }
         }
         
         // Add special terms if we detect "blød plast" specifically
         if (label.description && label.description.toLowerCase().includes('blød plast')) {
-          console.log('🔍 Detected "blød plast", adding specific search terms');
-          terms.push('pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'polyethylen', 'PE');
+          console.log('🎯 Detected "blød plast", adding specific search terms');
+          terms.push('blød plast', 'pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'polyethylen', 'PE');
+        }
+
+        // Add special terms if we detect "hård plast" specifically  
+        if (label.description && label.description.toLowerCase().includes('hård plast')) {
+          console.log('🎯 Detected "hård plast", adding specific search terms');
+          terms.push('hård plast', 'plastikflaske', 'beholder', 'æske');
         }
     
     return terms;
