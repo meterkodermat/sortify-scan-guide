@@ -187,17 +187,7 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 switch (materiale.toLowerCase()) {
                   case 'pap': return { home: 'Pap', recycling: 'Pap' };
                   case 'plastik': 
-                    // Distinguish between hard and soft plastic based on item type
-                    if (itemName.includes('net') || 
-                        itemName.includes('pose') || 
-                        itemName.includes('folie') ||
-                        itemName.includes('film') ||
-                        itemName.includes('sæk') ||
-                        itemName.includes('indpakning')) {
-                      return { home: 'Plast', recycling: 'Blød plast' };
-                    } else {
-                      return { home: 'Plast', recycling: 'Hård plast' };
-                    }
+                    return { home: 'Plast', recycling: 'Plast' };
                   case 'glas': return { home: 'Glas', recycling: 'Glas' };
                   case 'metal': return { home: 'Metal', recycling: 'Metal' };
                   case 'organisk':
@@ -256,7 +246,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <div className="flex items-start">
               <Info className="h-4 w-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
               <div className="text-xs text-muted-foreground">
-                <p className="font-medium mb-1">AI Analyse:</p>
                 <p className="italic">{item.aiThoughtProcess}</p>
               </div>
             </div>

@@ -118,16 +118,9 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
   };
 
   const handleSelectItem = (item: DatabaseItem) => {
-    // Fix orange categorization - oranges should go in food waste
+    // Generic result processing
     let homeCategory = item.hjem || 'Restaffald';
     let recyclingCategory = item.genbrugsplads || 'Restaffald';
-    
-    // Special handling for oranges and other organic items
-    const itemName = item.navn?.toLowerCase() || '';
-    if (itemName.includes('appelsin') || itemName.includes('citrus') || itemName.includes('frugt')) {
-      homeCategory = 'Madaffald';
-      recyclingCategory = 'Ikke muligt';
-    }
 
     const result: WasteItem = {
       id: Date.now().toString(),

@@ -56,19 +56,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         continue;
       }
 
-      // Special debugging: if we're looking for oranges, let's test the search directly
-      if (cleanTerm.includes('appelsin') || cleanTerm.includes('orange')) {
-        console.log('🍊 ORANGE DEBUG: Testing direct database query...');
-        
-        // Test direct query to see if data exists
-        const testQuery = await supabase
-          .from('demo')
-          .select('navn, synonymer, materiale')
-          .ilike('synonymer', '%appelsin%')
-          .limit(3);
-          
-        console.log('🍊 ORANGE DEBUG: Direct test result:', testQuery);
-      }
+      // Standard database query for all terms
 
       // Use proper PostgreSQL ILIKE with correct syntax for better matching
       console.log(`🔍 Executing query: navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`);
@@ -164,49 +152,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
       
-      // Smart category-specific term expansion - BALANCED APPROACH
-      if (desc.includes('appelsin') || desc.includes('orange')) {
-        searchTerms.push('appelsin', 'orange', 'citrusfrugt');
-        console.log('🍊 Orange detected - adding specific orange terms');
-      }
-      
-      if (desc.includes('citrus')) {
-        searchTerms.push('citrus', 'citrusfrugt', 'appelsin');
-      }
-      
-      // Wood item expansion - CRITICAL FIX
-      if (desc.includes('træbjælke') || desc.includes('bjælke')) {
-        searchTerms.push('bjælke', 'bjælker', 'spær', 'træbjælke');
-        console.log('🪵 Wood beam detected - adding bjælke terms');
-      }
-      
-      if (desc.includes('træ') && !desc.includes('træning')) {
-        searchTerms.push('træ');
-        // Extract root word without "træ" prefix
-        const rootWord = desc.replace(/^træ/, '');
-        if (rootWord) {
-          searchTerms.push(rootWord);
-          console.log(`🪵 Wood item detected - adding root word: "${rootWord}"`);
-        }
-      }
-      
-      // REMOVE generic fruit and food handling - too broad
-      // if (desc.includes('frugt') || desc.includes('fruit')) {
-      //   searchTerms.push('frugt', 'madaffald');
-      // }
-      
-      if (desc.includes('net') && (desc.includes('appelsin') || desc.includes('frugt') || desc.includes('grøntsag'))) {
-        searchTerms.push('net', 'frugtnet', 'appelsinnet', 'grøntsagsnet');
-      }
-      
-      if (desc.includes('æg') || desc.includes('egg')) {
-        searchTerms.push('æg', 'madaffald');
-      }
-      
-      // Generic net handling
-      if (desc.includes('net') && !desc.includes('telefon') && !desc.includes('internet')) {
-        searchTerms.push('net', 'plastiknet');
-      }
+      // Generic search - no specific item logic
     }
     
     // Add translated text if different
@@ -221,22 +167,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     
     // Enhanced material-based search terms
     if (label.materiale) {
-      const material = label.materiale.toLowerCase();
       searchTerms.push(label.materiale);
-      
-      // REMOVE generic organic material handling - causes wrong matches
-      // if (material.includes('organisk')) {
-      //   searchTerms.push('madaffald', 'frugt', 'grøntsager', 'organisk');
-      //   console.log('🌱 Organic material detected - adding food terms');
-      // }
-      
-      if (material.includes('plastik')) {
-        searchTerms.push('plastik', 'plast');
-      }
-      
-      if (material.includes('elektronik')) {
-        searchTerms.push('elektronik', 'elektronisk');
-      }
     }
   }
 
@@ -425,116 +356,40 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         
         console.log(`🔍 MATCHING: Comparing "${labelDesc}" against "${matchName}" (synonyms: "${matchSynonyms.substring(0, 50)}...")`);
         
-        // Skip generic items when we have specific Gemini detections
-        if (labelDesc && (
-          labelDesc.includes('træbjælke') || 
-          labelDesc.includes('bjælke') ||
-          labelDesc.includes('brædt') ||
-          labelDesc.includes('plank')
-        )) {
-          // For wood items, avoid generic matches like "bøjle"
-          if (matchName === 'bøjle' || matchName.includes('bøjler')) {
-            console.log(`⚠️ SKIPPING: ${matchName} - too generic for specific wood item "${labelDesc}"`);
-            return false;
-          }
-        }
+        // Generic matching - no special item logic
         
-        // Skip packaging items when looking for food items
-        if (primaryLabel.materiale === 'organisk' && (
-          matchName === 'net' || 
-          matchName.includes('pose') || 
-          matchName.includes('folie')
-        )) {
-          console.log(`⚠️ SKIPPING: ${matchName} - packaging item when looking for organic food`);
-          return false;
-        }
-        
-        // Skip generic food waste for specific food items
-        if (primaryLabel.materiale === 'organisk' && matchName === 'madrester') {
-          console.log(`⚠️ SKIPPING: ${matchName} - too generic for specific food item`);
-          return false;
-        }
-        
-        // Enhanced matching logic for compound words and material prefixes
-        // Handle cases like "træbjælke" -> "bjælke"
-        const labelRoot = labelDesc.replace(/^(træ|metal|plast|glas|stof|læder)/, ''); // Remove material prefixes
-        const matchRoot = matchName.replace(/^(træ|metal|plast|glas|stof|læder)/, '');
-        
-        // Direct name match (prioritize exact matches)
+        // Direct name match
         if (matchName === labelDesc) {
           console.log(`✅ EXACT NAME MATCH: ${matchName} === ${labelDesc}`);
           return true;
         }
         
-        // Root word matching (e.g., "træbjælke" -> "bjælke")
-        if (labelRoot && (matchName === labelRoot || matchRoot === labelRoot)) {
-          console.log(`✅ ROOT WORD MATCH: "${labelDesc}" -> "${labelRoot}" matches "${matchName}"`);
-          return true;
-        }
-        
         // Check if label description is in synonyms (exact match)
         const synonymWords = matchSynonyms.split(',').map(s => s.trim().toLowerCase());
-        if (synonymWords.includes(labelDesc) || synonymWords.includes(labelRoot)) {
-          console.log(`✅ EXACT SYNONYM MATCH: Found "${labelDesc}" or "${labelRoot}" in synonyms of ${matchName}`);
+        if (synonymWords.includes(labelDesc)) {
+          console.log(`✅ EXACT SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
           return true;
         }
         
         // Partial synonym match
-        if (matchSynonyms.includes(labelDesc) || (labelRoot && matchSynonyms.includes(labelRoot))) {
-          console.log(`✅ PARTIAL SYNONYM MATCH: Found "${labelDesc}" or "${labelRoot}" in synonyms of ${matchName}`);
+        if (matchSynonyms.includes(labelDesc)) {
+          console.log(`✅ PARTIAL SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
           return true;
         }
         
         // Partial name match
-        if (matchName.includes(labelDesc) || labelDesc.includes(matchName) || 
-            (labelRoot && (matchName.includes(labelRoot) || labelRoot.includes(matchName)))) {
-          console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc} (root: ${labelRoot})`);
+        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
+          console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc}`);
           return true;
         }
         
         console.log(`❌ NO MATCH: ${matchName} vs ${labelDesc}`);
         return false;
       });
-      
-      // Enhanced matching logic to avoid generic matches
+      // Use first database match if available
       if (!bestMatch && dbMatches.length > 0) {
-        console.log('⚠️ No exact database match found for primary item:', primaryLabel.description);
-        console.log('🤔 Considering whether to use database fallback or Gemini detection...');
-        
-        // For specific items, prefer Gemini detection over generic database matches
-        const isSpecificDetection = (
-          primaryLabel.description.includes('træbjælke') ||
-          primaryLabel.description.includes('bjælke') ||
-          primaryLabel.description.includes('appelsin') ||
-          primaryLabel.description.includes('brædt') ||
-          primaryLabel.description.includes('plank')
-        );
-        
-        const hasGenericMatches = dbMatches.some(match => {
-          const matchName = match.navn.toLowerCase();
-          return matchName === 'bøjle' || matchName === 'emne' || matchName === 'genstand' || matchName === 'objekt';
-        });
-        
-        if (isSpecificDetection && hasGenericMatches) {
-          console.log('🎯 PREFERRING GEMINI DETECTION over generic database matches');
-          bestMatch = null; // Force fallback to use Gemini data
-        } else {
-          // Use material-based fallback to most relevant database match
-          const materialMatch = dbMatches.find(match => 
-            match.materiale && 
-            match.materiale.toLowerCase() === (primaryLabel.materiale || '').toLowerCase()
-          );
-          
-          if (materialMatch && materialMatch.navn.toLowerCase() !== 'bøjle') {
-            bestMatch = materialMatch;
-            console.log('📊 Using material-based database match:', bestMatch.navn);
-          } else {
-            bestMatch = null; // Use Gemini detection instead
-            console.log('🎯 No good database match, using Gemini detection');
-          }
-        }
-      } else if (!bestMatch) {
-        console.log('❌ No database matches found');
+        bestMatch = dbMatches[0];
+        console.log('📊 Using first database match:', bestMatch.navn);
       }
       
       if (bestMatch) {
@@ -609,41 +464,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         }
       });
       
-      console.log('🔍 DEBUG: ComponentMap keys before fallback:', [...componentMap.keys()]);
-      
-      // FALLBACK LOGIC: Add missing fruit for fruit nets - IMPROVED DETECTION
-      const hasApelsinnet = [...componentMap.keys()].some(key => key.includes('appelsinnet'));
-      const hasApelsin = [...componentMap.keys()].some(key => key.includes('appelsin') && !key.includes('appelsinnet'));
-      
-      console.log('🍊 FALLBACK CHECK: hasApelsinnet =', hasApelsinnet, ', hasApelsin =', hasApelsin);
-      
-      if (hasApelsinnet && !hasApelsin) {
-        console.log('🍊 FALLBACK: Appelsinnet detected but no appelsiner - adding appelsin component');
-        componentMap.set('appelsin-organisk', {
-          genstand: 'appelsin',
-          materiale: 'organisk',
-          tilstand: 'frisk',
-          count: 5, // Typical number of oranges in a net
-          hasDbMatch: false,
-          addedByFallback: true
-        });
-      }
-      
-      // CITRON NET FALLBACK
-      const hasCitronnet = [...componentMap.keys()].some(key => key.includes('citronnet'));
-      const hasCitron = [...componentMap.keys()].some(key => key.includes('citron') && !key.includes('citronnet'));
-      
-      if (hasCitronnet && !hasCitron) {
-        console.log('🍋 FALLBACK: Citronnet detected but no citroner - adding citron component');
-        componentMap.set('citron-organisk', {
-          genstand: 'citron',
-          materiale: 'organisk',
-          tilstand: 'frisk',
-          count: 4,
-          hasDbMatch: false,
-          addedByFallback: true
-        });
-      }
+      console.log('🔍 DEBUG: ComponentMap keys:', [...componentMap.keys()]);
       
       uniqueComponents.push(...componentMap.values());
       
@@ -675,37 +496,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     } else {
       // Fallback to basic categorization from vision data
       
-      // Special handling for specific items
-      let homeCategory, recyclingCategory;
-      
-      // Eggs should always be food waste
-      if (primaryLabel.description && (
-        primaryLabel.description.toLowerCase().includes('æg') ||
-        primaryLabel.description.toLowerCase().includes('egg')
-      )) {
-        homeCategory = 'Madaffald';
-        recyclingCategory = 'Ikke muligt';
-      }
-      // Nets should be plastic
-      else if (primaryLabel.description && (
-        primaryLabel.description.toLowerCase().includes('net') ||
-        primaryLabel.description.toLowerCase().includes('pose')
-      )) {
-        homeCategory = 'Plast';
-        recyclingCategory = 'Hård plast';
-      }
-      // Default material-based categorization
-      else {
-        homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
-                      primaryLabel.materiale === 'plastik' ? 'Plast' : 
-                      primaryLabel.materiale === 'glas' ? 'Glas' : 
-                      primaryLabel.materiale === 'metal' ? 'Metal' : 
-                      primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
-                      primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                      primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
-                      primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+      // Generic material-based categorization
+      let homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+                       primaryLabel.materiale === 'plastik' ? 'Plast' : 
+                       primaryLabel.materiale === 'glas' ? 'Glas' : 
+                       primaryLabel.materiale === 'metal' ? 'Metal' : 
+                       primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
+                       primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                       primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
+                       primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
 
-        recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+      let recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
                            primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
                            primaryLabel.materiale === 'glas' ? 'Glas' : 
                            primaryLabel.materiale === 'metal' ? 'Metal' : 
@@ -713,7 +514,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                            primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
                            primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
                            primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
-      }
 
       // Count identical items and create description
       const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
