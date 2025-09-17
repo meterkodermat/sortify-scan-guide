@@ -40,52 +40,79 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   try {
     console.log(`🔍 Database search with terms:`, searchTerms);
     
-    // Create search queries for each term
+    // Create search queries for each term with better SQL patterns
     const allResults = [];
     
     for (const term of searchTerms) {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) continue;
 
-      // Search with proper SQL ILIKE for Danish characters
+      console.log(`🔍 Searching for: "${cleanTerm}"`);
+
+      // Use proper PostgreSQL ILIKE with wildcards for better matching
       const { data, error } = await supabase
         .from('demo')
         .select('*')
         .or(`navn.ilike.*${cleanTerm}*,synonymer.ilike.*${cleanTerm}*,variation.ilike.*${cleanTerm}*,materiale.ilike.*${cleanTerm}*`)
-        .limit(10);
+        .limit(20);
 
       if (!error && data?.length) {
-        console.log(`✅ Found ${data.length} matches for "${cleanTerm}"`);
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(item => `${item.navn} (${item.id})`));
         allResults.push(...data);
+      } else {
+        console.log(`❌ No matches found for "${cleanTerm}"`);
       }
     }
     
-    // Remove duplicates
+    // Remove duplicates by id
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.id, item])).values()
     );
 
-    // Simple but effective scoring - prioritize exact matches and synonyms
+    console.log(`🎯 Total unique results: ${uniqueResults.length}`);
+
+    // Enhanced scoring system for better relevance
     return uniqueResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
       for (const term of searchTerms) {
         const cleanTerm = term.toLowerCase();
         
-        // Check exact matches in name, synonyms, and variation
-        if (a.navn?.toLowerCase() === cleanTerm) aScore += 100;
-        if (a.synonymer?.toLowerCase().includes(cleanTerm)) aScore += 80;
-        if (a.variation?.toLowerCase().includes(cleanTerm)) aScore += 60;
-        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 40;
+        // Exact name match (highest priority)
+        if (a.navn?.toLowerCase() === cleanTerm) aScore += 1000;
+        if (b.navn?.toLowerCase() === cleanTerm) bScore += 1000;
         
-        if (b.navn?.toLowerCase() === cleanTerm) bScore += 100;
-        if (b.synonymer?.toLowerCase().includes(cleanTerm)) bScore += 80;
-        if (b.variation?.toLowerCase().includes(cleanTerm)) bScore += 60;
-        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 40;
+        // Exact synonym match (very high priority for items like "Appelsin" in synonyms)
+        const aSynonyms = (a.synonymer || '').toLowerCase();
+        const bSynonyms = (b.synonymer || '').toLowerCase();
+        
+        // Check for exact word match in synonyms (not just substring)
+        const aSynonymWords = aSynonyms.split(',').map(s => s.trim());
+        const bSynonymWords = bSynonyms.split(',').map(s => s.trim());
+        
+        if (aSynonymWords.includes(cleanTerm)) aScore += 800;
+        if (bSynonymWords.includes(cleanTerm)) bScore += 800;
+        
+        // Partial synonym match
+        if (aSynonyms.includes(cleanTerm)) aScore += 600;
+        if (bSynonyms.includes(cleanTerm)) bScore += 600;
+        
+        // Name contains term
+        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 400;
+        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 400;
+        
+        // Variation match
+        if (a.variation?.toLowerCase().includes(cleanTerm)) aScore += 200;
+        if (b.variation?.toLowerCase().includes(cleanTerm)) bScore += 200;
+        
+        // Material match
+        if (a.materiale?.toLowerCase().includes(cleanTerm)) aScore += 100;
+        if (b.materiale?.toLowerCase().includes(cleanTerm)) bScore += 100;
       }
       
+      console.log(`📊 Scores: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
       return bScore - aScore;
-    }).slice(0, 3); // Top 3 results
+    }).slice(0, 5);
 
   } catch (error) {
     console.error('Database search error:', error);
@@ -104,6 +131,18 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     // Add main description
     if (label.description) {
       searchTerms.push(label.description);
+      
+      // For oranges and citrus, also search for "frugt" 
+      if (label.description.toLowerCase().includes('appelsin') || 
+          label.description.toLowerCase().includes('orange') ||
+          label.description.toLowerCase().includes('citrus')) {
+        searchTerms.push('appelsin', 'frugt', 'citrus');
+      }
+      
+      // For nets, search for net-related terms
+      if (label.description.toLowerCase().includes('net')) {
+        searchTerms.push('net', 'frugtnet', 'appelsinnet');
+      }
     }
     
     // Add translated text if different
@@ -120,13 +159,9 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     if (label.materiale) {
       searchTerms.push(label.materiale);
       
-      // Add plastic type specific terms
-      if (label.materiale.includes('plast')) {
-        if (label.description?.includes('pose') || label.description?.includes('folie') || label.description?.includes('net')) {
-          searchTerms.push('blød plast', 'pose', 'folie', 'net');
-        } else {
-          searchTerms.push('hård plast', 'plastikflaske', 'beholder');
-        }
+      // For organic materials, also search for food-related terms
+      if (label.materiale.toLowerCase().includes('organisk')) {
+        searchTerms.push('madaffald', 'frugt', 'grøntsager');
       }
     }
   }
