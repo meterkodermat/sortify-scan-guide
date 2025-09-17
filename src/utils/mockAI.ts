@@ -438,28 +438,40 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           return false;
         }
         
+        // Enhanced matching logic for compound words and material prefixes
+        // Handle cases like "træbjælke" -> "bjælke"
+        const labelRoot = labelDesc.replace(/^(træ|metal|plast|glas|stof|læder)/, ''); // Remove material prefixes
+        const matchRoot = matchName.replace(/^(træ|metal|plast|glas|stof|læder)/, '');
+        
         // Direct name match (prioritize exact matches)
         if (matchName === labelDesc) {
           console.log(`✅ EXACT NAME MATCH: ${matchName} === ${labelDesc}`);
           return true;
         }
         
-        // Check if label description is in synonyms (this is the key fix!)
-        const synonymWords = matchSynonyms.split(',').map(s => s.trim());
-        if (synonymWords.includes(labelDesc)) {
-          console.log(`✅ EXACT SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
+        // Root word matching (e.g., "træbjælke" -> "bjælke")
+        if (labelRoot && (matchName === labelRoot || matchRoot === labelRoot)) {
+          console.log(`✅ ROOT WORD MATCH: "${labelDesc}" -> "${labelRoot}" matches "${matchName}"`);
+          return true;
+        }
+        
+        // Check if label description is in synonyms (exact match)
+        const synonymWords = matchSynonyms.split(',').map(s => s.trim().toLowerCase());
+        if (synonymWords.includes(labelDesc) || synonymWords.includes(labelRoot)) {
+          console.log(`✅ EXACT SYNONYM MATCH: Found "${labelDesc}" or "${labelRoot}" in synonyms of ${matchName}`);
           return true;
         }
         
         // Partial synonym match
-        if (matchSynonyms.includes(labelDesc)) {
-          console.log(`✅ PARTIAL SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
+        if (matchSynonyms.includes(labelDesc) || (labelRoot && matchSynonyms.includes(labelRoot))) {
+          console.log(`✅ PARTIAL SYNONYM MATCH: Found "${labelDesc}" or "${labelRoot}" in synonyms of ${matchName}`);
           return true;
         }
         
         // Partial name match
-        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
-          console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc}`);
+        if (matchName.includes(labelDesc) || labelDesc.includes(matchName) || 
+            (labelRoot && (matchName.includes(labelRoot) || labelRoot.includes(matchName)))) {
+          console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc} (root: ${labelRoot})`);
           return true;
         }
         
