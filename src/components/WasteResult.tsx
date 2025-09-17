@@ -181,10 +181,23 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <h2 className="text-xl font-semibold text-foreground">Individuelle komponenter:</h2>
             
             {uniqueComponents.map((component: any, index) => {
-              const getMaterialSorting = (materiale: string) => {
+              const getMaterialSorting = (materiale: string, genstand: string) => {
+                const itemName = genstand.toLowerCase();
+                
                 switch (materiale.toLowerCase()) {
                   case 'pap': return { home: 'Pap', recycling: 'Pap' };
-                  case 'plastik': return { home: 'Plast', recycling: 'Hård plast' };
+                  case 'plastik': 
+                    // Distinguish between hard and soft plastic based on item type
+                    if (itemName.includes('net') || 
+                        itemName.includes('pose') || 
+                        itemName.includes('folie') ||
+                        itemName.includes('film') ||
+                        itemName.includes('sæk') ||
+                        itemName.includes('indpakning')) {
+                      return { home: 'Plast', recycling: 'Blød plast' };
+                    } else {
+                      return { home: 'Plast', recycling: 'Hård plast' };
+                    }
                   case 'glas': return { home: 'Glas', recycling: 'Glas' };
                   case 'metal': return { home: 'Metal', recycling: 'Metal' };
                   case 'organisk':
@@ -195,7 +208,7 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 }
               };
               
-              const sorting = getMaterialSorting(component.materiale);
+              const sorting = getMaterialSorting(component.materiale, component.genstand);
               const displayName = component.count > 1 ? 
                 `${component.genstand} (${component.count} stk.)` : 
                 component.genstand;
