@@ -38,6 +38,7 @@ const Index = () => {
     
     try {
       const result = await identifyWaste(imageData);
+      console.log('Identified waste result:', result);
       setCurrentResult(result);
       
       // Add to recent scans (keep only last 10)
@@ -129,6 +130,7 @@ const Index = () => {
   }
 
   if (currentView === 'result' && currentResult) {
+    console.log('Rendering WasteResult with item:', currentResult);
     return (
       <WasteResult
         item={currentResult}
