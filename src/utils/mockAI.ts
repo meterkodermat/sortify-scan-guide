@@ -163,14 +163,14 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
       
-      // Smart category-specific term expansion - REMOVE GENERIC TERMS
+      // Smart category-specific term expansion - BALANCED APPROACH
       if (desc.includes('appelsin') || desc.includes('orange')) {
-        searchTerms.push('appelsin'); // ONLY specific term, not 'frugt'
-        console.log('🍊 Orange detected - adding ONLY specific "appelsin" term');
+        searchTerms.push('appelsin', 'orange', 'citrusfrugt');
+        console.log('🍊 Orange detected - adding specific orange terms');
       }
       
       if (desc.includes('citrus')) {
-        searchTerms.push('citrus', 'citrusfrugt'); // Remove generic 'frugt', 'appelsin'
+        searchTerms.push('citrus', 'citrusfrugt', 'appelsin');
       }
       
       // REMOVE generic fruit and food handling - too broad
