@@ -501,9 +501,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         }
       });
       
-      // FALLBACK LOGIC: Add missing fruit for fruit nets
-      const hasApelsinnet = componentMap.has('appelsinnet-plastik') || componentMap.has('appelsinnet-');
-      const hasApelsin = [...componentMap.keys()].some(key => key.startsWith('appelsin-'));
+      console.log('🔍 DEBUG: ComponentMap keys before fallback:', [...componentMap.keys()]);
+      
+      // FALLBACK LOGIC: Add missing fruit for fruit nets - IMPROVED DETECTION
+      const hasApelsinnet = [...componentMap.keys()].some(key => key.includes('appelsinnet'));
+      const hasApelsin = [...componentMap.keys()].some(key => key.includes('appelsin') && !key.includes('appelsinnet'));
+      
+      console.log('🍊 FALLBACK CHECK: hasApelsinnet =', hasApelsinnet, ', hasApelsin =', hasApelsin);
       
       if (hasApelsinnet && !hasApelsin) {
         console.log('🍊 FALLBACK: Appelsinnet detected but no appelsiner - adding appelsin component');
@@ -511,14 +515,15 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           genstand: 'appelsin',
           materiale: 'organisk',
           tilstand: 'frisk',
-          count: 3, // Typical number of oranges in a net
+          count: 5, // Typical number of oranges in a net
           hasDbMatch: false,
           addedByFallback: true
         });
       }
       
-      const hasCitronnet = componentMap.has('citronnet-plastik') || componentMap.has('citronnet-');
-      const hasCitron = [...componentMap.keys()].some(key => key.startsWith('citron-'));
+      // CITRON NET FALLBACK
+      const hasCitronnet = [...componentMap.keys()].some(key => key.includes('citronnet'));
+      const hasCitron = [...componentMap.keys()].some(key => key.includes('citron') && !key.includes('citronnet'));
       
       if (hasCitronnet && !hasCitron) {
         console.log('🍋 FALLBACK: Citronnet detected but no citroner - adding citron component');
@@ -526,7 +531,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           genstand: 'citron',
           materiale: 'organisk',
           tilstand: 'frisk',
-          count: 4, // Typical number of lemons in a net
+          count: 4,
           hasDbMatch: false,
           addedByFallback: true
         });
@@ -611,7 +616,9 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       const componentMap = new Map();
       
       labels.forEach(label => {
-        const key = `${label.description}-${label.materiale || ''}`;
+        const key = `${label.description}-${label.materiale || 'ukendt'}`;
+        console.log(`🔧 CREATING COMPONENT: "${label.description}" with material "${label.materiale}" -> key: "${key}"`);
+        
         if (!componentMap.has(key)) {
           componentMap.set(key, {
             genstand: label.description,
