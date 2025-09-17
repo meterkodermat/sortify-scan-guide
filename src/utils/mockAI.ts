@@ -49,16 +49,18 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 
       console.log(`🔍 Searching for: "${cleanTerm}"`);
 
-      // Use proper PostgreSQL ILIKE with wildcards for better matching
+      // Use proper PostgreSQL ILIKE with correct syntax for better matching
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.*${cleanTerm}*,synonymer.ilike.*${cleanTerm}*,variation.ilike.*${cleanTerm}*,materiale.ilike.*${cleanTerm}*`)
+        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
         .limit(20);
 
       if (!error && data?.length) {
         console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(item => `${item.navn} (${item.id})`));
         allResults.push(...data);
+      } else if (error) {
+        console.error(`❌ Database error for "${cleanTerm}":`, error);
       } else {
         console.log(`❌ No matches found for "${cleanTerm}"`);
       }
