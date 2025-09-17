@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -64,6 +64,16 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<DatabaseItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const searchDatabase = async (term: string) => {
     if (!term || term.length < 2) {
@@ -97,7 +107,14 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
-    searchDatabase(value);
+    
+    // Debounce search to avoid excessive database calls
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      searchDatabase(value);
+    }, 300);
   };
 
   const handleSelectItem = (item: DatabaseItem) => {
@@ -123,6 +140,7 @@ export const SearchMode = ({ onBack, onResult }: SearchModeProps) => {
       timestamp: new Date(),
     };
 
+    // Stay in search mode, don't navigate away
     onResult(result);
   };
 

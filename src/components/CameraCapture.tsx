@@ -140,8 +140,33 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     setIsLoading(true);
     setError(null);
     
-    // Restart component
-    window.location.reload();
+    // Restart the camera initialization
+    const initCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            setIsLoading(false);
+            setError(null);
+          };
+        }
+      } catch (err: any) {
+        console.error("Camera restart error:", err);
+        setError("Kunne ikke genstarte kamera");
+        setIsLoading(false);
+      }
+    };
+    
+    initCamera();
   };
 
   const confirmCapture = () => {

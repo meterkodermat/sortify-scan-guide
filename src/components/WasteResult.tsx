@@ -37,17 +37,14 @@ interface WasteResultProps {
 }
 
 const getSortingPictogram = (category: string) => {
-  const imgClass = "w-24 h-24 mx-auto mb-2 object-contain";
+  const imgClass = "w-16 h-16 object-contain";
   
-  // Normalize category for matching
   const normalizedCategory = category.toLowerCase();
   
-  // Card/carton categories
   if (normalizedCategory.includes('karton') || normalizedCategory.includes('mad- & drikke-kartoner')) {
     return <img src={madDrikkeKartonerImg} alt="Mad- & drikke-kartoner" className={imgClass} />;
   }
   
-  // Paper/cardboard
   if (normalizedCategory.includes('pap') && !normalizedCategory.includes('karton')) {
     return <img src={papImg} alt="Pap" className={imgClass} />;
   }
@@ -55,42 +52,50 @@ const getSortingPictogram = (category: string) => {
     return <img src={papirImg} alt="Papir" className={imgClass} />;
   }
   
-  // Plastic
   if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
     return <img src={plastImg} alt="Plast" className={imgClass} />;
   }
   
-  // Glass
   if (normalizedCategory.includes('glas')) {
     return <img src={glasImg} alt="Glas" className={imgClass} />;
   }
   
-  // Metal
   if (normalizedCategory.includes('metal')) {
     return <img src={metalImg} alt="Metal" className={imgClass} />;
   }
   
-  // Food waste
   if (normalizedCategory.includes('mad') || normalizedCategory.includes('organisk') || normalizedCategory.includes('kompost') || normalizedCategory.includes('madaffald')) {
     return <img src={madaffalImg} alt="Madaffald" className={imgClass} />;
   }
   
-  // Dangerous waste
   if (normalizedCategory.includes('farligt') || normalizedCategory.includes('elektronik')) {
     return <img src={farligtAffaldImg} alt="Farligt affald" className={imgClass} />;
   }
   
-  // Textile waste
   if (normalizedCategory.includes('tekstil')) {
     return <img src={tekstilaffalImg} alt="Tekstilaffald" className={imgClass} />;
   }
   
-  // Default for rest/other categories
   return <img src={restaffalImg} alt="Restaffald" className={imgClass} />;
 };
 
 export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
   console.log('WasteResult received item:', item);
+  
+  // Group identical components to avoid repetition
+  const groupedComponents = item.components ? 
+    item.components.reduce((groups, component) => {
+      const key = `${component.genstand}-${component.materiale}`;
+      if (!groups[key]) {
+        groups[key] = { ...component, count: 0 };
+      }
+      groups[key].count++;
+      return groups;
+    }, {} as Record<string, any>) : {};
+
+  const uniqueComponents = Object.values(groupedComponents).filter(
+    (component: any) => component.genstand.toLowerCase() !== item.name.toLowerCase()
+  );
   
   return (
     <div className="min-h-screen bg-background p-4">
@@ -105,17 +110,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </Button>
         </div>
 
-        {/* Main Item Title - Prominently displayed */}
-        <Card className="p-8 bg-gradient-card shadow-card text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            {item.name || 'Ukendt genstand'}
-          </h1>
-          <Badge variant="secondary" className="bg-success text-success-foreground text-lg px-4 py-2">
-            {Math.round(item.confidence)}% sikker
-          </Badge>
-          {item.description && (
-            <p className="text-muted-foreground mt-4 text-lg">{item.description}</p>
-          )}
+        {/* Main Item - Top Section */}
+        <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
+          <div className="space-y-4">
+            <h1 className="text-3xl font-bold text-foreground">
+              {item.name}
+            </h1>
+            <Badge variant="secondary" className="text-lg px-4 py-2">
+              {Math.round(item.confidence)}% sikker
+            </Badge>
+            {item.description && (
+              <p className="text-muted-foreground text-lg">{item.description}</p>
+            )}
+          </div>
         </Card>
 
         {/* Image */}
@@ -127,135 +134,103 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           />
         </Card>
 
-        {/* Individual Components (if many different materials found) */}
-        {item.components && item.components.length > 0 && (
-          <Card className="p-6 bg-gradient-card shadow-card">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">Fundne komponenter:</h3>
-            <div className="space-y-3">
-              {item.components
-                .filter(component => component.genstand.toLowerCase() !== item.name.toLowerCase())
-                .map((component, index) => {
-                const getMaterialCategory = (materiale: string) => {
-                  switch (materiale.toLowerCase()) {
-                    case 'pap': return { home: 'Pap', recycling: 'Pap', variant: 'secondary', pictogram: papImg };
-                    case 'plastik': 
-                      // Special handling for nets and soft plastics
-                      if (component.genstand.toLowerCase().includes('net') || 
-                          component.genstand.toLowerCase().includes('folie') ||
-                          component.genstand.toLowerCase().includes('film')) {
-                        return { home: 'Plast', recycling: 'Blød plast', variant: 'outline', pictogram: plastImg };
-                      }
-                      return { home: 'Plast', recycling: 'Hård plast', variant: 'outline', pictogram: plastImg };
-                    case 'glas': return { home: 'Glas', recycling: 'Glas', variant: 'secondary', pictogram: glasImg };
-                    case 'metal': return { home: 'Metal', recycling: 'Metal', variant: 'outline', pictogram: metalImg };
-                    case 'organisk':
-                    case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt', variant: 'destructive', pictogram: madaffalImg };
-                    case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald', variant: 'destructive', pictogram: farligtAffaldImg };
-                    case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald', variant: 'outline', pictogram: tekstilaffalImg };
-                    default: return { home: 'Restaffald', recycling: 'Rest efter sortering', variant: 'outline', pictogram: restaffalImg };
-                  }
-                };
-                
-                const category = getMaterialCategory(component.materiale);
-                
-                return (
-                  <div key={index} className="space-y-4">
-                    {/* Component Name Header */}
-                    <div className="text-center bg-gradient-card p-4 rounded-lg border-2 border-muted/30">
-                      <h3 className="text-2xl font-bold text-foreground mb-2">
-                        {component.genstand}
+        {/* Main Item Sorting Instructions */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
+          
+          {/* Home Sorting */}
+          <Card className="p-4 bg-card border-2 border-muted/50">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-muted/20 rounded-lg">
+                <Home className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">Hjemme sortering</h3>
+                <div className="flex items-center gap-3 mt-2">
+                  {getSortingPictogram(item.homeCategory)}
+                  <span className="font-semibold text-lg">{item.homeCategory}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Recycling Center */}
+          <Card className="p-4 bg-card border-2 border-muted/50">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-muted/20 rounded-lg">
+                <Recycle className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">Genbrugsplads</h3>
+                <div className="mt-2">
+                  <span className="font-semibold text-lg">{item.recyclingCategory}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Individual Components - Only if they exist and are different from main item */}
+        {uniqueComponents.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-foreground">Individuelle komponenter:</h2>
+            
+            {uniqueComponents.map((component: any, index) => {
+              const getMaterialSorting = (materiale: string) => {
+                switch (materiale.toLowerCase()) {
+                  case 'pap': return { home: 'Pap', recycling: 'Pap' };
+                  case 'plastik': return { home: 'Plast', recycling: 'Hård plast' };
+                  case 'glas': return { home: 'Glas', recycling: 'Glas' };
+                  case 'metal': return { home: 'Metal', recycling: 'Metal' };
+                  case 'organisk':
+                  case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt' };
+                  case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald' };
+                  case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald' };
+                  default: return { home: 'Restaffald', recycling: 'Rest efter sortering' };
+                }
+              };
+              
+              const sorting = getMaterialSorting(component.materiale);
+              const displayName = component.count > 1 ? 
+                `${component.genstand} (${component.count} stk.)` : 
+                component.genstand;
+              
+              return (
+                <Card key={index} className="p-4 bg-card border border-muted/30">
+                  <div className="space-y-3">
+                    {/* Component Header */}
+                    <div className="text-center pb-2 border-b border-muted/30">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        {displayName}
                       </h3>
-                      {component.tilstand && (
-                        <p className="text-sm text-muted-foreground">({component.tilstand})</p>
-                      )}
                       <p className="text-sm text-muted-foreground">
                         Materiale: {component.materiale}
                       </p>
                     </div>
                     
-                    {/* Individual sorting cards for each component */}
-                    <div className="grid grid-cols-1 gap-3 ml-4">
-                      <Card className="p-4 bg-muted/30 text-foreground border-2 border-muted/50">
-                        <div className="flex items-center gap-3">
-                          <Home className="h-5 w-5 text-muted-foreground" />
-                          <div className="flex-1">
-                            <div className="font-semibold">Hjemme sortering</div>
-                            <div className="text-sm text-muted-foreground">Sådan sorterer du hjemme</div>
-                          </div>
+                    {/* Component Sorting */}
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div className="p-3 bg-muted/20 rounded-lg">
+                        <Home className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                        <div className="text-xs text-muted-foreground mb-1">Hjemme</div>
+                        <div className="flex items-center justify-center gap-2">
+                          {getSortingPictogram(sorting.home)}
+                          <span className="text-sm font-semibold">{sorting.home}</span>
                         </div>
-                        <div className="flex items-center justify-center mt-3 p-3 bg-background rounded-lg border border-muted/30">
-                          <div className="text-center">
-                            <img src={category.pictogram} alt={category.home} className="w-16 h-16 mx-auto mb-2 object-contain" />
-                            <div className="font-bold text-foreground">{category.home}</div>
-                          </div>
-                        </div>
-                      </Card>
+                      </div>
                       
-                      <Card className="p-4 bg-muted/30 text-foreground border-2 border-muted/50">
-                        <div className="flex items-center gap-3">
-                          <Recycle className="h-5 w-5 text-muted-foreground" />
-                          <div className="flex-1">
-                            <div className="font-semibold">Genbrugsplads</div>
-                            <div className="text-sm text-muted-foreground">Sådan afleverer du</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-center mt-3 p-3 bg-background rounded-lg border border-muted/30">
-                          <div className="text-center">
-                            <div className="font-bold text-foreground">{category.recycling}</div>
-                          </div>
-                        </div>
-                      </Card>
+                      <div className="p-3 bg-muted/20 rounded-lg">
+                        <Recycle className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                        <div className="text-xs text-muted-foreground mb-1">Genbrugsplads</div>
+                        <div className="text-sm font-semibold">{sorting.recycling}</div>
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
-
-        {/* Main Item Sorting Instructions */}
-        <div className="space-y-4">
-            {/* Home Sorting */}
-            <Card className="p-6 bg-muted/30 text-foreground border-2 border-muted/50 shadow-strong">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-muted/20 rounded-lg mr-3">
-                  <Home className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg">Hjemme sortering</h3>
-                  <p className="text-sm text-muted-foreground">Sådan sorterer du hjemme</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-center p-6 bg-background rounded-lg border border-muted/30">
-                <div className="text-center">
-                  {getSortingPictogram(item.homeCategory)}
-                  <div className="mt-2 text-lg font-bold text-foreground">
-                    {item.homeCategory}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Recycling Center */}
-            <Card className="p-6 bg-muted/30 text-foreground border-2 border-muted/50 shadow-strong">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-muted/20 rounded-lg mr-3">
-                  <Recycle className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg">Genbrugsplads</h3>
-                  <p className="text-sm text-muted-foreground">Sådan afleverer du</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-center p-6 bg-background rounded-lg border border-muted/30">
-                <div className="text-center">
-                  <div className="mt-2 text-lg font-bold text-foreground">
-                    {item.recyclingCategory}
-                  </div>
-                </div>
-              </div>
-            </Card>
+                </Card>
+              );
+            })}
           </div>
+        )}
 
         {/* AI Analysis Process (if available) */}
         {item.aiThoughtProcess && (
@@ -263,7 +238,7 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <div className="flex items-start">
               <Info className="h-4 w-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
               <div className="text-xs text-muted-foreground">
-                <p className="font-medium mb-1">AI Analyse Process:</p>
+                <p className="font-medium mb-1">AI Analyse:</p>
                 <p className="italic">{item.aiThoughtProcess}</p>
               </div>
             </div>

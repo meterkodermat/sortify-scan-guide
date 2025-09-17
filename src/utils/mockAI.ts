@@ -33,138 +33,59 @@ interface VisionResponse {
   error?: string;
 }
 
-// Search database for waste item matches with comprehensive search
+// Simplified and more reliable database search
 const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   if (!searchTerms.length) return [];
 
   try {
-    console.log(`🔍 Starting database search with terms:`, searchTerms);
+    console.log(`🔍 Database search with terms:`, searchTerms);
     
-    // First, try searching for exact multi-word phrases (like "blød plast")
-    const exactPhrasePromises = searchTerms
-      .filter(term => term.includes(' ')) // Only multi-word terms
-      .map(async (phrase) => {
-        const cleanPhrase = phrase.toLowerCase().trim();
-        console.log(`🎯 Searching for exact phrase: "${cleanPhrase}"`);
-        
-        const { data, error } = await supabase
-          .from('demo')
-          .select('*')
-          .or(`navn.ilike.%${cleanPhrase}%,synonymer.ilike.%${cleanPhrase}%,variation.ilike.%${cleanPhrase}%,materiale.ilike.%${cleanPhrase}%`)
-          .limit(20);
-          
-        if (!error && data?.length) {
-          console.log(`✅ Found exact phrase matches for "${cleanPhrase}":`, data.map(item => item.navn));
-          return data;
-        }
-        return [];
-      });
+    // Create search queries for each term
+    const allResults = [];
     
-    // Then search for individual terms
-    const searchPromises = searchTerms.map(async (term) => {
+    for (const term of searchTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 2) return [];
+      if (cleanTerm.length < 2) continue;
 
-      console.log(`🔍 Searching database for term: "${cleanTerm}"`);
-
+      // Search with proper SQL ILIKE for Danish characters
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
-        .limit(20);
+        .or(`navn.ilike.*${cleanTerm}*,synonymer.ilike.*${cleanTerm}*,variation.ilike.*${cleanTerm}*,materiale.ilike.*${cleanTerm}*`)
+        .limit(10);
 
-      // Special search for "blød plast" and "hård plast"
-      let extraData = [];
-      if (cleanTerm === 'blød' || cleanTerm.includes('blød')) {
-        console.log(`🎯 Special search for blød plast items`);
-        const { data: softPlasticData, error: softError } = await supabase
-          .from('demo')
-          .select('*')
-          .or(`materiale.ilike.%blød%,synonymer.ilike.%blød plast%,navn.ilike.%blød%`)
-          .limit(20);
-        
-        if (!softError && softPlasticData) {
-          console.log(`Found soft plastic matches:`, softPlasticData.map(item => item.navn));
-          extraData = softPlasticData;
-        }
+      if (!error && data?.length) {
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}"`);
+        allResults.push(...data);
       }
-      
-      // Also search for common plastic combinations if searching for plastic
-      if (cleanTerm.includes('plast') || cleanTerm.includes('plastik')) {
-        console.log(`🎯 Special plastic search for: "${cleanTerm}"`);
-        const { data: plasticData, error: plasticError } = await supabase
-          .from('demo')
-          .select('*')
-          .or(`materiale.ilike.%plast%,materiale.ilike.%plastik%,materiale.ilike.%PVC%`)
-          .limit(20);
-        
-        if (!plasticError && plasticData) {
-          extraData = [...extraData, ...plasticData];
-        }
-      }
-
-      if (error) {
-        console.error('Database search error for term:', cleanTerm, error);
-        return [];
-      }
-
-      console.log(`Found ${data?.length || 0} results for "${cleanTerm}":`, data?.map(item => item.navn));
-      
-      // Combine regular results with plastic results
-      const combinedData = [...(data || []), ...extraData];
-      return combinedData || [];
-    });
-
-    // Execute all searches in parallel
-    const [exactPhraseResults, termResults] = await Promise.all([
-      Promise.all(exactPhrasePromises),
-      Promise.all(searchPromises)
-    ]);
+    }
     
-    const allResults = [...exactPhraseResults.flat(), ...termResults.flat()];
-    
-    // Remove duplicates and score results
+    // Remove duplicates
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.id, item])).values()
     );
 
-    console.log(`🎯 Total unique results found: ${uniqueResults.length}`);
-
-    // Sort by relevance - prioritize specific matches over generic categories
+    // Simple but effective scoring - prioritize exact matches and synonyms
     return uniqueResults.sort((a, b) => {
-      // Calculate specificity scores
-      const getSpecificityScore = (item, terms) => {
-        const itemName = item.navn.toLowerCase();
-        const itemSynonyms = (item.synonymer || '').toLowerCase();
-        let score = 0;
+      let aScore = 0, bScore = 0;
+      
+      for (const term of searchTerms) {
+        const cleanTerm = term.toLowerCase();
         
-        for (const term of terms) {
-          if (!term) continue;
-          const cleanTerm = term.toLowerCase();
-          
-          // Exact synonym match gets highest score (for "blød plast" matches)
-          if (itemSynonyms.includes(cleanTerm)) score += 100;
-          // Exact name match gets high score
-          else if (itemName === cleanTerm) score += 90;
-          // Specific item name contains search term
-          else if (itemName.includes(cleanTerm)) score += 50;
-          // Avoid generic matches for specific items
-          else if (itemName === 'frugt' && cleanTerm === 'appelsin') score -= 50;
-          else if (itemName === 'mad' && cleanTerm.length > 3) score -= 30;
-          // Material matches
-          else if (item.materiale && item.materiale.toLowerCase().includes(cleanTerm)) score += 25;
-        }
+        // Check exact matches in name, synonyms, and variation
+        if (a.navn?.toLowerCase() === cleanTerm) aScore += 100;
+        if (a.synonymer?.toLowerCase().includes(cleanTerm)) aScore += 80;
+        if (a.variation?.toLowerCase().includes(cleanTerm)) aScore += 60;
+        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 40;
         
-        return score;
-      };
+        if (b.navn?.toLowerCase() === cleanTerm) bScore += 100;
+        if (b.synonymer?.toLowerCase().includes(cleanTerm)) bScore += 80;
+        if (b.variation?.toLowerCase().includes(cleanTerm)) bScore += 60;
+        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 40;
+      }
       
-      const aScore = getSpecificityScore(a, searchTerms);
-      const bScore = getSpecificityScore(b, searchTerms);
-      
-      console.log(`Scoring: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
-      
-      return bScore - aScore; // Higher score first
-    }).slice(0, 5); // Top 5 results
+      return bScore - aScore;
+    }).slice(0, 3); // Top 3 results
 
   } catch (error) {
     console.error('Database search error:', error);
@@ -172,76 +93,58 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 };
 
-// Enhanced search with multiple terms
+// Enhanced search with better term extraction
 const findBestMatches = async (labels: VisionLabel[]) => {
-  console.log('Labels from Gemini:', labels);
+  console.log('🔍 Processing Gemini labels:', labels);
   
-  const allSearchTerms = labels.flatMap(label => {
-    const terms = [];
-    if (label.description) terms.push(label.description);
-    if (label.translatedText) terms.push(label.translatedText);
+  // Extract all meaningful search terms
+  const searchTerms = [];
+  
+  for (const label of labels) {
+    // Add main description
+    if (label.description) {
+      searchTerms.push(label.description);
+    }
     
-    // Include alternative names if available
+    // Add translated text if different
+    if (label.translatedText && label.translatedText !== label.description) {
+      searchTerms.push(label.translatedText);
+    }
+    
+    // Add alternative names
     if (label.navne && Array.isArray(label.navne)) {
-      terms.push(...label.navne);
+      searchTerms.push(...label.navne);
     }
     
-    // Also search for specific object + material combinations
-    if (label.materiale && label.description) {
-      const combination = `${label.description} ${label.materiale}`;
-      terms.push(combination);
-      console.log(`🔗 Adding material combination: "${combination}"`);
-    }
-    
-        // If we only have material, add common objects of that material type
-        if (label.materiale && !label.description) {
-          const materialTerms = {
-            'elektronik': ['mobiltelefon', 'computer', 'tv', 'batteri', 'elektronik'],
-            'plastik': ['plastikflaske', 'pose', 'beholder', 'net', 'plastiknet', 'folie', 'bobleplast', 'blød plast', 'hård plast'],
-            'blød plastik': ['pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'blød plast'],
-            'hård plastik': ['plastikflaske', 'beholder', 'æske', 'hård plast'],
-            'pap': ['karton', 'æske', 'pizzaboks'],
-            'glas': ['flaske', 'glas', 'krukke'],
-            'metal': ['dåse', 'aluminium'],
-            'farligt': ['batteri', 'maling', 'kemikalier'],
-            'organisk': ['madaffald', 'frugt', 'grøntsager', 'æg'],
-            'tekstil': ['tøj', 'sko', 'tekstil'],
-            'træ': ['møbler', 'træ', 'plade']
-          };
+    // Add material-specific search terms
+    if (label.materiale) {
+      searchTerms.push(label.materiale);
       
-          if (materialTerms[label.materiale]) {
-            terms.push(...materialTerms[label.materiale]);
-            console.log(`🧱 Adding material-specific terms for "${label.materiale}":`, materialTerms[label.materiale]);
-          }
+      // Add plastic type specific terms
+      if (label.materiale.includes('plast')) {
+        if (label.description?.includes('pose') || label.description?.includes('folie') || label.description?.includes('net')) {
+          searchTerms.push('blød plast', 'pose', 'folie', 'net');
+        } else {
+          searchTerms.push('hård plast', 'plastikflaske', 'beholder');
         }
-        
-        // Add special terms if we detect "blød plast" specifically
-        if (label.description && label.description.toLowerCase().includes('blød plast')) {
-          console.log('🎯 Detected "blød plast", adding specific search terms');
-          terms.push('blød plast', 'pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'polyethylen', 'PE');
-        }
+      }
+    }
+  }
 
-        // Add special terms if we detect "hård plast" specifically  
-        if (label.description && label.description.toLowerCase().includes('hård plast')) {
-          console.log('🎯 Detected "hård plast", adding specific search terms');
-          terms.push('hård plast', 'plastikflaske', 'beholder', 'æske');
-        }
-    
-    return terms;
-  });
+  // Clean and deduplicate terms
+  const cleanTerms = [...new Set(searchTerms)]
+    .filter(term => term && typeof term === 'string' && term.length >= 2)
+    .map(term => term.toLowerCase().trim());
 
-  console.log('Search terms before filtering:', allSearchTerms);
+  console.log('🎯 Final search terms:', cleanTerms);
 
-  // Remove duplicates and clean terms - be more lenient with term length
-  const uniqueTerms = [...new Set(allSearchTerms)]
-    .filter(term => term && typeof term === 'string')
-    .map(term => term.toLowerCase().trim())
-    .filter(term => term.length >= 2); // Allow shorter terms like "tv", "pc"
+  if (cleanTerms.length === 0) {
+    console.log('❌ No valid search terms found');
+    return [];
+  }
 
-  console.log('Final search terms:', uniqueTerms);
-
-  const matches = await searchWasteInDatabase(uniqueTerms);
-  console.log('Database search results:', matches);
+  const matches = await searchWasteInDatabase(cleanTerms);
+  console.log(`✅ Found ${matches.length} database matches`);
   return matches;
 };
 
