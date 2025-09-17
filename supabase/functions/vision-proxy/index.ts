@@ -214,8 +214,8 @@ serve(async (req) => {
     console.log('Server region (if available):', Deno.env.get('DENO_REGION') || 'unknown');
     console.log('Deployment ID:', Deno.env.get('DENO_DEPLOYMENT_ID') || 'unknown');
     
-    // Get Gemini API key from Supabase secrets
-    const geminiApiKey = Deno.env.get('GEMINI');
+    // Get Gemini API key from Supabase secrets (try both possible names)
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI');
     
     console.log('GEMINI_API_KEY present:', !!geminiApiKey);
     console.log('GEMINI_API_KEY length:', geminiApiKey?.length || 0);
@@ -369,28 +369,33 @@ serve(async (req) => {
     const candidate = geminiData.candidates[0];
     const responseText = candidate.content.parts[0].text;
 
-    // Parse Gemini response to extract JSON object
+    // Parse Gemini response to extract JSON object with enhanced logging
     let allResults = [];
+    console.log('Raw Gemini response text:', responseText);
+    
     try {
       // Try to extract JSON object from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
+        console.log('Parsed JSON result:', parsedResult);
         
         // Handle new komponenter format with confidence
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
+          console.log('Using komponenter format, found:', parsedResult.komponenter.length, 'items');
           allResults = parsedResult.komponenter.map(component => ({
-            description: component.description || component.navne?.[0] || component.navn || 'ukendt objekt', // First name as primary
-            score: component.score || component.confidence || 0.9, // Use confidence from Gemini or fallback
+            description: component.description || component.navne?.[0] || component.navn || 'ukendt objekt',
+            score: component.score || component.confidence || 0.9,
             type: 'gemini_detection',
             materiale: component.materiale,
             tilstand: component.tilstand,
-            navne: component.navne || component.synonymer, // Use navne or fall back to synonymer
+            navne: component.navne || component.synonymer,
             confidence: component.score || component.confidence || 0.9
           }));
         }
         // Fallback: handle old single object format
         else if (parsedResult.navne || parsedResult.navn || parsedResult.description) {
+          console.log('Using single object format');
           allResults = [{
             description: parsedResult.description || (parsedResult.navne ? parsedResult.navne[0] : parsedResult.navn) || 'ukendt objekt',
             score: parsedResult.score || 0.9,
@@ -402,9 +407,10 @@ serve(async (req) => {
         }
         // Handle case where only material is returned - create a generic description
         else if (parsedResult.materiale) {
+          console.log('Creating generic description from material:', parsedResult.materiale);
           const materialDescriptions = {
             'elektronik': 'elektronisk genstand',
-            'plastik': 'plastikgenstand', 
+            'plastik': 'plastikgenstand',
             'pap': 'papgenstand',
             'glas': 'glasgenstand',
             'metal': 'metalgenstand',

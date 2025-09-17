@@ -120,28 +120,44 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 };
 
-// Enhanced search with better term extraction
+// Enhanced search with better term extraction and smarter mapping
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
-  // Extract all meaningful search terms
+  // Extract all meaningful search terms with smart category mapping
   const searchTerms = [];
   
   for (const label of labels) {
     // Add main description
     if (label.description) {
+      const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
       
-      // For oranges and citrus, also search for "frugt" 
-      if (label.description.toLowerCase().includes('appelsin') || 
-          label.description.toLowerCase().includes('orange') ||
-          label.description.toLowerCase().includes('citrus')) {
-        searchTerms.push('appelsin', 'frugt', 'citrus');
+      // Smart category-specific term expansion
+      if (desc.includes('appelsin') || desc.includes('orange')) {
+        searchTerms.push('appelsin', 'frugt', 'citrusfrugt', 'orange');
+        console.log('🍊 Orange detected - adding fruit-specific terms');
       }
       
-      // For nets, search for net-related terms
-      if (label.description.toLowerCase().includes('net')) {
-        searchTerms.push('net', 'frugtnet', 'appelsinnet');
+      if (desc.includes('citrus')) {
+        searchTerms.push('citrus', 'frugt', 'appelsin', 'citron');
+      }
+      
+      if (desc.includes('frugt') || desc.includes('fruit')) {
+        searchTerms.push('frugt', 'madaffald');
+      }
+      
+      if (desc.includes('net') && (desc.includes('appelsin') || desc.includes('frugt') || desc.includes('grøntsag'))) {
+        searchTerms.push('net', 'frugtnet', 'appelsinnet', 'grøntsagsnet');
+      }
+      
+      if (desc.includes('æg') || desc.includes('egg')) {
+        searchTerms.push('æg', 'madaffald');
+      }
+      
+      // Generic net handling
+      if (desc.includes('net') && !desc.includes('telefon') && !desc.includes('internet')) {
+        searchTerms.push('net', 'plastiknet');
       }
     }
     
@@ -155,20 +171,36 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push(...label.navne);
     }
     
-    // Add material-specific search terms
+    // Enhanced material-based search terms
     if (label.materiale) {
+      const material = label.materiale.toLowerCase();
       searchTerms.push(label.materiale);
       
-      // For organic materials, also search for food-related terms
-      if (label.materiale.toLowerCase().includes('organisk')) {
-        searchTerms.push('madaffald', 'frugt', 'grøntsager');
+      if (material.includes('organisk')) {
+        searchTerms.push('madaffald', 'frugt', 'grøntsager', 'organisk');
+        console.log('🌱 Organic material detected - adding food terms');
+      }
+      
+      if (material.includes('plastik')) {
+        searchTerms.push('plastik', 'plast');
+      }
+      
+      if (material.includes('elektronik')) {
+        searchTerms.push('elektronik', 'elektronisk');
       }
     }
   }
 
-  // Clean and deduplicate terms
+  // Clean and deduplicate terms with better filtering
   const cleanTerms = [...new Set(searchTerms)]
-    .filter(term => term && typeof term === 'string' && term.length >= 2)
+    .filter(term => {
+      if (!term || typeof term !== 'string') return false;
+      const cleaned = term.toLowerCase().trim();
+      // Filter out very short terms and common stop words
+      if (cleaned.length < 2) return false;
+      if (['er', 'en', 'et', 'og', 'i', 'på', 'af', 'til', 'med'].includes(cleaned)) return false;
+      return true;
+    })
     .map(term => term.toLowerCase().trim());
 
   console.log('🎯 Final search terms:', cleanTerms);
@@ -180,6 +212,16 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
   const matches = await searchWasteInDatabase(cleanTerms);
   console.log(`✅ Found ${matches.length} database matches`);
+  
+  // Log match details for debugging
+  if (matches.length > 0) {
+    console.log('🎯 Top matches:', matches.slice(0, 3).map(m => ({
+      navn: m.navn,
+      synonymer: m.synonymer,
+      materiale: m.materiale
+    })));
+  }
+  
   return matches;
 };
 
