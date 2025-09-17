@@ -43,7 +43,15 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) return [];
 
-      console.log(`Searching database for term: "${cleanTerm}"`);
+      console.log(`🔍 Searching database for term: "${cleanTerm}"`);
+
+      // Special handling for plastic terms
+      let searchColumns = `navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`;
+      
+      // If searching for plastic terms, also include broader searches
+      if (cleanTerm.includes('plast') || cleanTerm.includes('blød') || cleanTerm.includes('plastik')) {
+        console.log(`🔍 Special plastic search for: "${cleanTerm}"`);
+      }
 
       const { data, error } = await supabase
         .from('demo')
@@ -162,6 +170,12 @@ const findBestMatches = async (labels: VisionLabel[]) => {
           if (materialTerms[label.materiale]) {
             terms.push(...materialTerms[label.materiale]);
           }
+        }
+        
+        // Add special terms if we detect "blød plast" specifically
+        if (label.description && label.description.toLowerCase().includes('blød plast')) {
+          console.log('🔍 Detected "blød plast", adding specific search terms');
+          terms.push('pose', 'folie', 'net', 'bobleplast', 'plastikpose', 'polyethylen', 'PE');
         }
     
     return terms;

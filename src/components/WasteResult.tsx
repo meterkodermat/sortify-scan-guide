@@ -105,19 +105,17 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </Button>
         </div>
 
-        {/* Main Item Title */}
-        <Card className="p-6 bg-gradient-card shadow-card">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {item.name || 'Ukendt genstand'}
-            </h1>
-            <Badge variant="secondary" className="bg-success text-success-foreground">
-              {Math.round(item.confidence)}% sikker
-            </Badge>
-            {item.description && (
-              <p className="text-muted-foreground mt-3">{item.description}</p>
-            )}
-          </div>
+        {/* Main Item Title - Prominently displayed */}
+        <Card className="p-8 bg-gradient-card shadow-card text-center">
+          <h1 className="text-4xl font-bold text-foreground mb-4">
+            {item.name || 'Ukendt genstand'}
+          </h1>
+          <Badge variant="secondary" className="bg-success text-success-foreground text-lg px-4 py-2">
+            {Math.round(item.confidence)}% sikker
+          </Badge>
+          {item.description && (
+            <p className="text-muted-foreground mt-4 text-lg">{item.description}</p>
+          )}
         </Card>
 
         {/* Image */}
@@ -162,19 +160,17 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                 
                 return (
                   <div key={index} className="space-y-4">
-                    <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-lg">
-                      <img src={category.pictogram} alt={component.materiale} className="w-12 h-12 object-contain" />
-                      <div className="flex-1">
-                        <div className="font-medium text-foreground">
-                          {component.genstand}
-                          {component.tilstand && (
-                            <span className="text-sm text-muted-foreground ml-2">({component.tilstand})</span>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Materiale: {component.materiale}
-                        </div>
-                      </div>
+                    {/* Component Name Header */}
+                    <div className="text-center bg-gradient-card p-4 rounded-lg border-2 border-muted/30">
+                      <h3 className="text-2xl font-bold text-foreground mb-2">
+                        {component.genstand}
+                      </h3>
+                      {component.tilstand && (
+                        <p className="text-sm text-muted-foreground">({component.tilstand})</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        Materiale: {component.materiale}
+                      </p>
                     </div>
                     
                     {/* Individual sorting cards for each component */}
