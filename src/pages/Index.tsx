@@ -33,6 +33,7 @@ const Index = () => {
 
 
   const handleImageCapture = async (imageData: string) => {
+    console.log('📸 Image captured, starting analysis...');
     setCurrentView('analyzing');
     setIsAnalyzing(true);
     

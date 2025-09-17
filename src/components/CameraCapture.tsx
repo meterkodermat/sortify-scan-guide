@@ -99,7 +99,9 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   }, []);
 
   const capturePhoto = () => {
+    console.log('📸 Capturing photo...');
     if (!videoRef.current || !canvasRef.current) {
+      console.log('❌ Camera not ready');
       toast.error("Kamera ikke klar");
       return;
     }
@@ -143,6 +145,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   };
 
   const confirmCapture = () => {
+    console.log('✅ Confirming capture, sending to analysis...');
     if (capturedImage) {
       onCapture(capturedImage);
     }

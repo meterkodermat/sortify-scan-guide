@@ -198,7 +198,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
-    console.log('Starting waste identification...');
+    console.log('🚀 Starting waste identification process...');
     
     // Step 1: Get vision analysis
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
