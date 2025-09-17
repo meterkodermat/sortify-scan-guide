@@ -314,10 +314,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     let confidence = 0;
     let primaryLabel = labels[0];
 
-    // Smart logic to determine the main item vs components
+    // Smart logic to determine the main item vs components - IMPROVED MIXED ITEM HANDLING
+    console.log('🔍 ANALYZING MIXED ITEMS - All labels:', labels.map(l => `${l.description} (${l.materiale})`));
+    
     if (labels.length > 1) {
-      // Check if we have food items with packaging - prioritize the food
-      const foodItems = labels.filter(label => 
+      // Group items by type for better analysis
+      const organicItems = labels.filter(label => 
         label.materiale === 'organisk' || 
         (label.description && (
           label.description.toLowerCase().includes('appelsin') ||
@@ -337,18 +339,35 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         ))
       );
 
-      // If we have food items with packaging, prioritize the food
-      if (foodItems.length > 0 && packagingItems.length > 0) {
-        primaryLabel = foodItems[0];
-        console.log('Detected food with packaging, prioritizing food item:', primaryLabel.description);
+      console.log(`📊 ITEM ANALYSIS: ${organicItems.length} organic items, ${packagingItems.length} packaging items`);
+      console.log('🍊 Organic items:', organicItems.map(i => i.description));
+      console.log('📦 Packaging items:', packagingItems.map(i => i.description));
+
+      // Determine primary item based on context
+      if (organicItems.length > 0 && packagingItems.length > 0) {
+        // Mixed scenario: food with packaging
+        console.log('🥡 MIXED SCENARIO: Food with packaging detected');
+        primaryLabel = organicItems[0]; // Prioritize food as primary
+        
+        // But we should note that there are multiple item types
+        console.log(`🎯 PRIMARY ITEM: ${primaryLabel.description} (${primaryLabel.materiale})`);
       }
-      // If we have multiple food items, take the highest confidence one
-      else if (foodItems.length > 1) {
-        primaryLabel = foodItems.reduce((highest, current) => 
+      else if (organicItems.length > 1) {
+        // Multiple food items, take the highest confidence one
+        primaryLabel = organicItems.reduce((highest, current) => 
           current.score > highest.score ? current : highest
         );
-        console.log('Multiple food items detected, using highest confidence:', primaryLabel.description);
+        console.log('🍎 MULTIPLE FOOD ITEMS: Using highest confidence:', primaryLabel.description);
       }
+      else if (packagingItems.length > 1) {
+        // Multiple packaging items
+        primaryLabel = packagingItems.reduce((highest, current) => 
+          current.score > highest.score ? current : highest
+        );
+        console.log('📦 MULTIPLE PACKAGING ITEMS: Using highest confidence:', primaryLabel.description);
+      }
+    } else {
+      console.log('📝 SINGLE ITEM DETECTED:', primaryLabel.description);
     }
 
     if (dbMatches.length > 0) {
@@ -424,11 +443,29 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     // Step 3: Build result from database or fallback to vision data
     if (bestMatch) {
-      // Count identical items and create description
-      const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
-      const itemName = itemCount > 1 ? `${bestMatch.navn || primaryLabel.description} (${itemCount} stk.)` : bestMatch.navn || primaryLabel.description;
+      // Count identical items and create description - IMPROVED FOR MIXED ITEMS
+      const primaryItemCount = labels.filter(label => label.description === primaryLabel.description).length;
+      const hasMultipleItemTypes = new Set(labels.map(l => l.description)).size > 1;
       
-      // Get unique components - always include all items for clear sorting instructions
+      console.log(`📊 ITEM COUNT ANALYSIS: ${primaryItemCount} of "${primaryLabel.description}", ${hasMultipleItemTypes ? 'HAS' : 'NO'} mixed types`);
+      
+      let itemName;
+      let itemDescription;
+      
+      if (hasMultipleItemTypes) {
+        // Mixed items - describe the primary item but note there are components
+        const uniqueItems = [...new Set(labels.map(l => l.description))];
+        itemName = `${bestMatch.navn || primaryLabel.description} med emballage`;
+        itemDescription = `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}. Indeholder: ${uniqueItems.join(', ')}.`;
+        console.log(`🥡 MIXED ITEM DESCRIPTION: ${itemName}`);
+      } else {
+        // Single item type - use existing logic
+        itemName = primaryItemCount > 1 ? `${bestMatch.navn || primaryLabel.description} (${primaryItemCount} stk.)` : bestMatch.navn || primaryLabel.description;
+        itemDescription = `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}${primaryItemCount > 1 ? `. Indeholder ${primaryItemCount} styk.` : ''}`;
+        console.log(`🍊 SINGLE ITEM DESCRIPTION: ${itemName}`);
+      }
+      
+      // Get unique components - ENHANCED to show all different items clearly
       const uniqueComponents = [];
       const componentMap = new Map();
       
@@ -447,6 +484,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       });
       
       uniqueComponents.push(...componentMap.values());
+      
+      console.log('🔧 COMPONENT BREAKDOWN:', uniqueComponents.map(c => `${c.genstand} x${c.count} (${c.materiale})`));
 
       // Use database data
       return {
@@ -455,10 +494,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         image: imageData,
         homeCategory: bestMatch.hjem || 'Restaffald',
         recyclingCategory: bestMatch.genbrugsplads || 'Restaffald',
-        description: `${bestMatch.variation || bestMatch.navn || primaryLabel.description}${bestMatch.tilstand ? ` - ${bestMatch.tilstand}` : ''}${itemCount > 1 ? `. Indeholder ${itemCount} styk.` : ''}`,
+        description: itemDescription,
         confidence: confidence,
         timestamp: new Date(),
-        aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande.` : ''}`,
+        aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}${hasMultipleItemTypes ? '. Blandet indhold detekteret.' : primaryItemCount > 1 ? `. Detekteret ${primaryItemCount} identiske genstande.` : ''}`,
         components: uniqueComponents.map(comp => ({
           genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
           materiale: comp.materiale,
