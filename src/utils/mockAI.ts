@@ -636,7 +636,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         description: itemDescription,
         confidence: confidence,
         timestamp: new Date(),
-        aiThoughtProcess: `Fundet i database: ${bestMatch.navn}. Materiale: ${bestMatch.materiale || 'Ukendt'}${hasMultipleItemTypes ? '. Blandet indhold detekteret.' : primaryItemCount > 1 ? `. Detekteret ${primaryItemCount} identiske genstande.` : ''}`,
+        aiThoughtProcess: `Database match: ${bestMatch.navn} identificeret med ${Math.round(confidence)}% sikkerhed${hasMultipleItemTypes ? '. Blandet indhold detekteret.' : primaryItemCount > 1 ? `. Detekteret ${primaryItemCount} identiske genstande.` : ''}`,
         components: uniqueComponents.map(comp => ({
           genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
           materiale: comp.materiale,
@@ -729,7 +729,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} styk detekteret` : ''}`,
         confidence: Math.round(primaryLabel.score * 100),
         timestamp: new Date(),
-        aiThoughtProcess: `Ikke fundet i database - bruger AI-kategorisering${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande.` : ''}`,
+        aiThoughtProcess: `AI-baseret analyse: Genstand genkendt som ${primaryLabel.description} med ${Math.round(primaryLabel.score * 100)}% sikkerhed${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande` : ''}.`,
         components: uniqueComponents.map(comp => ({
           genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
           materiale: comp.materiale,
@@ -749,7 +749,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       description: 'Der opstod en teknisk fejl under analysen.',
       confidence: 0,
       timestamp: new Date(),
-      aiThoughtProcess: `Fejl: ${error instanceof Error ? error.message : 'Ukendt fejl'}`
+      aiThoughtProcess: `Analyse fejl: ${error instanceof Error ? error.message : 'Teknisk problem under billedbehandling'}`
     };
   }
 };
