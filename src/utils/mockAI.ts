@@ -51,13 +51,30 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
         .limit(20);
 
+      // Also search for common plastic combinations if searching for plastic
+      let extraData = [];
+      if (cleanTerm.includes('plast') || cleanTerm.includes('plastik')) {
+        const { data: plasticData, error: plasticError } = await supabase
+          .from('demo')
+          .select('*')
+          .or(`materiale.ilike.%plast%,materiale.ilike.%plastik%,materiale.ilike.%PVC%`)
+          .limit(20);
+        
+        if (!plasticError && plasticData) {
+          extraData = plasticData;
+        }
+      }
+
       if (error) {
         console.error('Database search error for term:', cleanTerm, error);
         return [];
       }
 
       console.log(`Found ${data?.length || 0} results for "${cleanTerm}":`, data?.map(item => item.navn));
-      return data || [];
+      
+      // Combine regular results with plastic results
+      const combinedData = [...(data || []), ...extraData];
+      return combinedData || [];
     });
 
     const allResults = await Promise.all(searchPromises);
@@ -130,7 +147,9 @@ const findBestMatches = async (labels: VisionLabel[]) => {
         if (label.materiale && !label.description) {
           const materialTerms = {
             'elektronik': ['mobiltelefon', 'computer', 'tv', 'batteri', 'elektronik'],
-            'plastik': ['plastikflaske', 'pose', 'beholder', 'net', 'plastiknet'],
+            'plastik': ['plastikflaske', 'pose', 'beholder', 'net', 'plastiknet', 'folie', 'bobleplast'],
+            'blød plastik': ['pose', 'folie', 'net', 'bobleplast', 'plastikpose'],
+            'hård plastik': ['plastikflaske', 'beholder', 'æske'],
             'pap': ['karton', 'æske', 'pizzaboks'],
             'glas': ['flaske', 'glas', 'krukke'],
             'metal': ['dåse', 'aluminium'],
@@ -140,10 +159,10 @@ const findBestMatches = async (labels: VisionLabel[]) => {
             'træ': ['møbler', 'træ', 'plade']
           };
       
-      if (materialTerms[label.materiale]) {
-        terms.push(...materialTerms[label.materiale]);
-      }
-    }
+          if (materialTerms[label.materiale]) {
+            terms.push(...materialTerms[label.materiale]);
+          }
+        }
     
     return terms;
   });
