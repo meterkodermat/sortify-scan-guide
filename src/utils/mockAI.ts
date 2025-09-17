@@ -43,10 +43,11 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 
   try {
-    console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
-    
-    // Create search queries for each term with better SQL patterns
-    const allResults = [];
+  console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
+  console.log(`🔍 DETAILED SEARCH TERMS:`, searchTerms.map((term, i) => `${i+1}. "${term}"`));
+  
+  // Create search queries for each term with better SQL patterns
+  const allResults = [];
     
     for (const term of searchTerms) {
       const cleanTerm = term.toLowerCase().trim();
@@ -171,6 +172,22 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       
       if (desc.includes('citrus')) {
         searchTerms.push('citrus', 'citrusfrugt', 'appelsin');
+      }
+      
+      // Wood item expansion - CRITICAL FIX
+      if (desc.includes('træbjælke') || desc.includes('bjælke')) {
+        searchTerms.push('bjælke', 'bjælker', 'spær', 'træbjælke');
+        console.log('🪵 Wood beam detected - adding bjælke terms');
+      }
+      
+      if (desc.includes('træ') && !desc.includes('træning')) {
+        searchTerms.push('træ');
+        // Extract root word without "træ" prefix
+        const rootWord = desc.replace(/^træ/, '');
+        if (rootWord) {
+          searchTerms.push(rootWord);
+          console.log(`🪵 Wood item detected - adding root word: "${rootWord}"`);
+        }
       }
       
       // REMOVE generic fruit and food handling - too broad
