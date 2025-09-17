@@ -352,10 +352,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     }
 
     if (dbMatches.length > 0) {
-      // Find best match that corresponds to our primary label, avoiding inappropriate matches
+      // Find best match that corresponds to our primary label, including synonym matching
       bestMatch = dbMatches.find(match => {
         const matchName = match.navn.toLowerCase();
         const labelDesc = primaryLabel.description.toLowerCase();
+        const matchSynonyms = (match.synonymer || '').toLowerCase();
+        
+        console.log(`🔍 MATCHING: Comparing "${labelDesc}" against "${matchName}" (synonyms: "${matchSynonyms.substring(0, 50)}...")`);
         
         // Skip packaging items when looking for food items
         if (primaryLabel.materiale === 'organisk' && (
@@ -363,24 +366,42 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           matchName.includes('pose') || 
           matchName.includes('folie')
         )) {
+          console.log(`⚠️ SKIPPING: ${matchName} - packaging item when looking for organic food`);
           return false;
         }
         
         // Skip generic food waste for specific food items
         if (primaryLabel.materiale === 'organisk' && matchName === 'madrester') {
+          console.log(`⚠️ SKIPPING: ${matchName} - too generic for specific food item`);
           return false;
         }
         
         // Direct name match (prioritize exact matches)
         if (matchName === labelDesc) {
+          console.log(`✅ EXACT NAME MATCH: ${matchName} === ${labelDesc}`);
+          return true;
+        }
+        
+        // Check if label description is in synonyms (this is the key fix!)
+        const synonymWords = matchSynonyms.split(',').map(s => s.trim());
+        if (synonymWords.includes(labelDesc)) {
+          console.log(`✅ EXACT SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
+          return true;
+        }
+        
+        // Partial synonym match
+        if (matchSynonyms.includes(labelDesc)) {
+          console.log(`✅ PARTIAL SYNONYM MATCH: Found "${labelDesc}" in synonyms of ${matchName}`);
           return true;
         }
         
         // Partial name match
         if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
+          console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc}`);
           return true;
         }
         
+        console.log(`❌ NO MATCH: ${matchName} vs ${labelDesc}`);
         return false;
       });
       
