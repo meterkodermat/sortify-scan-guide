@@ -33,28 +33,56 @@ interface VisionResponse {
   error?: string;
 }
 
-// Simplified and more reliable database search
+// Simplified and more reliable database search with comprehensive logging
 const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
-  if (!searchTerms.length) return [];
+  console.log('🔍 searchWasteInDatabase called with terms:', searchTerms);
+  
+  if (!searchTerms.length) {
+    console.log('❌ No search terms provided');
+    return [];
+  }
 
   try {
-    console.log(`🔍 Database search with terms:`, searchTerms);
+    console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
     
     // Create search queries for each term with better SQL patterns
     const allResults = [];
     
     for (const term of searchTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 2) continue;
+      if (cleanTerm.length < 2) {
+        console.log(`⚠️ Skipping short term: "${cleanTerm}"`);
+        continue;
+      }
 
-      console.log(`🔍 Searching for: "${cleanTerm}"`);
+      // Special debugging: if we're looking for oranges, let's test the search directly
+      if (cleanTerm.includes('appelsin') || cleanTerm.includes('orange')) {
+        console.log('🍊 ORANGE DEBUG: Testing direct database query...');
+        
+        // Test direct query to see if data exists
+        const testQuery = await supabase
+          .from('demo')
+          .select('navn, synonymer, materiale')
+          .ilike('synonymer', '%appelsin%')
+          .limit(3);
+          
+        console.log('🍊 ORANGE DEBUG: Direct test result:', testQuery);
+      }
 
       // Use proper PostgreSQL ILIKE with correct syntax for better matching
+      console.log(`🔍 Executing query: navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`);
       const { data, error } = await supabase
         .from('demo')
         .select('*')
         .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
         .limit(20);
+
+      console.log(`📊 Database query result for "${cleanTerm}":`, {
+        hasError: !!error,
+        dataLength: data?.length || 0,
+        error: error?.message,
+        firstResult: data?.[0]?.navn
+      });
 
       if (!error && data?.length) {
         console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(item => `${item.navn} (${item.id})`));
@@ -231,32 +259,56 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
     console.log('🚀 Starting waste identification process...');
     
-    // Step 1: Get vision analysis
+    // Step 1: Get vision analysis with detailed logging
+    console.log('📸 Calling vision-proxy edge function...');
     const { data: visionData, error: visionError } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
 
-    console.log('Vision data received:', visionData);
-    console.log('Vision error:', visionError);
+    console.log('📡 Vision response received:', {
+      hasData: !!visionData,
+      hasError: !!visionError,
+      success: visionData?.success,
+      labelsCount: visionData?.labels?.length || 0
+    });
 
     if (visionError) {
+      console.error('❌ Vision error:', visionError);
       throw new Error(`Gemini API fejl: ${visionError.message || 'Ukendt fejl'}`);
     }
 
     if (!visionData?.success) {
+      console.error('❌ Vision data unsuccessful:', visionData);
       throw new Error(`Analyse fejlede: ${visionData?.error || 'Ukendt fejl'}`);
     }
 
     const labels = visionData.labels || [];
-    console.log('Parsed labels:', labels);
+    console.log('🏷️ Vision labels extracted:', labels.map(l => ({
+      description: l.description,
+      materiale: l.materiale,
+      score: l.score
+    })));
     
     if (!labels.length) {
+      console.error('❌ No labels found in vision response');
       throw new Error('Ingen komponenter fundet i billedet');
     }
 
-    // Step 2: Search database for matches
+    // Step 2: Search database for matches with enhanced logging
+    console.log('🔍 About to search database with labels:', labels);
     const dbMatches = await findBestMatches(labels);
-    console.log('Database matches found:', dbMatches.length);
+    console.log('✅ Database search completed. Matches found:', dbMatches.length);
+    
+    if (dbMatches.length > 0) {
+      console.log('📊 Database matches details:', dbMatches.map(m => ({
+        id: m.id,
+        navn: m.navn,
+        synonymer: m.synonymer?.substring(0, 100) + '...',
+        materiale: m.materiale
+      })));
+    } else {
+      console.log('❌ No database matches found - will use AI categorization');
+    }
     
     let bestMatch = null;
     let confidence = 0;
