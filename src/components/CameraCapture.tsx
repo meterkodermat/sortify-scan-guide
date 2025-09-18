@@ -18,8 +18,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    initCamera();
+    // Wait a bit for the component to render, then initialize camera
+    const timer = setTimeout(initCamera, 100);
     return () => {
+      clearTimeout(timer);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -29,6 +31,13 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const initCamera = async () => {
     try {
       console.log("🎥 Step 1: Starting camera initialization...");
+      
+      // Ensure video element exists
+      if (!videoRef.current) {
+        console.log("⏳ Video element not ready, retrying in 200ms...");
+        setTimeout(initCamera, 200);
+        return;
+      }
       
       // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
