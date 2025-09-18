@@ -40,16 +40,23 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Try to play immediately
-        try {
-          await videoRef.current.play();
-          console.log("▶️ Auto-play success");
-          setStreamReady(true);
-        } catch (err) {
-          console.log("⚠️ Need user click to start");
-          setNeedsClick(true);
-          setStreamReady(true);
-        }
+        // This is the key fix - wait for loadedmetadata event
+        videoRef.current.addEventListener("loadedmetadata", () => {
+          console.log("📽️ Video metadata loaded, playing...");
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                console.log("✅ Video playing successfully!");
+                setStreamReady(true);
+                setNeedsClick(false);
+              })
+              .catch(err => {
+                console.log("⚠️ Need user interaction:", err);
+                setStreamReady(true);
+                setNeedsClick(true);
+              });
+          }
+        });
       }
       
     } catch (err: any) {
