@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, X, RotateCcw } from "lucide-react";
+import { Camera, X, RotateCcw, Play } from "lucide-react";
 import { toast } from "sonner";
 
 interface CameraCaptureProps {
@@ -9,7 +9,8 @@ interface CameraCaptureProps {
 
 export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [streamReady, setStreamReady] = useState(false);
+  const [needsClick, setNeedsClick] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -17,7 +18,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    startCamera();
+    initCamera();
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -25,65 +26,57 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     };
   }, []);
 
-  const startCamera = async () => {
+  const initCamera = async () => {
     try {
-      console.log("📱 Starting camera...");
+      console.log("🎥 Getting camera...");
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" }
       });
       
-      console.log("✅ Got camera stream");
+      console.log("✅ Camera stream ready");
       streamRef.current = stream;
       
       if (videoRef.current) {
-        console.log("📺 Setting video source");
         videoRef.current.srcObject = stream;
         
-        // Wait for the video to load and then play
-        videoRef.current.addEventListener('loadeddata', async () => {
-          console.log("📽️ Video data loaded");
-          if (videoRef.current) {
-            console.log("▶️ Attempting to play video");
-            try {
-              await videoRef.current.play();
-              console.log("✅ Video playing!");
-              setIsLoading(false);
-            } catch (playError) {
-              console.log("❌ Play failed:", playError);
-              setIsLoading(false);
-            }
-          }
-        });
-        
-        // Also try to play immediately
+        // Try to play immediately
         try {
           await videoRef.current.play();
-          console.log("✅ Video playing immediately!");
-          setIsLoading(false);
+          console.log("▶️ Auto-play success");
+          setStreamReady(true);
         } catch (err) {
-          console.log("⚠️ Immediate play failed, waiting for loadeddata");
+          console.log("⚠️ Need user click to start");
+          setNeedsClick(true);
+          setStreamReady(true);
         }
       }
       
     } catch (err: any) {
-      console.error("❌ Camera error:", err);
-      let message = "Kunne ikke starte kamera";
-      
-      if (err.name === "NotAllowedError") {
-        message = "Kamera adgang nægtet. Tillad kamera adgang og prøv igen.";
-      } else if (err.name === "NotFoundError") {
-        message = "Ingen kamera fundet.";
+      console.error("❌ Camera failed:", err);
+      setError(err.name === "NotAllowedError" ? 
+        "Tillad kamera adgang i browseren" : 
+        "Kunne ikke starte kamera");
+    }
+  };
+
+  const playVideo = async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.play();
+        setNeedsClick(false);
+        console.log("▶️ Manual play success");
+      } catch (err) {
+        console.error("❌ Manual play failed:", err);
       }
-      
-      setError(message);
-      setIsLoading(false);
-      toast.error(message);
     }
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !streamRef.current) {
+      toast.error("Kamera ikke klar");
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -91,25 +84,26 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
     if (!ctx) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     ctx.drawImage(video, 0, 0);
     
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedImage(imageData);
     
-    // Stop camera
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
+    // Stop stream
+    streamRef.current.getTracks().forEach(track => track.stop());
   };
 
   const retakePhoto = () => {
     setCapturedImage(null);
-    startCamera();
+    setStreamReady(false);
+    setNeedsClick(false);
+    setError(null);
+    initCamera();
   };
 
-  // Captured image view
+  // Show captured image
   if (capturedImage) {
     return (
       <div className="fixed inset-0 bg-black z-50">
@@ -143,40 +137,28 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     );
   }
 
+  // Main camera view
   return (
     <div className="fixed inset-0 bg-black z-50">
-      {/* Close button */}
-      <button 
-        onClick={onClose} 
-        className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"
-      >
+      <button onClick={onClose} className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
         <X className="h-5 w-5 text-white" />
       </button>
 
       {error ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-white p-6 text-center h-full">
+        <div className="h-full flex flex-col items-center justify-center text-white p-6 text-center">
           <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
             <X className="h-8 w-8 text-red-400" />
           </div>
           <h3 className="text-xl font-semibold mb-4">Kamera fejl</h3>
-          <p className="mb-6 text-white/80 leading-relaxed max-w-sm">{error}</p>
-          <button 
-            onClick={() => {
-              setError(null);
-              startCamera();
-            }}
-            className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg font-medium transition-colors"
-          >
+          <p className="mb-6 text-white/80">{error}</p>
+          <button onClick={() => { setError(null); initCamera(); }} className="bg-blue-500 px-6 py-3 rounded-lg">
             Prøv igen
           </button>
         </div>
-      ) : isLoading ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-white h-full">
+      ) : !streamReady ? (
+        <div className="h-full flex flex-col items-center justify-center text-white">
           <div className="animate-spin w-12 h-12 border-4 border-white/30 border-t-white rounded-full mb-4"></div>
           <p className="text-lg mb-2">Starter kamera...</p>
-          <p className="text-sm text-white/70 text-center px-4">
-            Tillad kamera adgang når browseren spørger
-          </p>
         </div>
       ) : (
         <div className="relative h-full">
@@ -186,22 +168,20 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             playsInline
             muted
             className="w-full h-full object-cover"
-            onClick={() => videoRef.current?.play()}
           />
           
+          {needsClick && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <button onClick={playVideo} className="w-20 h-20 rounded-full bg-white flex items-center justify-center">
+                <Play className="h-10 w-10 text-black ml-1" />
+              </button>
+            </div>
+          )}
+          
           <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-            <button 
-              onClick={capturePhoto}
-              className="w-24 h-24 rounded-full bg-white/90 flex items-center justify-center shadow-xl active:scale-95 transition-transform"
-            >
+            <button onClick={capturePhoto} className="w-24 h-24 rounded-full bg-white/90 flex items-center justify-center shadow-xl active:scale-95 transition-transform">
               <Camera className="h-12 w-12 text-black" />
             </button>
-          </div>
-          
-          <div className="absolute bottom-32 left-0 right-0 flex justify-center">
-            <div className="bg-black/50 rounded-full px-4 py-2">
-              <span className="text-white text-sm">Tryk for at tage billede</span>
-            </div>
           </div>
         </div>
       )}
