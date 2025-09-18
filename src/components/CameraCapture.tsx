@@ -21,15 +21,33 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   const { capturePhoto: captureNativePhoto, isNative } = useCamera();
 
   useEffect(() => {
-    // On mobile devices, show camera options
-    if (isNative) {
-      setShowOptions(true);
-      setIsLoading(false);
-    } else {
-      // On web, go straight to web camera
-      setShowWebCamera(true);
-      initWebCamera();
-    }
+    let isMounted = true;
+
+    const init = async () => {
+      console.log("🎥 Camera component initializing...", { isNative });
+      
+      // On mobile devices, show camera options
+      if (isNative) {
+        setShowOptions(true);
+        setIsLoading(false);
+      } else {
+        // On web, go straight to web camera
+        setShowWebCamera(true);
+        await initWebCamera(isMounted);
+      }
+    };
+
+    init();
+
+    return () => {
+      isMounted = false;
+      // Cleanup camera stream
+      if (streamRef.current) {
+        console.log("🧹 Cleaning up camera stream");
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
   }, [isNative]);
 
   const handleNativeCameraCapture = async () => {
@@ -51,27 +69,27 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
     }
   };
 
-  const initWebCamera = async () => {
-    let mounted = true;
-
+  const initWebCamera = async (isMounted = true) => {
     try {
       console.log("📱 Starting web camera...");
+      setIsLoading(true);
+      setError(null);
       
       // Check if camera is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error("Kamera ikke tilgængeligt på denne enhed");
       }
 
-      // Request camera access with mobile-optimized settings
+      // Request camera access with better settings
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment", // Back camera
-          width: { ideal: 1920, max: 1920 },
-          height: { ideal: 1080, max: 1080 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       });
 
-      if (!mounted) {
+      if (!isMounted) {
         stream.getTracks().forEach(track => track.stop());
         return;
       }
@@ -79,33 +97,47 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       console.log("✅ Camera stream obtained");
       streamRef.current = stream;
 
-      // Wait for video element
+      // Set up video element
       if (videoRef.current) {
         const video = videoRef.current;
         video.srcObject = stream;
         
-        // Wait for video to load
-        video.onloadedmetadata = () => {
+        // Handle video loading
+        const handleLoadedMetadata = () => {
           console.log("✅ Video metadata loaded");
-          if (mounted) {
-            setIsLoading(false);
-            setError(null);
+          if (isMounted) {
+            video.play()
+              .then(() => {
+                console.log("✅ Video playing");
+                setIsLoading(false);
+                setError(null);
+              })
+              .catch((playError) => {
+                console.error("❌ Video play error:", playError);
+                if (isMounted) {
+                  setError("Kunne ikke starte video");
+                  setIsLoading(false);
+                }
+              });
           }
         };
 
-        video.onerror = () => {
-          console.error("❌ Video error");
-          if (mounted) {
+        const handleVideoError = (e: Event) => {
+          console.error("❌ Video error:", e);
+          if (isMounted) {
             setError("Kunne ikke afspille kamera");
             setIsLoading(false);
           }
         };
+
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('error', handleVideoError);
       }
 
     } catch (err: any) {
       console.error("❌ Camera error:", err);
       
-      if (!mounted) return;
+      if (!isMounted) return;
       
       let message = "Kunne ikke starte kamera";
       if (err.name === "NotAllowedError") {
@@ -168,7 +200,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       setIsLoading(true);
       setError(null);
       setShowWebCamera(true);
-      initWebCamera();
+      // Use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        initWebCamera(true);
+      }, 100);
     }
   };
 
@@ -211,7 +246,9 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
               setShowWebCamera(true);
               setShowOptions(false);
               setIsLoading(true);
-              initWebCamera();
+              setTimeout(() => {
+                initWebCamera(true);
+              }, 100);
             }}
             variant="outline"
             size="lg"
@@ -279,19 +316,10 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   if (showWebCamera) {
     return (
       <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        {/* Close button */}
-        <div className="absolute top-4 right-4 z-10">
-          <button 
-            onClick={onClose}
-            className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center touch-manipulation"
-          >
-            <X className="h-5 w-5 text-white" />
-          </button>
-        </div>
-
-        {/* Back to options (if native available) */}
-        {isNative && (
-          <div className="absolute top-4 left-4 z-10">
+        {/* Header controls */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex justify-between p-4">
+          {/* Back to options (if native available) */}
+          {isNative && (
             <button 
               onClick={() => {
                 if (streamRef.current) {
@@ -303,10 +331,18 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
               }}
               className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center touch-manipulation"
             >
-              <span className="text-white text-sm">←</span>
+              <span className="text-white text-lg">←</span>
             </button>
-          </div>
-        )}
+          )}
+          
+          {/* Close button */}
+          <button 
+            onClick={onClose}
+            className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center touch-manipulation ml-auto"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+        </div>
 
         {/* Error state */}
         {error && (
@@ -317,9 +353,21 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
             <h3 className="text-xl font-semibold mb-4">Kamera fejl</h3>
             <p className="text-white/80 mb-6 max-w-sm">{error}</p>
             <Button 
-              onClick={onClose}
+              onClick={() => {
+                setError(null);
+                setIsLoading(true);
+                setTimeout(() => {
+                  initWebCamera(true);
+                }, 100);
+              }}
               variant="secondary"
-              className="px-8 py-3"
+              className="mb-4"
+            >
+              Prøv igen
+            </Button>
+            <Button 
+              onClick={onClose}
+              variant="outline"
             >
               Tilbage
             </Button>
@@ -344,7 +392,6 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
               playsInline
               muted
               className="w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }} // Mirror for selfie mode
             />
             
             {/* Capture button overlay */}
@@ -357,7 +404,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
               </button>
             </div>
             
-            {/* Camera controls overlay */}
+            {/* Camera instructions */}
             <div className="absolute bottom-32 left-0 right-0 flex justify-center">
               <div className="bg-black/50 rounded-full px-4 py-2">
                 <span className="text-white text-sm">Tryk for at tage billede</span>
