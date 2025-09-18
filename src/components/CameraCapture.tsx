@@ -28,39 +28,93 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
 
   const initCamera = async () => {
     try {
-      console.log("🎥 Getting camera...");
+      console.log("🎥 Step 1: Starting camera initialization...");
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("getUserMedia not supported");
+      }
+      console.log("✅ Step 2: getUserMedia is available");
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" }
       });
       
-      console.log("✅ Camera stream ready");
+      console.log("✅ Step 3: Camera stream obtained", stream);
+      console.log("📊 Stream details:", {
+        active: stream.active,
+        tracks: stream.getVideoTracks().length,
+        trackState: stream.getVideoTracks()[0]?.readyState
+      });
+      
       streamRef.current = stream;
       
       if (videoRef.current) {
+        console.log("✅ Step 4: Video element exists");
+        
         videoRef.current.srcObject = stream;
+        console.log("✅ Step 5: Stream assigned to video element");
+        
+        // Log video element properties
+        console.log("📺 Video element state:", {
+          videoWidth: videoRef.current.videoWidth,
+          videoHeight: videoRef.current.videoHeight,
+          readyState: videoRef.current.readyState,
+          paused: videoRef.current.paused,
+          muted: videoRef.current.muted
+        });
         
         // This is the key fix - wait for loadedmetadata event
         videoRef.current.addEventListener("loadedmetadata", () => {
-          console.log("📽️ Video metadata loaded, playing...");
+          console.log("📽️ Step 6: Video metadata loaded!");
+          
           if (videoRef.current) {
+            console.log("📺 Video dimensions:", {
+              videoWidth: videoRef.current.videoWidth,
+              videoHeight: videoRef.current.videoHeight,
+              readyState: videoRef.current.readyState
+            });
+            
             videoRef.current.play()
               .then(() => {
-                console.log("✅ Video playing successfully!");
+                console.log("✅ Step 7: Video playing successfully!");
                 setStreamReady(true);
                 setNeedsClick(false);
               })
               .catch(err => {
-                console.log("⚠️ Need user interaction:", err);
+                console.log("⚠️ Step 7 FAILED: Need user interaction:", err);
                 setStreamReady(true);
                 setNeedsClick(true);
               });
           }
         });
+
+        // Also try immediate play as fallback
+        setTimeout(async () => {
+          if (videoRef.current && !streamReady) {
+            console.log("🔄 Fallback: Trying immediate play...");
+            try {
+              await videoRef.current.play();
+              console.log("✅ Fallback success!");
+              setStreamReady(true);
+              setNeedsClick(false);
+            } catch (err) {
+              console.log("⚠️ Fallback failed, user interaction needed");
+            }
+          }
+        }, 1000);
+        
+      } else {
+        console.error("❌ Step 4 FAILED: Video element not found!");
       }
       
     } catch (err: any) {
-      console.error("❌ Camera failed:", err);
+      console.error("❌ Camera initialization failed at early step:", err);
+      console.error("Error details:", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
       setError(err.name === "NotAllowedError" ? 
         "Tillad kamera adgang i browseren" : 
         "Kunne ikke starte kamera");
