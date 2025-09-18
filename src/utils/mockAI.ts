@@ -101,6 +101,13 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         if (a.navn?.toLowerCase() === cleanTerm) aScore += 1000;
         if (b.navn?.toLowerCase() === cleanTerm) bScore += 1000;
         
+        // Core item type match (very high priority - e.g., "bjælke" for "træbjælke")
+        const coreItems = ['bjælke', 'plade', 'brædder', 'dør', 'vindue'];
+        if (coreItems.includes(cleanTerm)) {
+          if (a.navn?.toLowerCase() === cleanTerm) aScore += 900;
+          if (b.navn?.toLowerCase() === cleanTerm) bScore += 900;
+        }
+        
         // Exact synonym match (very high priority for items like "Appelsin" in synonyms)
         const aSynonyms = (a.synonymer || '').toLowerCase();
         const bSynonyms = (b.synonymer || '').toLowerCase();
@@ -152,7 +159,16 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
       
-      // Generic search - no specific item logic
+      // Extract core item type from compound words (e.g., "træbjælke" -> "bjælke")
+      if (desc.includes('bjælke')) {
+        searchTerms.push('bjælke');
+      }
+      if (desc.includes('plade')) {
+        searchTerms.push('plade');
+      }
+      if (desc.includes('brædt')) {
+        searchTerms.push('brædder');
+      }
     }
     
     // Add translated text if different
