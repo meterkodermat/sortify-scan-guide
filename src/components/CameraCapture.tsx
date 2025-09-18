@@ -37,22 +37,33 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       streamRef.current = stream;
       
       if (videoRef.current) {
+        console.log("📺 Setting video source");
         videoRef.current.srcObject = stream;
         
-        // Force video to play immediately
-        setTimeout(async () => {
+        // Wait for the video to load and then play
+        videoRef.current.addEventListener('loadeddata', async () => {
+          console.log("📽️ Video data loaded");
           if (videoRef.current) {
+            console.log("▶️ Attempting to play video");
             try {
-              console.log("📺 Force playing video");
               await videoRef.current.play();
-              console.log("▶️ Video playing successfully");
+              console.log("✅ Video playing!");
               setIsLoading(false);
-            } catch (err) {
-              console.log("⚠️ Play failed, will try on user interaction:", err);
+            } catch (playError) {
+              console.log("❌ Play failed:", playError);
               setIsLoading(false);
             }
           }
-        }, 100);
+        });
+        
+        // Also try to play immediately
+        try {
+          await videoRef.current.play();
+          console.log("✅ Video playing immediately!");
+          setIsLoading(false);
+        } catch (err) {
+          console.log("⚠️ Immediate play failed, waiting for loadeddata");
+        }
       }
       
     } catch (err: any) {
