@@ -38,20 +38,21 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          console.log("📺 Video loaded, starting playback");
+        
+        // Force video to play immediately
+        setTimeout(async () => {
           if (videoRef.current) {
-            videoRef.current.play()
-              .then(() => {
-                console.log("▶️ Video playing successfully");
-                setIsLoading(false);
-              })
-              .catch(err => {
-                console.log("⚠️ Autoplay failed, adding click handler:", err);
-                setIsLoading(false);
-              });
+            try {
+              console.log("📺 Force playing video");
+              await videoRef.current.play();
+              console.log("▶️ Video playing successfully");
+              setIsLoading(false);
+            } catch (err) {
+              console.log("⚠️ Play failed, will try on user interaction:", err);
+              setIsLoading(false);
+            }
           }
-        };
+        }, 100);
       }
       
     } catch (err: any) {
