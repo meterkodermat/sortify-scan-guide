@@ -388,6 +388,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     if (dbMatches.length > 0) {
       // Find best match that corresponds to our primary label, including synonym matching
       console.log('🔍 SEARCHING FOR BEST DB MATCH for primary item:', primaryLabel.description);
+      console.log('🔍 Available database matches:', dbMatches.map(m => `${m.navn} (variation: ${m.variation}, id: ${m.id})`));
+      
       bestMatch = dbMatches.find(match => {
         const matchName = match.navn.toLowerCase();
         const labelDesc = primaryLabel.description.toLowerCase();
@@ -397,7 +399,11 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         
         // Special matching for compound terms (e.g., "trykimprægneret træbjælke")
         if (labelDesc.includes('trykimprægneret') || labelDesc.includes('imprægneret')) {
-          const coreItem = labelDesc.replace(/trykimprægneret\s*/, '').replace(/imprægneret\s*/, '').trim();
+          const coreItem = labelDesc.replace(/trykimprægneret\s*træ?/, '').replace(/imprægneret\s*træ?/, '').replace(/træ/, '').trim();
+          console.log(`🔍 COMPOUND ANALYSIS: Core item extracted: "${coreItem}" from "${labelDesc}"`);
+          console.log(`🔍 COMPOUND CHECK: Does "${matchName}" match core "${coreItem}"? ${matchName === coreItem || matchName.includes(coreItem)}`);
+          console.log(`🔍 COMPOUND CHECK: Does variation contain "imprægneret"? ${match.variation?.toLowerCase().includes('imprægneret')}`);
+          
           if ((matchName === coreItem || matchName.includes(coreItem)) && 
               match.variation?.toLowerCase().includes('imprægneret')) {
             console.log(`✅ COMPOUND TREATMENT MATCH: "${labelDesc}" matches ${matchName} with ${match.variation}`);
