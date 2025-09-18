@@ -2,20 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#2563eb" />
+    
     <title>Sortify - Smart Affaldssortering</title>
     <meta name="description" content="Sortify hjælper dig med at sortere dit affald korrekt ved hjælp af AI-drevet billedgenkendelse. Udviklet for Renosyd." />
     <meta name="author" content="Renosyd" />
     <meta name="keywords" content="affaldssortering, genbrug, miljø, AI, Renosyd, Danmark" />
 
     <meta property="og:title" content="Sortify - Smart Affaldssortering" />
-    <meta property="og:description" content="Sortify hjælper dig med at sortere dit affald korrekt ved hjælp af AI-drevet billedgenkendelse." />
+    <meta property="og:description" content="Sortify hjælper dig med at sortere dit affald korrekt ved hjælp of AI-drevet billedgenkendelse." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Prevent zoom on form inputs on iOS -->
+    <style>
+      input[type="file"], input[type="text"], input[type="search"], textarea, select {
+        font-size: 16px !important;
+      }
+    </style>
   </head>
 
   <body>

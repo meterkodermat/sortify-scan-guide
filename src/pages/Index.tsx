@@ -144,7 +144,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Hero Section */}
-      <div className="relative h-80 bg-gradient-hero overflow-hidden">
+      <div className="relative h-72 sm:h-80 bg-gradient-hero overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
         
         {/* Demo Button in corner */}
@@ -153,26 +153,26 @@ const Index = () => {
             variant="outline" 
             size="sm"
             onClick={() => setCurrentView('area-select')}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 touch-manipulation"
           >
             <Settings className="h-4 w-4 mr-2" />
             Demo
           </Button>
         </div>
         
-        <div className="absolute inset-0 flex items-center justify-center text-center p-6">
-          <div className="space-y-6 max-w-lg">
+        <div className="absolute inset-0 flex items-center justify-center text-center p-4 sm:p-6">
+          <div className="space-y-4 sm:space-y-6 max-w-lg">
             <div className="flex items-center justify-center space-x-3">
               <div className="p-2 bg-white/10 rounded-full backdrop-blur-sm shadow-glow">
-                <Leaf className="h-10 w-10 text-primary-foreground" />
+                <Leaf className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
               </div>
-              <h1 className="text-4xl font-bold text-primary-foreground tracking-tight">Sortify</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-primary-foreground tracking-tight">Sortify</h1>
             </div>
-            <p className="text-primary-foreground/95 text-lg font-medium leading-relaxed">
+            <p className="text-primary-foreground/95 text-base sm:text-lg font-medium leading-relaxed px-4">
               Din intelligente guide til korrekt affaldssortering
             </p>
             {selectedArea && (
-              <p className="text-primary-foreground/80 text-sm">
+              <p className="text-primary-foreground/80 text-xs sm:text-sm px-4">
                 Område: {selectedArea === 'demo' ? 'Demo Database' : selectedArea}
               </p>
             )}
@@ -181,23 +181,23 @@ const Index = () => {
       </div>
 
       {/* Main Content */}
-      <div className="p-8 max-w-lg mx-auto space-y-10">
+      <div className="p-4 sm:p-8 max-w-lg mx-auto space-y-8 sm:space-y-10">
         {/* Action Buttons */}
         <div className="space-y-6">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-semibold text-foreground">Find dit affald</h2>
-            <p className="text-muted-foreground">Vælg hvordan du vil identificere dit affald</p>
+            <h2 className="text-xl sm:text-2xl font-semibold text-foreground">Find dit affald</h2>
+            <p className="text-sm sm:text-base text-muted-foreground px-4">Vælg hvordan du vil identificere dit affald</p>
           </div>
           
-          <div className="grid gap-4">
+          <div className="grid gap-3 sm:gap-4">
             <Button
               onClick={() => setCurrentView('search')}
               variant="default"
               size="lg"
-              className="w-full h-20 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              className="w-full h-16 sm:h-20 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 touch-manipulation"
             >
               <div className="flex flex-col items-center space-y-1">
-                <Search className="h-8 w-8" />
+                <Search className="h-6 w-6 sm:h-8 sm:w-8" />
                 <span className="font-semibold">Søg i database</span>
                 <span className="text-xs opacity-90">Manual søgning</span>
               </div>
@@ -207,11 +207,11 @@ const Index = () => {
               onClick={() => setCurrentView('camera')}
               variant="scan"
               size="lg"
-              className="w-full h-20 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              className="w-full h-16 sm:h-20 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 touch-manipulation"
               disabled={isAnalyzing}
             >
               <div className="flex flex-col items-center space-y-1">
-                <Camera className="h-8 w-8" />
+                <Camera className="h-6 w-6 sm:h-8 sm:w-8" />
                 <span className="font-semibold">Start Kamera</span>
                 <span className="text-xs opacity-90">Tag et billede nu</span>
               </div>
@@ -221,18 +221,19 @@ const Index = () => {
               <input
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleFileUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-manipulation"
                 disabled={isAnalyzing}
               />
               <Button
                 variant="upload"
                 size="lg"
-                className="w-full h-20 text-lg hover:shadow-card"
+                className="w-full h-16 sm:h-20 text-base sm:text-lg hover:shadow-card touch-manipulation"
                 disabled={isAnalyzing}
               >
                 <div className="flex flex-col items-center space-y-1">
-                  <Upload className="h-8 w-8" />
+                  <Upload className="h-6 w-6 sm:h-8 sm:w-8" />
                   <span className="font-semibold">Upload Billede</span>
                   <span className="text-xs opacity-70">Vælg fra galleri</span>
                 </div>
