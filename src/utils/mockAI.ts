@@ -127,9 +127,23 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 400;
         if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 400;
         
-        // Variation match
-        if (a.variation?.toLowerCase().includes(cleanTerm)) aScore += 200;
-        if (b.variation?.toLowerCase().includes(cleanTerm)) bScore += 200;
+        // Variation match (high priority for treatment/condition)
+        if (a.variation?.toLowerCase().includes(cleanTerm)) {
+          // Higher priority for treatment terms
+          if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
+            aScore += 700;
+          } else {
+            aScore += 400;
+          }
+        }
+        if (b.variation?.toLowerCase().includes(cleanTerm)) {
+          // Higher priority for treatment terms
+          if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
+            bScore += 700;
+          } else {
+            bScore += 400;
+          }
+        }
         
         // Material match
         if (a.materiale?.toLowerCase().includes(cleanTerm)) aScore += 100;
@@ -168,6 +182,15 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       }
       if (desc.includes('brædt')) {
         searchTerms.push('brædder');
+      }
+      
+      // Extract treatment/condition terms
+      if (desc.includes('trykimprægneret') || desc.includes('imprægneret')) {
+        searchTerms.push('imprægneret');
+        searchTerms.push('trykimprægneret');
+      }
+      if (desc.includes('behandlet')) {
+        searchTerms.push('behandlet');
       }
     }
     
@@ -370,7 +393,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const labelDesc = primaryLabel.description.toLowerCase();
         const matchSynonyms = (match.synonymer || '').toLowerCase();
         
-        console.log(`🔍 MATCHING: Comparing "${labelDesc}" against "${matchName}" (synonyms: "${matchSynonyms.substring(0, 50)}...")`);
+        console.log(`🔍 MATCHING: Comparing "${labelDesc}" against "${matchName}" (synonyms: "${matchSynonyms.substring(0, 50)}...", variation: "${match.variation || ''}")`);
+        
+        // Special matching for compound terms (e.g., "trykimprægneret træbjælke")
+        if (labelDesc.includes('trykimprægneret') || labelDesc.includes('imprægneret')) {
+          const coreItem = labelDesc.replace(/trykimprægneret\s*/, '').replace(/imprægneret\s*/, '').trim();
+          if ((matchName === coreItem || matchName.includes(coreItem)) && 
+              match.variation?.toLowerCase().includes('imprægneret')) {
+            console.log(`✅ COMPOUND TREATMENT MATCH: "${labelDesc}" matches ${matchName} with ${match.variation}`);
+            return true;
+          }
+        }
         
         // Generic matching - no special item logic
         
