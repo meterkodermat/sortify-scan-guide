@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CameraCapture } from "@/components/CameraCapture";
+import CameraCapture from "@/components/CameraCapture";
 import { WasteResult } from "@/components/WasteResult";
 import { RecentScans } from "@/components/RecentScans";
 import { SearchMode } from "@/components/SearchMode";

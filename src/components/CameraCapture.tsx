@@ -1,6 +1,11 @@
 import React, { useRef, useEffect } from "react";
 
-const Kamera: React.FC = () => {
+interface CameraCaptureProps {
+  onCapture: (imageData: string) => Promise<void>;
+  onClose: () => void;
+}
+
+const Kamera: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
