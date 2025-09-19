@@ -231,9 +231,9 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                       <div className="p-3 bg-muted/20 rounded-lg">
                         <Home className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                         <div className="text-xs text-muted-foreground mb-1">Hjemme</div>
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex flex-col items-center gap-2">
                           {getSortingPictogram(sorting.home)}
-                          <span className="text-sm font-semibold">{sorting.home}</span>
+                          <span className="text-xs font-medium text-center">{sorting.home}</span>
                         </div>
                       </div>
                       
