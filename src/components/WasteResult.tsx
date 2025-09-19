@@ -184,6 +184,19 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
               const getMaterialSorting = (materiale: string, genstand: string) => {
                 const itemName = genstand.toLowerCase();
                 
+                // Special handling for tools and industrial items
+                if (itemName.includes('saks') || 
+                    itemName.includes('hækkesaks') ||
+                    itemName.includes('værktøj') ||
+                    itemName.includes('skruetrækker') ||
+                    itemName.includes('hammer') ||
+                    itemName.includes('tang') ||
+                    itemName.includes('kniv') ||
+                    itemName.includes('file') ||
+                    itemName.includes('save')) {
+                  return { home: 'Metal', recycling: 'Metal' };
+                }
+                
                 switch (materiale.toLowerCase()) {
                   case 'pap': return { home: 'Pap', recycling: 'Pap' };
                   case 'plastik': 
@@ -193,7 +206,8 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
                         itemName.includes('folie') ||
                         itemName.includes('film') ||
                         itemName.includes('sæk') ||
-                        itemName.includes('indpakning')) {
+                        itemName.includes('indpakning') ||
+                        itemName.includes('emballage')) {
                       return { home: 'Plast', recycling: 'Blød plast' };
                     } else {
                       return { home: 'Plast', recycling: 'Hård plast' };
