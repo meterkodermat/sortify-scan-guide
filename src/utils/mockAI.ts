@@ -573,6 +573,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           homeCategory = 'Plast';
           recyclingCategory = 'Hård plast';
         }
+      } else if (primaryLabel.materiale === 'pant' || 
+                 primaryLabel.description?.toLowerCase().includes('pant') ||
+                 (primaryLabel.description?.toLowerCase().includes('flaske') && 
+                  (primaryLabel.description?.toLowerCase().includes('coca') || 
+                   primaryLabel.description?.toLowerCase().includes('øl') ||
+                   primaryLabel.description?.toLowerCase().includes('vand'))) ||
+                 (primaryLabel.description?.toLowerCase().includes('dåse') && 
+                  (primaryLabel.description?.toLowerCase().includes('øl') || 
+                   primaryLabel.description?.toLowerCase().includes('cola')))) {
+        // Pant (deposit bottles/cans) - very important category
+        homeCategory = 'Pant (returneres i butik)';
+        recyclingCategory = 'Pant (returneres i butik)';
       } else {
         // Standard material categorization
         homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 

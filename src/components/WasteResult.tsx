@@ -41,6 +41,11 @@ const getSortingPictogram = (category: string) => {
   
   const normalizedCategory = category.toLowerCase();
   
+  // Handle pant (deposit bottles/cans) - very important category
+  if (normalizedCategory.includes('pant')) {
+    return <img src={plastImg} alt="Pant" className={imgClass} />;
+  }
+  
   if (normalizedCategory.includes('karton') || normalizedCategory.includes('mad- & drikke-kartoner')) {
     return <img src={madDrikkeKartonerImg} alt="Mad- & drikke-kartoner" className={imgClass} />;
   }
@@ -169,6 +174,11 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             {uniqueComponents.map((component: any, index) => {
               const getMaterialSorting = (materiale: string, genstand: string) => {
                 const itemName = genstand.toLowerCase();
+                
+                // Handle pant (deposit bottles/cans) first - very important category
+                if (materiale.toLowerCase() === 'pant' || itemName.includes('pant')) {
+                  return { home: 'Pant (returneres i butik)', recycling: 'Pant (returneres i butik)' };
+                }
                 
                 // Special handling for tools and industrial items
                 if (itemName.includes('saks') || 
