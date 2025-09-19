@@ -125,14 +125,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
           </div>
         </Card>
 
-        {/* Image */}
-        <Card className="overflow-hidden bg-gradient-card shadow-card">
-          <img
-            src={item.image}
-            alt={item.name}
-            className="w-full h-64 object-cover"
-          />
-        </Card>
 
         {/* Main Item Sorting Instructions - Only show for single items */}
         {uniqueComponents.length === 0 && (
