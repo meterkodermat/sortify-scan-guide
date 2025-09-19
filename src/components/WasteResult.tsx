@@ -119,9 +119,6 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <h1 className="text-3xl font-bold text-foreground">
               {item.name}
             </h1>
-            <Badge variant="secondary" className="text-lg px-4 py-2">
-              {Math.round(item.confidence)}% sikker
-            </Badge>
           </div>
         </Card>
 
