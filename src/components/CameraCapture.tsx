@@ -1,6 +1,13 @@
 import React, { useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
-const Kamera: React.FC = () => {
+interface CameraCaptureProps {
+  onCapture: (imageData: string) => Promise<void>;
+  onClose: () => void;
+}
+
+const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Kamera-ikon som SVG-komponent
@@ -50,45 +57,50 @@ const Kamera: React.FC = () => {
     };
   }, []);
 
-  // Dummy-funktion til knappen (kan udvides til at tage billede)
   const handleTakePicture = () => {
-    alert("Tag billede-funktionen er ikke implementeret endnu.");
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      const video = videoRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        onCapture(imageData);
+      }
+    }
   };
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div className="relative w-full h-screen bg-black">
+      {/* Close button */}
+      <Button
+        onClick={onClose}
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 left-4 z-10 bg-black/20 text-white border-white/20 hover:bg-black/40"
+      >
+        <X className="h-6 w-6" />
+      </Button>
+
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        style={{ width: "100%", display: "block" }}
-        muted // Muted for at undgå autoplay-blokering i nogle browsere
+        className="w-full h-full object-cover"
+        muted
       />
-      <button
+      
+      <Button
         onClick={handleTakePicture}
-        style={{
-          position: "absolute",
-          bottom: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "#025222",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-          padding: "12px 24px",
-          fontSize: 18,
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
-        }}
+        className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground hover:bg-primary/90 h-16 px-8 text-lg font-semibold shadow-lg"
       >
         <CameraIcon />
         Tag billede
-      </button>
+      </Button>
     </div>
   );
 };
 
-export default Kamera;
+export default CameraCapture;
