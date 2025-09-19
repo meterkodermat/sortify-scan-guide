@@ -1,12 +1,21 @@
 import React, { useRef, useEffect } from "react";
 
-const Kamera = () => {
+const Kamera: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    let stream: MediaStream | null = null;
+
     const getCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const constraints = {
+          video: {
+            facingMode: { ideal: "environment" }, // Prøv bagkamera på mobil, ellers standard
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints as MediaStreamConstraints);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -14,12 +23,26 @@ const Kamera = () => {
         console.error("Kunne ikke åbne kameraet:", err);
       }
     };
+
     getCamera();
+
+    // Cleanup: stop camera when component unmounts
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   return (
     <div>
-      <video ref={videoRef} autoPlay style={{ width: "100%" }} />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{ width: "100%" }}
+        muted // Muted for at undgå autoplay-blokering i nogle browsere
+      ></video>
     </div>
   );
 };
