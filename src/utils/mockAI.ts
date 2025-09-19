@@ -551,24 +551,48 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     } else {
       // Fallback to basic categorization from vision data
       
-      // Generic material-based categorization
-      let homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
-                       primaryLabel.materiale === 'plastik' ? 'Plast' : 
-                       primaryLabel.materiale === 'glas' ? 'Glas' : 
-                       primaryLabel.materiale === 'metal' ? 'Metal' : 
-                       primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
-                       primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                       primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
-                       primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+      // Enhanced material-based categorization with special item handling
+      
+      // Special handling for optical items (glasses, etc.)
+      const isOpticalItem = primaryLabel.description?.toLowerCase().includes('brille') ||
+                           primaryLabel.description?.toLowerCase().includes('linse') ||
+                           primaryLabel.description?.toLowerCase().includes('optisk');
+      
+      let homeCategory, recyclingCategory;
+      
+      if (isOpticalItem) {
+        // Glasses frames are typically metal or plastic - determine material
+        if (primaryLabel.materiale === 'metal' || 
+            primaryLabel.description?.toLowerCase().includes('metal') ||
+            primaryLabel.description?.toLowerCase().includes('stål') ||
+            primaryLabel.description?.toLowerCase().includes('titanium')) {
+          homeCategory = 'Metal';
+          recyclingCategory = 'Metal';
+        } else {
+          // Default to plastic for glasses frames if material uncertain
+          homeCategory = 'Plast';
+          recyclingCategory = 'Hård plast';
+        }
+      } else {
+        // Standard material categorization
+        homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+                      primaryLabel.materiale === 'plastik' ? 'Plast' : 
+                      primaryLabel.materiale === 'glas' ? 'Glas' : 
+                      primaryLabel.materiale === 'metal' ? 'Metal' : 
+                      primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
+                      primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                      primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
+                      primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
 
-      let recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
-                           primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
-                           primaryLabel.materiale === 'glas' ? 'Glas' : 
-                           primaryLabel.materiale === 'metal' ? 'Metal' : 
-                           primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
-                           primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                           primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
-                           primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+        recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
+                          primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
+                          primaryLabel.materiale === 'glas' ? 'Glas' : 
+                          primaryLabel.materiale === 'metal' ? 'Metal' : 
+                          primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
+                          primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
+                          primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
+                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+      }
 
       // Count identical items and create description
       const itemCount = labels.filter(label => label.description === primaryLabel.description).length;
