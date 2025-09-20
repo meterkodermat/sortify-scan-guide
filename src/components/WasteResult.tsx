@@ -34,6 +34,7 @@ interface WasteResultProps {
   item: WasteItem;
   onBack: () => void;
   onHome: () => void;
+  scannedImage?: string;
 }
 
 const getSortingPictogram = (category: string) => {
@@ -84,7 +85,7 @@ const getSortingPictogram = (category: string) => {
   return <img src={restaffalImg} alt="Restaffald" className={imgClass} />;
 };
 
-export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
+export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultProps) => {
   console.log('WasteResult received item:', item);
   console.log('WasteResult received components:', item.components);
   
@@ -124,6 +125,15 @@ export const WasteResult = ({ item, onBack, onHome }: WasteResultProps) => {
             <h1 className="text-3xl font-bold text-foreground">
               {item.name}
             </h1>
+            {scannedImage && (
+              <div className="mt-4">
+                <img 
+                  src={scannedImage} 
+                  alt="Scannet billede" 
+                  className="mx-auto max-w-xs h-32 object-cover rounded-lg border-2 border-gray-200"
+                />
+              </div>
+            )}
           </div>
         </Card>
 

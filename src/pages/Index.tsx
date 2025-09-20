@@ -30,6 +30,7 @@ const Index = () => {
   const [recentScans, setRecentScans] = useState<WasteItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedArea, setSelectedArea] = useState<string>('');
+  const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(null);
 
 
   const handleImageCapture = async (imageData: string) => {
@@ -58,6 +59,10 @@ const Index = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Create URL for the uploaded image
+      const imageUrl = URL.createObjectURL(file);
+      setScannedImageUrl(imageUrl);
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageData = e.target?.result as string;
@@ -79,6 +84,7 @@ const Index = () => {
 
   const handleSearchResult = (result: WasteItem) => {
     setCurrentResult(result);
+    setScannedImageUrl(null); // Clear scanned image for search results
     // Add to recent scans (keep only last 10)
     setRecentScans(prev => [result, ...prev.slice(0, 9)]);
     setCurrentView('result');
@@ -137,6 +143,7 @@ const Index = () => {
         item={currentResult}
         onBack={() => setCurrentView('home')}
         onHome={() => setCurrentView('home')}
+        scannedImage={scannedImageUrl || undefined}
       />
     );
   }
