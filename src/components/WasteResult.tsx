@@ -163,12 +163,6 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                         <p className="text-sm font-medium mt-2 text-gray-700">Restaffald</p>
                       </div>
                     </div>
-                    
-                    <p className="text-blue-600 text-base mt-3 leading-relaxed">
-                      ✅ Sæt <strong>{item.name.toLowerCase()}</strong> i restaffald
-                      <br />
-                      💡 Hvis ødelagt eller ikke genbrugelig
-                    </p>
                   </div>
                 </div>
               )}
