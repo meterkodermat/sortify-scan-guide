@@ -364,15 +364,23 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const sortedByConfidence = [...labels].sort((a, b) => b.score - a.score);
         console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
         
-        // Try to avoid generic items like "bøjle" if we have more specific items
-        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt'];
+        // Try to avoid generic items like "bøjle", "æg" when we have more specific items
+        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt', 'æg', 'egg'];
         const specificItems = sortedByConfidence.filter(label => 
-          !genericItems.some(generic => label.description.toLowerCase().includes(generic))
+          !genericItems.some(generic => label.description.toLowerCase().includes(generic.toLowerCase()))
         );
         
+        // Enhanced logic: prefer items with higher material confidence
         if (specificItems.length > 0) {
-          primaryLabel = specificItems[0]; // Highest confidence specific item
-          console.log('🎯 SELECTED SPECIFIC ITEM as primary:', primaryLabel.description);
+          // Among specific items, prefer those with clear material identification
+          const itemsWithMaterial = specificItems.filter(item => item.materiale && item.materiale !== 'ukendt');
+          if (itemsWithMaterial.length > 0) {
+            primaryLabel = itemsWithMaterial[0];
+            console.log('🎯 SELECTED SPECIFIC ITEM WITH MATERIAL as primary:', primaryLabel.description, `(${primaryLabel.materiale})`);
+          } else {
+            primaryLabel = specificItems[0];
+            console.log('🎯 SELECTED SPECIFIC ITEM as primary:', primaryLabel.description);
+          }
         } else {
           primaryLabel = sortedByConfidence[0]; // Fallback to highest confidence
           console.log('🎯 FALLBACK TO HIGHEST CONFIDENCE:', primaryLabel.description);
@@ -452,7 +460,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log('Using database match:', bestMatch.navn);
       }
     } else {
-      console.log('No database matches found, using AI categorization');
+      console.log('❌ Ingen database matches fundet - bruger AI kategorisering');
     }
 
     // Step 3: Build result from database or fallback to vision data
@@ -550,6 +558,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       };
     } else {
       // Fallback to basic categorization from vision data
+      console.log('🔧 FALLBACK MODE: Ikke fundet i databasen - bruger AI kategorisering');
       
       // Enhanced material-based categorization with special item handling
       
@@ -603,7 +612,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                           primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
                           primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
                           primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
-                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
+                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 
+                          !primaryLabel.materiale || primaryLabel.materiale === 'null' ? 'Ikke muligt' : 'Restaffald';
       }
 
       // Count identical items and create description
@@ -646,13 +656,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         image: imageData,
         homeCategory: homeCategory,
         recyclingCategory: recyclingCategory,
-        description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} styk detekteret` : ''}`,
+        description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} styk detekteret` : ''} - Ikke fundet i databasen`,
         confidence: Math.round(primaryLabel.score * 100),
         timestamp: new Date(),
-        aiThoughtProcess: `AI-baseret analyse: Genstand genkendt som ${primaryLabel.description} med ${Math.round(primaryLabel.score * 100)}% sikkerhed${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande` : ''}.`,
+        aiThoughtProcess: `AI-baseret analyse: Genstand genkendt som ${primaryLabel.description} med ${Math.round(primaryLabel.score * 100)}% sikkerhed${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande` : ''}. Ikke fundet i databasen - bruger AI kategorisering.`,
         components: uniqueComponents.map(comp => ({
           genstand: comp.count > 1 ? `${comp.genstand} (${comp.count} stk.)` : comp.genstand,
-          materiale: comp.materiale,
+          materiale: comp.materiale || 'Ukendt',
           tilstand: comp.tilstand
         }))
       };
