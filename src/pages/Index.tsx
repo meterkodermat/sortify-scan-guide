@@ -40,7 +40,7 @@ const Index = () => {
     
     try {
       const result = await identifyWaste(imageData);
-      console.log('Identified waste result:', result);
+      console.log('✅ Identified waste result:', result);
       setCurrentResult(result);
       
       // Add to recent scans (keep only last 10)
@@ -49,6 +49,7 @@ const Index = () => {
       setCurrentView('result');
       toast.success("Affald identificeret!");
     } catch (error) {
+      console.error('❌ Analysis error:', error);
       toast.error("Kunne ikke analysere billedet. Prøv igen.");
       setCurrentView('home');
     } finally {
@@ -59,6 +60,7 @@ const Index = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      console.log('📁 File uploaded:', file.name, file.size, 'bytes');
       // Create URL for the uploaded image
       const imageUrl = URL.createObjectURL(file);
       setScannedImageUrl(imageUrl);
@@ -66,7 +68,12 @@ const Index = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageData = e.target?.result as string;
+        console.log('📄 File read successfully, starting analysis...');
         handleImageCapture(imageData);
+      };
+      reader.onerror = (e) => {
+        console.error('❌ File reading error:', e);
+        toast.error("Kunne ikke læse filen. Prøv igen.");
       };
       reader.readAsDataURL(file);
     }
@@ -154,7 +161,7 @@ const Index = () => {
       <div className="relative h-72 sm:h-80 bg-gradient-hero overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
         
-        {/* Demo Button in corner */}
+        {/* Settings Button in corner */}
         <div className="absolute top-4 right-4">
           <Button 
             variant="outline" 
@@ -163,7 +170,7 @@ const Index = () => {
             className="bg-white/10 border-white/20 text-white hover:bg-white/20 touch-manipulation"
           >
             <Settings className="h-4 w-4 mr-2" />
-            Demo
+            Indstillinger
           </Button>
         </div>
         
