@@ -604,25 +604,9 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         homeCategory = 'Pant (returneres i butik)';
         recyclingCategory = 'Pant (returneres i butik)';
       } else {
-        // Standard material categorization
-        homeCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
-                      primaryLabel.materiale === 'plastik' ? 'Plast' : 
-                      primaryLabel.materiale === 'glas' ? 'Glas' : 
-                      primaryLabel.materiale === 'metal' ? 'Metal' : 
-                      primaryLabel.materiale === 'elektronik' ? 'Restaffald' : 
-                      primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                      primaryLabel.materiale === 'organisk' ? 'Madaffald' : 
-                      primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 'Restaffald';
-
-        recyclingCategory = primaryLabel.materiale === 'pap' ? 'Pap' : 
-                          primaryLabel.materiale === 'plastik' ? 'Hård plast' : 
-                          primaryLabel.materiale === 'glas' ? 'Glas' : 
-                          primaryLabel.materiale === 'metal' ? 'Metal' : 
-                          primaryLabel.materiale === 'elektronik' ? 'Genbrugsstation' : 
-                          primaryLabel.materiale === 'farligt' ? 'Farligt affald' : 
-                          primaryLabel.materiale === 'organisk' ? 'Ikke muligt' : 
-                          primaryLabel.materiale === 'tekstil' ? 'Tekstilaffald' : 
-                          !primaryLabel.materiale || primaryLabel.materiale === 'null' ? 'Ikke muligt' : 'Restaffald';
+        // When not found in database, don't provide AI sorting suggestions
+        homeCategory = 'Ikke fundet i databasen';
+        recyclingCategory = 'Ikke fundet i databasen';
       }
 
       // Count identical items and create description

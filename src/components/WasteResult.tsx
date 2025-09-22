@@ -203,29 +203,29 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                   return { home: 'Metal', recycling: 'Metal' };
                 }
                 
-                switch (materiale.toLowerCase()) {
-                  case 'pap': return { home: 'Pap', recycling: 'Pap' };
-                  case 'plastik': 
-                    // Distinguish between hard and soft plastic based on item type
-                    if (itemName.includes('net') || 
-                        itemName.includes('pose') || 
-                        itemName.includes('folie') ||
-                        itemName.includes('film') ||
-                        itemName.includes('sæk') ||
-                        itemName.includes('indpakning') ||
-                        itemName.includes('emballage')) {
-                      return { home: 'Plast', recycling: 'Blød plast' };
-                    } else {
-                      return { home: 'Plast', recycling: 'Hård plast' };
-                    }
-                  case 'glas': return { home: 'Glas', recycling: 'Glas' };
-                  case 'metal': return { home: 'Metal', recycling: 'Metal' };
-                  case 'organisk':
-                  case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt' };
-                  case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald' };
-                  case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald' };
-                  default: return { home: 'Restaffald', recycling: 'Rest efter sortering' };
-                }
+                 switch (materiale.toLowerCase()) {
+                   case 'pap': return { home: 'Pap', recycling: 'Pap' };
+                   case 'plastik': 
+                     // Distinguish between hard and soft plastic based on item type
+                     if (itemName.includes('net') || 
+                         itemName.includes('pose') || 
+                         itemName.includes('folie') ||
+                         itemName.includes('film') ||
+                         itemName.includes('sæk') ||
+                         itemName.includes('indpakning') ||
+                         itemName.includes('emballage')) {
+                       return { home: 'Plast', recycling: 'Blød plast' };
+                     } else {
+                       return { home: 'Plast', recycling: 'Hård plast' };
+                     }
+                   case 'glas': return { home: 'Glas', recycling: 'Glas' };
+                   case 'metal': return { home: 'Metal', recycling: 'Metal' };
+                   case 'organisk':
+                   case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt' };
+                   case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald' };
+                   case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald' };
+                   default: return { home: 'Ikke fundet i databasen', recycling: 'Ikke fundet i databasen' };
+                 }
               };
               
               const sorting = getMaterialSorting(component.materiale, component.genstand);
