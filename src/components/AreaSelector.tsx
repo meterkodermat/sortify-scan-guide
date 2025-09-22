@@ -112,15 +112,23 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
               <span className="ml-2 text-muted-foreground">Tjekker tilgængelige databaser...</span>
             </div>
           ) : areas.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto bg-muted/20 rounded-full flex items-center justify-center mb-4">
-                <Database className="h-8 w-8 text-muted-foreground" />
+            <div className="text-center py-6">
+              <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center mb-4">
+                <Database className="h-8 w-8 text-primary-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Ingen bydatabaser tilgængelige endnu</h3>
+              <h3 className="font-semibold text-foreground mb-2">Brug Demo Database</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Der er ingen kommunale databaser tilgængelige i øjeblikket. 
-                Brug Demo-knappen for at teste systemet.
+                Kommunale databaser er ikke tilgængelige endnu. 
+                Klik på knappen nedenfor for at starte med demo-databasen.
               </p>
+              <Button
+                onClick={() => onAreaSelected('demo')}
+                className="w-full"
+                size="lg"
+              >
+                <Database className="h-5 w-5 mr-2" />
+                Start Demo
+              </Button>
             </div>
           ) : (
             areas.map((area) => {
@@ -168,14 +176,16 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
           )}
         </div>
 
-        <Button 
-          onClick={handleConfirm}
-          disabled={!selectedArea || isLoading}
-          className="w-full"
-          size="lg"
-        >
-          Fortsæt til Sortify
-        </Button>
+        {areas.length > 0 && (
+          <Button 
+            onClick={handleConfirm}
+            disabled={!selectedArea || isLoading}
+            className="w-full"
+            size="lg"
+          >
+            Fortsæt til Sortify
+          </Button>
+        )}
 
         <div className="mt-6 text-center">
           <p className="text-xs text-muted-foreground">
