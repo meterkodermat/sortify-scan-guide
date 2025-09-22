@@ -192,7 +192,6 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                 
                 // Special handling for tools and industrial items
                 if (itemName.includes('saks') || 
-                    itemName.includes('hækkesaks') ||
                     itemName.includes('værktøj') ||
                     itemName.includes('skruetrækker') ||
                     itemName.includes('hammer') ||
@@ -200,6 +199,11 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                     itemName.includes('kniv') ||
                     itemName.includes('file') ||
                     itemName.includes('save')) {
+                  return { home: 'Metal', recycling: 'Metal' };
+                }
+                
+                // Specific handling for hedge scissors - only if explicitly named as hedge scissors
+                if (itemName.includes('hækkesaks')) {
                   return { home: 'Metal', recycling: 'Metal' };
                 }
                 
@@ -247,12 +251,12 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                     </div>
                     
                     {/* Component Sorting */}
-                    <div className="grid grid-cols-2 gap-3 text-center">
+                     <div className="grid grid-cols-2 gap-3 text-center">
                       <div className="p-3 bg-muted/20 rounded-lg">
                         <Home className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                         <div className="text-xs text-muted-foreground mb-1">Hjemme</div>
                         <div className="flex flex-col items-center gap-2">
-                          {getSortingPictogram(sorting.home)}
+                          {sorting.home !== "Ikke fundet i databasen" && getSortingPictogram(sorting.home)}
                           <span className="text-xs font-medium text-center">{sorting.home}</span>
                         </div>
                       </div>
