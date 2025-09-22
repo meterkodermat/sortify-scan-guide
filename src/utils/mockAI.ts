@@ -365,12 +365,19 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
         
         // Try to avoid generic items like "bøjle", "æg" when we have more specific items
-        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt', 'æg', 'egg'];
-        const specificItems = sortedByConfidence.filter(label => 
-          !genericItems.some(generic => label.description.toLowerCase().includes(generic.toLowerCase()))
-        );
+        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt', 'æg', 'egg', 'ting', 'item'];
+        const specificItems = sortedByConfidence.filter(label => {
+          const desc = label.description.toLowerCase();
+          return !genericItems.some(generic => desc === generic.toLowerCase() || desc.includes(generic.toLowerCase()));
+        });
         
-        // Enhanced logic: prefer items with higher material confidence
+        console.log('🔍 Specific items found:', specificItems.map(i => i.description));
+        console.log('🔍 Generic items to avoid:', sortedByConfidence.filter(label => {
+          const desc = label.description.toLowerCase();
+          return genericItems.some(generic => desc === generic.toLowerCase() || desc.includes(generic.toLowerCase()));
+        }).map(i => i.description));
+        
+        // Enhanced logic: prefer items with higher material confidence and avoid generic terms
         if (specificItems.length > 0) {
           // Among specific items, prefer those with clear material identification
           const itemsWithMaterial = specificItems.filter(item => item.materiale && item.materiale !== 'ukendt');
@@ -382,8 +389,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🎯 SELECTED SPECIFIC ITEM as primary:', primaryLabel.description);
           }
         } else {
-          primaryLabel = sortedByConfidence[0]; // Fallback to highest confidence
-          console.log('🎯 FALLBACK TO HIGHEST CONFIDENCE:', primaryLabel.description);
+          console.log('⚠️  NO SPECIFIC ITEMS FOUND, using fallback logic');
+          // If all items are generic, pick the one with best material identification
+          const itemsWithMaterial = sortedByConfidence.filter(item => item.materiale && item.materiale !== 'ukendt');
+          if (itemsWithMaterial.length > 0) {
+            primaryLabel = itemsWithMaterial[0];
+            console.log('🎯 FALLBACK WITH MATERIAL:', primaryLabel.description, `(${primaryLabel.materiale})`);
+          } else {
+            primaryLabel = sortedByConfidence[0]; // Final fallback to highest confidence
+            console.log('🎯 FINAL FALLBACK TO HIGHEST CONFIDENCE:', primaryLabel.description);
+          }
         }
       }
     } else {
