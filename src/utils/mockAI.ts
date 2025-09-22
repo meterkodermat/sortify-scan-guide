@@ -366,26 +366,32 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log('📦 MULTIPLE PACKAGING ITEMS: Using highest confidence:', primaryLabel.description);
       }
       else {
-        // General case: multiple items, none are food/packaging combinations
-        console.log('🔧 GENERAL MULTIPLE ITEMS: Selecting best primary item');
-        
-        // Simplified logic: just pick the highest confidence item
-        const sortedByConfidence = [...labels].sort((a, b) => b.score - a.score);
-        console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
-        
-        // Simple rule: for electronic items, prefer the main device over accessories
-        const mainDevices = sortedByConfidence.filter(label => {
-          const desc = label.description.toLowerCase();
-          return !desc.includes('etui') && !desc.includes('oplader') && !desc.includes('kabel') && !desc.includes('stik');
-        });
-        
-        if (mainDevices.length > 0) {
-          primaryLabel = mainDevices[0];
-          console.log('🎯 SELECTED MAIN DEVICE as primary:', primaryLabel.description);
-        } else {
-          primaryLabel = sortedByConfidence[0];
-          console.log('🎯 SELECTED HIGHEST CONFIDENCE as primary:', primaryLabel.description);
-        }
+      // General case: multiple items, none are food/packaging combinations
+      console.log('🔧 GENERAL MULTIPLE ITEMS: Selecting best primary item');
+      
+      // Simplified logic: just pick the highest confidence item
+      const sortedByConfidence = [...labels].sort((a, b) => b.score - a.score);
+      console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
+      
+      // Special rule: for electronic items, prefer the main device over accessories
+      const mainDevices = sortedByConfidence.filter(label => {
+        const desc = label.description.toLowerCase();
+        return !desc.includes('etui') && !desc.includes('oplader') && !desc.includes('kabel') && !desc.includes('stik') && !desc.includes('case') && !desc.includes('holder');
+      });
+      
+      console.log('🎯 Main devices found:', mainDevices.map(d => d.description));
+      console.log('🎯 Accessories found:', sortedByConfidence.filter(label => {
+        const desc = label.description.toLowerCase();
+        return desc.includes('etui') || desc.includes('oplader') || desc.includes('kabel') || desc.includes('stik') || desc.includes('case') || desc.includes('holder');
+      }).map(d => d.description));
+      
+      if (mainDevices.length > 0) {
+        primaryLabel = mainDevices[0];
+        console.log('🎯 SELECTED MAIN DEVICE as primary:', primaryLabel.description);
+      } else {
+        primaryLabel = sortedByConfidence[0];
+        console.log('🎯 SELECTED HIGHEST CONFIDENCE as primary:', primaryLabel.description);
+      }
       }
     } else {
       console.log('📝 SINGLE ITEM DETECTED:', primaryLabel.description);

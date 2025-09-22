@@ -100,14 +100,14 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
       return groups;
     }, {} as Record<string, any>) : {};
 
-  console.log('Grouped components:', groupedComponents);
+  console.log('WasteResult - Grouped components:', groupedComponents);
 
-  const uniqueComponents = Object.values(groupedComponents).filter(
-    (component: any) => component.genstand.toLowerCase() !== item.name.toLowerCase()
-  );
+  // Don't filter out components that are different from the main item
+  // Instead, show all components regardless if they match the main item name
+  const uniqueComponents = Object.values(groupedComponents);
   
-  console.log('After filtering (removed main item):', uniqueComponents);
-  console.log('Main item name for comparison:', item.name.toLowerCase());
+  console.log('WasteResult - All components to show:', uniqueComponents);
+  console.log('WasteResult - Main item name for reference:', item.name.toLowerCase());
   
   return (
     <div className="min-h-screen bg-background p-4">
