@@ -1,7 +1,8 @@
+import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
+import { ArrowLeft, Home, Recycle, Info, Brain } from "lucide-react";
 import farligtAffaldImg from "@/assets/farligtaffald.png";
 import glasImg from "@/assets/glas.png";
 import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
@@ -89,6 +90,8 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
   console.log('WasteResult received item:', item);
   console.log('WasteResult received components:', item.components);
   
+  const [showAISuggestion, setShowAISuggestion] = useState(false);
+  
   // Group identical components to avoid repetition
   const groupedComponents = item.components ? 
     item.components.reduce((groups, component) => {
@@ -113,11 +116,39 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-start">
+        <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAISuggestion(!showAISuggestion)}
+            className="flex items-center gap-2"
+          >
+            <Brain className="h-4 w-4" />
+            AI Forslag
+          </Button>
         </div>
+
+        {/* AI Suggestion for Home Sorting */}
+        {showAISuggestion && (
+          <Card className="p-4 bg-blue-50 border-2 border-blue-200">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-800">AI Forslag til sortering hjemme</h3>
+              </div>
+              <p className="text-blue-700 text-sm">
+                {item.name === "Ikke fundet i databasen" ? 
+                  "AI kan ikke give forslag, da objektet ikke er identificeret." :
+                  `Baseret på billedet og objekttype, foreslår AI: Sæt ${item.name.toLowerCase()} i restaffald hjemme, hvis det er ødelagt eller ikke kan genbruges.`
+                }
+              </p>
+            </div>
+          </Card>
+        )}
 
         {/* Main Item - Top Section */}
         <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">

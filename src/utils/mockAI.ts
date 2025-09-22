@@ -426,6 +426,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
         
+        // Special case for scissors - exact match only to prevent hedge scissors confusion
+        if (labelDesc === 'saks') {
+          if (matchName === 'saks') {
+            console.log(`✅ SCISSORS EXACT MATCH: "${labelDesc}" matches "${matchName}"`);
+            return true;
+          } else {
+            console.log(`🚫 SCISSORS MISMATCH: "${labelDesc}" does not match "${matchName}"`);
+            return false;
+          }
+        }
+        
         // Generic matching - no special item logic
         
         // Direct name match
