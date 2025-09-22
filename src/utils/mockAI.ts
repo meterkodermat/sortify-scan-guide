@@ -447,12 +447,20 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           return true;
         }
         
-        // Partial name match - FIXED: avoid overly broad matches for tools
-        if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
-          // Special handling to prevent regular scissors matching hedge scissors
-          if (labelDesc === 'saks' && matchName === 'hækkesaks') {
-            console.log(`🚫 BLOCKED MATCH: Preventing "${labelDesc}" from matching "${matchName}"`);
-            return false;
+        // Intelligent partial matching - avoid substring issues
+        const isPartialMatch = matchName.includes(labelDesc) || labelDesc.includes(matchName);
+        if (isPartialMatch) {
+          // For short words (≤4 chars), require exact word boundary matches to prevent substring issues
+          if (labelDesc.length <= 4 || matchName.length <= 4) {
+            const labelWords = labelDesc.split(/\s+/);
+            const matchWords = matchName.split(/\s+/);
+            const hasExactWordMatch = labelWords.some(word => matchWords.includes(word)) || 
+                                    matchWords.some(word => labelWords.includes(word));
+            
+            if (!hasExactWordMatch) {
+              console.log(`🚫 BLOCKED SUBSTRING MATCH: "${labelDesc}" vs "${matchName}" (short word requires exact word match)`);
+              return false;
+            }
           }
           
           console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc}`);
