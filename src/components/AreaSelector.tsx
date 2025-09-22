@@ -84,14 +84,24 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4 relative">
+      {/* Demo button in corner */}
+      <Button
+        variant="outline"
+        onClick={() => onAreaSelected('demo')}
+        className="absolute top-4 right-4 flex items-center gap-2"
+      >
+        <Database className="h-4 w-4" />
+        Demo
+      </Button>
+
       <Card className="w-full max-w-md p-8 bg-gradient-card shadow-strong">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center mb-4">
-            <Database className="h-8 w-8 text-primary-foreground" />
+            <Users className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Velkommen til Sortify</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Vælg område</h1>
           <p className="text-muted-foreground">
-            Din intelligente guide til korrekt affaldssortering
+            Vælg dit lokalområde for at få korrekte sorteringsregler
           </p>
         </div>
 
@@ -102,28 +112,14 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
               <span className="ml-2 text-muted-foreground">Tjekker tilgængelige databaser...</span>
             </div>
           ) : areas.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Database className="h-10 w-10 text-primary" />
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto bg-muted/20 rounded-full flex items-center justify-center mb-4">
+                <Database className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Klar til at starte!</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Systemet er klar til brug med demo-databasen. 
-                Klik på knappen nedenfor for at begynde at sortere affald.
-              </p>
-              
-              {/* Large prominent Demo button */}
-              <Button
-                onClick={() => onAreaSelected('demo')}
-                size="lg"
-                className="w-full h-14 text-lg font-semibold mb-4 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <Database className="h-6 w-6 mr-3" />
-                Start Demo
-              </Button>
-              
-              <p className="text-xs text-muted-foreground">
-                Bydatabaser kommer snart til din kommune
+              <h3 className="font-semibold text-foreground mb-2">Ingen bydatabaser tilgængelige endnu</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Der er ingen kommunale databaser tilgængelige i øjeblikket. 
+                Brug Demo-knappen for at teste systemet.
               </p>
             </div>
           ) : (
@@ -172,16 +168,14 @@ export const AreaSelector = ({ onAreaSelected }: AreaSelectorProps) => {
           )}
         </div>
 
-        {areas.length > 0 && (
-          <Button 
-            onClick={handleConfirm}
-            disabled={!selectedArea || isLoading}
-            className="w-full"
-            size="lg"
-          >
-            Fortsæt til Sortify
-          </Button>
-        )}
+        <Button 
+          onClick={handleConfirm}
+          disabled={!selectedArea || isLoading}
+          className="w-full"
+          size="lg"
+        >
+          Fortsæt til Sortify
+        </Button>
 
         <div className="mt-6 text-center">
           <p className="text-xs text-muted-foreground">

@@ -59,25 +59,16 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => 
 
   const handleTakePicture = () => {
     if (videoRef.current) {
-      console.log('📸 Taking picture from camera...');
       const canvas = document.createElement('canvas');
       const video = videoRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      console.log('📐 Canvas dimensions:', canvas.width, 'x', canvas.height);
-      
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0);
         const imageData = canvas.toDataURL('image/jpeg');
-        console.log('✅ Image captured successfully, data length:', imageData.length);
         onCapture(imageData);
-      } else {
-        console.error('❌ Could not get canvas context');
       }
-    } else {
-      console.error('❌ Video element not available');
     }
   };
 
