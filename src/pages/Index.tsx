@@ -38,6 +38,9 @@ const Index = () => {
     setCurrentView('analyzing');
     setIsAnalyzing(true);
     
+    // Set the scanned image URL so it can be displayed in results
+    setScannedImageUrl(imageData);
+    
     try {
       const result = await identifyWaste(imageData);
       console.log('Identified waste result:', result);
