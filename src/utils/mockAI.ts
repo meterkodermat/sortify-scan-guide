@@ -447,8 +447,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           return true;
         }
         
-        // Partial name match
+        // Partial name match - FIXED: avoid overly broad matches for tools
         if (matchName.includes(labelDesc) || labelDesc.includes(matchName)) {
+          // Special handling to prevent regular scissors matching hedge scissors
+          if (labelDesc === 'saks' && matchName === 'hækkesaks') {
+            console.log(`🚫 BLOCKED MATCH: Preventing "${labelDesc}" from matching "${matchName}"`);
+            return false;
+          }
+          
           console.log(`✅ PARTIAL NAME MATCH: ${matchName} <-> ${labelDesc}`);
           return true;
         }
