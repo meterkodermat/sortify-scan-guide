@@ -164,11 +164,11 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
-  // Extract all meaningful search terms with smart category mapping
+  // Extract all meaningful search terms with smart category mapping  
   const searchTerms = [];
   
   for (const label of labels) {
-    // Add main description
+    // Add main description - this is the primary search term
     if (label.description) {
       const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
@@ -204,9 +204,18 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push(...label.navne);
     }
     
-    // Enhanced material-based search terms
-    if (label.materiale) {
+    // CRITICAL FIX: Only add material terms for compound/specific searches, 
+    // not for generic fallback searches that would return irrelevant items
+    if (label.materiale && (
+      label.description?.includes('træ') || 
+      label.description?.includes('imprægneret') ||
+      label.description?.includes('bjælke') ||
+      label.description?.includes('plade')
+    )) {
+      console.log(`🔧 Adding material "${label.materiale}" for compound item "${label.description}"`);
       searchTerms.push(label.materiale);
+    } else if (label.materiale) {
+      console.log(`🚫 NOT adding generic material "${label.materiale}" for "${label.description}" to avoid false matches`);
     }
   }
 
@@ -464,10 +473,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log(`❌ NO MATCH: ${matchName} vs ${labelDesc}`);
         return false;
       });
-      // Use first database match if available
-      if (!bestMatch && dbMatches.length > 0) {
-        bestMatch = dbMatches[0];
-        console.log('📊 Using first database match:', bestMatch.navn);
+      
+      // CRITICAL FIX: Don't use generic material matches if the specific item wasn't found
+      if (!bestMatch) {
+        console.log(`❌ NO SPECIFIC MATCH FOUND for "${primaryLabel.description}" in database matches`);
+        console.log('🚫 Will NOT use generic material-based fallback - using AI detection instead');
+        bestMatch = null; // Explicitly set to null to force AI categorization
       }
       
       if (bestMatch) {
