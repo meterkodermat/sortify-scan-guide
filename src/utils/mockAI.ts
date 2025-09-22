@@ -369,45 +369,22 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         // General case: multiple items, none are food/packaging combinations
         console.log('🔧 GENERAL MULTIPLE ITEMS: Selecting best primary item');
         
-        // Sort by confidence score and select highest, but avoid generic items
+        // Simplified logic: just pick the highest confidence item
         const sortedByConfidence = [...labels].sort((a, b) => b.score - a.score);
         console.log('📊 Items by confidence:', sortedByConfidence.map(l => `${l.description} (${l.score})`));
         
-        // Try to avoid generic items like "bøjle", "æg" when we have more specific items
-        const genericItems = ['bøjle', 'emne', 'genstand', 'objekt', 'æg', 'egg', 'ting', 'item'];
-        const specificItems = sortedByConfidence.filter(label => {
+        // Simple rule: for electronic items, prefer the main device over accessories
+        const mainDevices = sortedByConfidence.filter(label => {
           const desc = label.description.toLowerCase();
-          return !genericItems.some(generic => desc === generic.toLowerCase() || desc.includes(generic.toLowerCase()));
+          return !desc.includes('etui') && !desc.includes('oplader') && !desc.includes('kabel') && !desc.includes('stik');
         });
         
-        console.log('🔍 Specific items found:', specificItems.map(i => i.description));
-        console.log('🔍 Generic items to avoid:', sortedByConfidence.filter(label => {
-          const desc = label.description.toLowerCase();
-          return genericItems.some(generic => desc === generic.toLowerCase() || desc.includes(generic.toLowerCase()));
-        }).map(i => i.description));
-        
-        // Enhanced logic: prefer items with higher material confidence and avoid generic terms
-        if (specificItems.length > 0) {
-          // Among specific items, prefer those with clear material identification
-          const itemsWithMaterial = specificItems.filter(item => item.materiale && item.materiale !== 'ukendt');
-          if (itemsWithMaterial.length > 0) {
-            primaryLabel = itemsWithMaterial[0];
-            console.log('🎯 SELECTED SPECIFIC ITEM WITH MATERIAL as primary:', primaryLabel.description, `(${primaryLabel.materiale})`);
-          } else {
-            primaryLabel = specificItems[0];
-            console.log('🎯 SELECTED SPECIFIC ITEM as primary:', primaryLabel.description);
-          }
+        if (mainDevices.length > 0) {
+          primaryLabel = mainDevices[0];
+          console.log('🎯 SELECTED MAIN DEVICE as primary:', primaryLabel.description);
         } else {
-          console.log('⚠️  NO SPECIFIC ITEMS FOUND, using fallback logic');
-          // If all items are generic, pick the one with best material identification
-          const itemsWithMaterial = sortedByConfidence.filter(item => item.materiale && item.materiale !== 'ukendt');
-          if (itemsWithMaterial.length > 0) {
-            primaryLabel = itemsWithMaterial[0];
-            console.log('🎯 FALLBACK WITH MATERIAL:', primaryLabel.description, `(${primaryLabel.materiale})`);
-          } else {
-            primaryLabel = sortedByConfidence[0]; // Final fallback to highest confidence
-            console.log('🎯 FINAL FALLBACK TO HIGHEST CONFIDENCE:', primaryLabel.description);
-          }
+          primaryLabel = sortedByConfidence[0];
+          console.log('🎯 SELECTED HIGHEST CONFIDENCE as primary:', primaryLabel.description);
         }
       }
     } else {
