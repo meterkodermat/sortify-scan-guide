@@ -682,7 +682,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         image: imageData,
         homeCategory: homeCategory,
         recyclingCategory: recyclingCategory,
-        description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} styk detekteret` : ''} - Ikke fundet i databasen`,
+        description: `${primaryLabel.description}${itemCount > 1 ? ` - ${itemCount} stk. detekteret` : ''} - Ikke fundet i databasen`,
         confidence: Math.round(primaryLabel.score * 100),
         timestamp: new Date(),
         aiThoughtProcess: `AI-baseret analyse: Genstand genkendt som ${primaryLabel.description} med ${Math.round(primaryLabel.score * 100)}% sikkerhed${itemCount > 1 ? `. Detekteret ${itemCount} identiske genstande` : ''}. Ikke fundet i databasen - bruger AI kategorisering.`,

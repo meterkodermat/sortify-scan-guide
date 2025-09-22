@@ -150,7 +150,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                   <Home className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">Hjemme sortering</h3>
+                  <h3 className="font-semibold">Hjemmesortering</h3>
                   <div className="flex items-center gap-3 mt-2">
                     {getSortingPictogram(item.homeCategory)}
                     <span className="font-semibold text-lg">{item.homeCategory}</span>
