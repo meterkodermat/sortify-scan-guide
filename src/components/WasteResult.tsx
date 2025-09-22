@@ -134,18 +134,44 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
 
         {/* AI Suggestion for Home Sorting */}
         {showAISuggestion && (
-          <Card className="p-4 bg-blue-50 border-2 border-blue-200">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-2">
-                <Brain className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-800">AI Forslag til sortering hjemme</h3>
+          <Card className="p-6 bg-blue-50 border-2 border-blue-200">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Brain className="h-6 w-6 text-blue-600" />
+                <h3 className="font-bold text-lg text-blue-800">AI Forslag</h3>
               </div>
-              <p className="text-blue-700 text-sm">
-                {item.name === "Ikke fundet i databasen" ? 
-                  "AI kan ikke give forslag, da objektet ikke er identificeret." :
-                  `Baseret på billedet og objekttype, foreslår AI: Sæt ${item.name.toLowerCase()} i restaffald hjemme, hvis det er ødelagt eller ikke kan genbruges.`
-                }
-              </p>
+              
+              {item.name === "Ikke fundet i databasen" ? (
+                <div className="text-center py-4">
+                  <p className="text-blue-700 text-lg font-medium">
+                    🤖 AI kan ikke hjælpe
+                  </p>
+                  <p className="text-blue-600 text-base mt-2">
+                    Objektet ikke genkendt
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-blue-700 text-lg font-medium mb-3">
+                      🏠 Sortering hjemme:
+                    </p>
+                    
+                    <div className="flex items-center justify-center gap-3 p-4 bg-white rounded-lg border border-blue-200">
+                      <div className="text-center">
+                        {getSortingPictogram("Restaffald")}
+                        <p className="text-sm font-medium mt-2 text-gray-700">Restaffald</p>
+                      </div>
+                    </div>
+                    
+                    <p className="text-blue-600 text-base mt-3 leading-relaxed">
+                      ✅ Sæt <strong>{item.name.toLowerCase()}</strong> i restaffald
+                      <br />
+                      💡 Hvis ødelagt eller ikke genbrugelig
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         )}
