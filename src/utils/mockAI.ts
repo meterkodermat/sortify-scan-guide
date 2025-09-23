@@ -208,7 +208,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       
       console.log(`📊 Enhanced scores: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
       return bScore - aScore;
-    }).slice(0, 8); // Increased from 5 to 8 for better coverage
+    }).slice(0, 3); // Keep it simple with fewer results
 
   } catch (error) {
     console.error('Database search error details:', {
@@ -220,78 +220,17 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 };
 
-// Enhanced search with better term extraction, smarter mapping, and improved sensitivity
+// Enhanced search with simpler term extraction
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
-  // Extract all meaningful search terms with smart category mapping  
+  // Extract main search terms - keep it simple
   const searchTerms = [];
   
   for (const label of labels) {
-    // Add main description - this is the primary search term
+    // Add main description
     if (label.description) {
-      const desc = label.description.toLowerCase();
       searchTerms.push(label.description);
-      
-      // Extract core item type from compound words (e.g., "træbjælke" -> "bjælke")
-      if (desc.includes('bjælke')) {
-        searchTerms.push('bjælke');
-      }
-      if (desc.includes('plade')) {
-        searchTerms.push('plade');
-      }
-      if (desc.includes('brædt')) {
-        searchTerms.push('brædder');
-      }
-      
-      // Enhanced tape/adhesive detection
-      if (desc.includes('tape') || desc.includes('klæbebånd') || desc.includes('tejp')) {
-        searchTerms.push('tape', 'klæbebånd', 'tejp');
-      }
-      
-      // Enhanced clock/timer detection for Kid Sleep Clock etc.
-      if (desc.includes('clock') || desc.includes('ur') || desc.includes('vækkeur') || desc.includes('timer')) {
-        searchTerms.push('ur', 'vækkeur', 'clock', 'timer');
-        if (desc.includes('kid') || desc.includes('barn')) {
-          searchTerms.push('børnetur', 'kids clock', 'sleep clock');
-        }
-      }
-      
-      // Extract treatment/condition terms
-      if (desc.includes('trykimprægneret') || desc.includes('imprægneret')) {
-        searchTerms.push('imprægneret');
-        searchTerms.push('trykimprægneret');
-      }
-      if (desc.includes('behandlet')) {
-        searchTerms.push('behandlet');
-      }
-
-      // Better synonym generation for common items
-      if (desc.includes('plastik')) {
-        searchTerms.push('plast', 'plastic');
-      }
-      if (desc.includes('metal')) {
-        searchTerms.push('jern', 'stål', 'aluminium');
-      }
-      if (desc.includes('glas')) {
-        searchTerms.push('glass');
-      }
-      
-      // Enhanced Danish-specific terms
-      const danishVariations = {
-        'appelsin': ['orange', 'citrus'],
-        'orange': ['appelsin', 'citrus'],
-        'aeble': ['æble', 'apple'],
-        'æble': ['aeble', 'apple'],
-        'boelger': ['bølger', 'waves'],
-        'bølger': ['boelger', 'waves']
-      };
-      
-      Object.entries(danishVariations).forEach(([key, variations]) => {
-        if (desc.includes(key)) {
-          searchTerms.push(...variations);
-        }
-      });
     }
     
     // Add translated text if different
@@ -299,42 +238,23 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push(label.translatedText);
     }
     
-    // Add alternative names
-    if (label.navne && Array.isArray(label.navne)) {
-      searchTerms.push(...label.navne);
-    }
-    
-    // Enhanced material handling - more selective but comprehensive
-    if (label.materiale && (
-      label.description?.includes('træ') || 
-      label.description?.includes('imprægneret') ||
-      label.description?.includes('bjælke') ||
-      label.description?.includes('plade') ||
-      label.description?.includes('tape') ||
-      label.description?.includes('klæbebånd') ||
-      label.description?.includes('clock') ||
-      label.description?.includes('ur')
-    )) {
-      console.log(`🔧 Adding material "${label.materiale}" for specific item "${label.description}"`);
+    // Add material only for specific cases
+    if (label.materiale && ['plastik', 'pap', 'glas', 'metal'].includes(label.materiale)) {
       searchTerms.push(label.materiale);
-    } else if (label.materiale) {
-      console.log(`🚫 NOT adding generic material "${label.materiale}" for "${label.description}" to avoid false matches`);
     }
   }
 
-  // Clean and deduplicate terms with better filtering
+  // Clean and deduplicate terms
   const cleanTerms = [...new Set(searchTerms)]
     .filter(term => {
       if (!term || typeof term !== 'string') return false;
       const cleaned = term.toLowerCase().trim();
-      // Filter out very short terms and common stop words
       if (cleaned.length < 2) return false;
-      if (['er', 'en', 'et', 'og', 'i', 'på', 'af', 'til', 'med'].includes(cleaned)) return false;
       return true;
     })
     .map(term => term.toLowerCase().trim());
 
-  console.log('🎯 Final search terms:', cleanTerms);
+  console.log('🎯 Simplified search terms:', cleanTerms);
 
   if (cleanTerms.length === 0) {
     console.log('❌ No valid search terms found');
@@ -343,15 +263,6 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
   const matches = await searchWasteInDatabase(cleanTerms);
   console.log(`✅ Found ${matches.length} database matches`);
-  
-  // Log match details for debugging
-  if (matches.length > 0) {
-    console.log('🎯 Top matches:', matches.slice(0, 3).map(m => ({
-      navn: m.navn,
-      synonymer: m.synonymer,
-      materiale: m.materiale
-    })));
-  }
   
   return matches;
 };
