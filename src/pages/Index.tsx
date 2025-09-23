@@ -44,10 +44,17 @@ const Index = () => {
     try {
       const result = await identifyWaste(imageData);
       console.log('Identified waste result:', result);
-      setCurrentResult(result);
+      
+      // Add the captured image to the result
+      const resultWithImage = {
+        ...result,
+        image: imageData
+      };
+      
+      setCurrentResult(resultWithImage);
       
       // Add to recent scans (keep only last 10)
-      setRecentScans(prev => [result, ...prev.slice(0, 9)]);
+      setRecentScans(prev => [resultWithImage, ...prev.slice(0, 9)]);
       
       setCurrentView('result');
       toast.success("Affald identificeret!");

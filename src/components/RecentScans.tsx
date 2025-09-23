@@ -64,9 +64,9 @@ export const RecentScans = ({ scans, onSelectScan, onClearHistory }: RecentScans
           >
             <div className="flex items-center space-x-4">
               <img
-                src={scan.image}
+                src={scan.image || '/placeholder.svg'}
                 alt={scan.name}
-                className="w-16 h-16 object-cover rounded-lg"
+                className="w-16 h-16 object-cover rounded-lg bg-muted"
               />
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-foreground truncate">{scan.name}</h3>
