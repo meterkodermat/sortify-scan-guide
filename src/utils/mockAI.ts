@@ -33,7 +33,18 @@ interface VisionResponse {
   error?: string;
 }
 
-// Simplified and more reliable database search with comprehensive logging
+// Normalize Danish characters for better search matching
+const normalizeDanishText = (text: string): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/å/g, 'aa')
+    .replace(/ø/g, 'oe') 
+    .replace(/æ/g, 'ae')
+    .trim();
+};
+
+// Enhanced database search with better Danish character handling and sensitivity
 const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   console.log('🔍 searchWasteInDatabase called with terms:', searchTerms);
   
@@ -43,12 +54,12 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 
   try {
-  console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
-  console.log(`🔍 DETAILED SEARCH TERMS:`, searchTerms.map((term, i) => `${i+1}. "${term}"`));
-  
-  // Create search queries for each term with better SQL patterns
-  const allResults = [];
+    console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
+    console.log(`🔍 DETAILED SEARCH TERMS:`, searchTerms.map((term, i) => `${i+1}. "${term}"`));
     
+    // Create search queries for each term with better SQL patterns
+    const allResults = [];
+      
     for (const term of searchTerms) {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) {
@@ -56,30 +67,56 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         continue;
       }
 
-      // Standard database query for all terms
+      // Create normalized version for Danish character matching
+      const normalizedTerm = normalizeDanishText(cleanTerm);
+      
+      // Multi-stage search for maximum sensitivity
+      const searchQueries = [
+        // Exact match (highest priority)
+        `navn.ilike.${cleanTerm},synonymer.ilike.${cleanTerm}`,
+        // Partial match with original term  
+        `navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`,
+        // Normalized Danish character search
+        `navn.ilike.%${normalizedTerm}%,synonymer.ilike.%${normalizedTerm}%,variation.ilike.%${normalizedTerm}%`,
+        // Core word extraction (remove common prefixes/suffixes)
+        `navn.ilike.%${cleanTerm.replace(/affald|genstand|materiale/, '')}%`
+      ];
 
-      // Use proper PostgreSQL ILIKE with correct syntax for better matching
-      console.log(`🔍 Executing query: navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`);
-      const { data, error } = await supabase
-        .from('demo')
-        .select('*')
-        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
-        .limit(20);
+      for (const query of searchQueries) {
+        if (query.includes('undefined') || query.includes('%%')) continue;
+        
+        console.log(`🔍 Executing enhanced query: ${query}`);
+        const { data, error } = await supabase
+          .from('demo')
+          .select('*')
+          .or(query)
+          .limit(15);
 
-      console.log(`📊 Database query result for "${cleanTerm}":`, {
-        hasError: !!error,
-        dataLength: data?.length || 0,
-        error: error?.message,
-        firstResult: data?.[0]?.navn
-      });
+        if (!error && data?.length) {
+          console.log(`✅ Found ${data.length} matches for "${cleanTerm}" with query "${query}"`);
+          allResults.push(...data);
+        }
+      }
 
-      if (!error && data?.length) {
-        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(item => `${item.navn} (${item.id})`));
-        allResults.push(...data);
-      } else if (error) {
-        console.error(`❌ Database error for "${cleanTerm}":`, error);
-      } else {
-        console.log(`❌ No matches found for "${cleanTerm}"`);
+      // Special fallback searches for tricky items
+      if (cleanTerm.includes('tape') || cleanTerm.includes('klæbebånd') || cleanTerm.includes('tejp')) {
+        console.log('🔍 Special search for tape/adhesive items');
+        const { data } = await supabase
+          .from('demo')
+          .select('*')
+          .or('navn.ilike.%tape%,navn.ilike.%klæbebånd%,navn.ilike.%tejp%,synonymer.ilike.%tape%,synonymer.ilike.%klæbebånd%')
+          .limit(10);
+        if (data?.length) allResults.push(...data);
+      }
+
+      if (cleanTerm.includes('clock') || cleanTerm.includes('ur') || cleanTerm.includes('vækkeur')) {
+        console.log('🔍 Special search for clock/timer items');
+        const { data } = await supabase
+          .from('demo')
+          .select('*')
+          .or('navn.ilike.%ur%,navn.ilike.%clock%,navn.ilike.%vækkeur%,navn.ilike.%timer%,synonymer.ilike.%clock%,synonymer.ilike.%ur%')
+          .limit(10);
+        if (data?.length) allResults.push(...data);
       }
     }
     
@@ -89,26 +126,32 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
     );
 
     console.log(`🎯 Total unique results: ${uniqueResults.length}`);
+    console.log('📋 All unique results:', uniqueResults.map(r => r.navn));
 
-    // Enhanced scoring system for better relevance
+    // Enhanced scoring system for better relevance with improved sensitivity
     return uniqueResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
       for (const term of searchTerms) {
         const cleanTerm = term.toLowerCase();
+        const normalizedTerm = normalizeDanishText(cleanTerm);
         
         // Exact name match (highest priority)
         if (a.navn?.toLowerCase() === cleanTerm) aScore += 1000;
         if (b.navn?.toLowerCase() === cleanTerm) bScore += 1000;
         
-        // Core item type match (very high priority - e.g., "bjælke" for "træbjælke")
-        const coreItems = ['bjælke', 'plade', 'brædder', 'dør', 'vindue'];
+        // Exact name match with normalization
+        if (normalizeDanishText(a.navn || '') === normalizedTerm) aScore += 950;
+        if (normalizeDanishText(b.navn || '') === normalizedTerm) bScore += 950;
+        
+        // Core item type match (very high priority)
+        const coreItems = ['bjælke', 'plade', 'brædder', 'dør', 'vindue', 'tape', 'klæbebånd', 'ur', 'clock'];
         if (coreItems.includes(cleanTerm)) {
-          if (a.navn?.toLowerCase() === cleanTerm) aScore += 900;
-          if (b.navn?.toLowerCase() === cleanTerm) bScore += 900;
+          if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 900;
+          if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 900;
         }
         
-        // Exact synonym match (very high priority for items like "Appelsin" in synonyms)
+        // Exact synonym match (very high priority)
         const aSynonyms = (a.synonymer || '').toLowerCase();
         const bSynonyms = (b.synonymer || '').toLowerCase();
         
@@ -119,17 +162,24 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         if (aSynonymWords.includes(cleanTerm)) aScore += 800;
         if (bSynonymWords.includes(cleanTerm)) bScore += 800;
         
+        // Normalized synonym matching 
+        if (aSynonymWords.some(syn => normalizeDanishText(syn) === normalizedTerm)) aScore += 750;
+        if (bSynonymWords.some(syn => normalizeDanishText(syn) === normalizedTerm)) bScore += 750;
+        
         // Partial synonym match
         if (aSynonyms.includes(cleanTerm)) aScore += 600;
         if (bSynonyms.includes(cleanTerm)) bScore += 600;
         
-        // Name contains term
-        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 400;
-        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 400;
+        // Name contains term (increased sensitivity)
+        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 500;
+        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 500;
+        
+        // Name contains normalized term
+        if (normalizeDanishText(a.navn || '').includes(normalizedTerm)) aScore += 450;
+        if (normalizeDanishText(b.navn || '').includes(normalizedTerm)) bScore += 450;
         
         // Variation match (high priority for treatment/condition)
         if (a.variation?.toLowerCase().includes(cleanTerm)) {
-          // Higher priority for treatment terms
           if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
             aScore += 700;
           } else {
@@ -137,7 +187,6 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
           }
         }
         if (b.variation?.toLowerCase().includes(cleanTerm)) {
-          // Higher priority for treatment terms
           if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
             bScore += 700;
           } else {
@@ -145,22 +194,33 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
           }
         }
         
-        // Material match
-        if (a.materiale?.toLowerCase().includes(cleanTerm)) aScore += 100;
-        if (b.materiale?.toLowerCase().includes(cleanTerm)) bScore += 100;
+        // Material match (increased from 100 to 200 for better sensitivity)
+        if (a.materiale?.toLowerCase().includes(cleanTerm)) aScore += 200;
+        if (b.materiale?.toLowerCase().includes(cleanTerm)) bScore += 200;
+        
+        // Partial word matching for better sensitivity
+        if (cleanTerm.length >= 4) {
+          const partialTerm = cleanTerm.substring(0, Math.floor(cleanTerm.length * 0.75));
+          if (a.navn?.toLowerCase().includes(partialTerm)) aScore += 100;
+          if (b.navn?.toLowerCase().includes(partialTerm)) bScore += 100;
+        }
       }
       
-      console.log(`📊 Scores: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
+      console.log(`📊 Enhanced scores: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
       return bScore - aScore;
-    }).slice(0, 5);
+    }).slice(0, 8); // Increased from 5 to 8 for better coverage
 
   } catch (error) {
-    console.error('Database search error:', error);
+    console.error('Database search error details:', {
+      message: error.message,
+      stack: error.stack,
+      searchTerms: searchTerms
+    });
     return [];
   }
 };
 
-// Enhanced search with better term extraction and smarter mapping
+// Enhanced search with better term extraction, smarter mapping, and improved sensitivity
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
@@ -184,6 +244,19 @@ const findBestMatches = async (labels: VisionLabel[]) => {
         searchTerms.push('brædder');
       }
       
+      // Enhanced tape/adhesive detection
+      if (desc.includes('tape') || desc.includes('klæbebånd') || desc.includes('tejp')) {
+        searchTerms.push('tape', 'klæbebånd', 'tejp');
+      }
+      
+      // Enhanced clock/timer detection for Kid Sleep Clock etc.
+      if (desc.includes('clock') || desc.includes('ur') || desc.includes('vækkeur') || desc.includes('timer')) {
+        searchTerms.push('ur', 'vækkeur', 'clock', 'timer');
+        if (desc.includes('kid') || desc.includes('barn')) {
+          searchTerms.push('børnetur', 'kids clock', 'sleep clock');
+        }
+      }
+      
       // Extract treatment/condition terms
       if (desc.includes('trykimprægneret') || desc.includes('imprægneret')) {
         searchTerms.push('imprægneret');
@@ -192,6 +265,33 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       if (desc.includes('behandlet')) {
         searchTerms.push('behandlet');
       }
+
+      // Better synonym generation for common items
+      if (desc.includes('plastik')) {
+        searchTerms.push('plast', 'plastic');
+      }
+      if (desc.includes('metal')) {
+        searchTerms.push('jern', 'stål', 'aluminium');
+      }
+      if (desc.includes('glas')) {
+        searchTerms.push('glass');
+      }
+      
+      // Enhanced Danish-specific terms
+      const danishVariations = {
+        'appelsin': ['orange', 'citrus'],
+        'orange': ['appelsin', 'citrus'],
+        'aeble': ['æble', 'apple'],
+        'æble': ['aeble', 'apple'],
+        'boelger': ['bølger', 'waves'],
+        'bølger': ['boelger', 'waves']
+      };
+      
+      Object.entries(danishVariations).forEach(([key, variations]) => {
+        if (desc.includes(key)) {
+          searchTerms.push(...variations);
+        }
+      });
     }
     
     // Add translated text if different
@@ -204,15 +304,18 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push(...label.navne);
     }
     
-    // CRITICAL FIX: Only add material terms for compound/specific searches, 
-    // not for generic fallback searches that would return irrelevant items
+    // Enhanced material handling - more selective but comprehensive
     if (label.materiale && (
       label.description?.includes('træ') || 
       label.description?.includes('imprægneret') ||
       label.description?.includes('bjælke') ||
-      label.description?.includes('plade')
+      label.description?.includes('plade') ||
+      label.description?.includes('tape') ||
+      label.description?.includes('klæbebånd') ||
+      label.description?.includes('clock') ||
+      label.description?.includes('ur')
     )) {
-      console.log(`🔧 Adding material "${label.materiale}" for compound item "${label.description}"`);
+      console.log(`🔧 Adding material "${label.materiale}" for specific item "${label.description}"`);
       searchTerms.push(label.materiale);
     } else if (label.materiale) {
       console.log(`🚫 NOT adding generic material "${label.materiale}" for "${label.description}" to avoid false matches`);

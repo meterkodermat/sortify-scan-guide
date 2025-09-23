@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Recycle, Info, Brain } from "lucide-react";
+import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
 import farligtAffaldImg from "@/assets/farligtaffald.png";
 import glasImg from "@/assets/glas.png";
 import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
@@ -90,8 +90,6 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
   console.log('WasteResult received item:', item);
   console.log('WasteResult received components:', item.components);
   
-  const [showAISuggestion, setShowAISuggestion] = useState(false);
-  
   // Group identical components to avoid repetition
   const groupedComponents = item.components ? 
     item.components.reduce((groups, component) => {
@@ -121,54 +119,8 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
             <ArrowLeft className="h-5 w-5" />
           </Button>
           
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAISuggestion(!showAISuggestion)}
-            className="flex items-center gap-2"
-          >
-            <Brain className="h-4 w-4" />
-            AI Forslag
-          </Button>
         </div>
 
-        {/* AI Suggestion for Home Sorting */}
-        {showAISuggestion && (
-          <Card className="p-6 bg-blue-50 border-2 border-blue-200">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Brain className="h-6 w-6 text-blue-600" />
-                <h3 className="font-bold text-lg text-blue-800">AI Forslag</h3>
-              </div>
-              
-              {item.name === "Ikke fundet i databasen" ? (
-                <div className="text-center py-4">
-                  <p className="text-blue-700 text-lg font-medium">
-                    🤖 AI kan ikke hjælpe
-                  </p>
-                  <p className="text-blue-600 text-base mt-2">
-                    Objektet ikke genkendt
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <p className="text-blue-700 text-lg font-medium mb-3">
-                      🏠 Sortering hjemme:
-                    </p>
-                    
-                    <div className="flex items-center justify-center gap-3 p-4 bg-white rounded-lg border border-blue-200">
-                      <div className="text-center">
-                        {getSortingPictogram("Restaffald")}
-                        <p className="text-sm font-medium mt-2 text-gray-700">Restaffald</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
 
         {/* Main Item - Top Section */}
         <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
@@ -261,18 +213,21 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                  switch (materiale.toLowerCase()) {
                    case 'pap': return { home: 'Pap', recycling: 'Pap' };
                    case 'plastik': 
-                     // Distinguish between hard and soft plastic based on item type
-                     if (itemName.includes('net') || 
-                         itemName.includes('pose') || 
-                         itemName.includes('folie') ||
-                         itemName.includes('film') ||
-                         itemName.includes('sæk') ||
-                         itemName.includes('indpakning') ||
-                         itemName.includes('emballage')) {
-                       return { home: 'Plast', recycling: 'Blød plast' };
-                     } else {
-                       return { home: 'Plast', recycling: 'Hård plast' };
-                     }
+                      // Distinguish between hard and soft plastic based on item type
+                      if (itemName.includes('net') || 
+                          itemName.includes('pose') || 
+                          itemName.includes('folie') ||
+                          itemName.includes('film') ||
+                          itemName.includes('sæk') ||
+                          itemName.includes('indpakning') ||
+                          itemName.includes('emballage') ||
+                          itemName.includes('tape') ||
+                          itemName.includes('klæbebånd') ||
+                          itemName.includes('tejp')) {
+                        return { home: 'Plast', recycling: 'Blød plast' };
+                      } else {
+                        return { home: 'Plast', recycling: 'Hård plast' };
+                      }
                    case 'glas': return { home: 'Glas', recycling: 'Glas' };
                    case 'metal': return { home: 'Metal', recycling: 'Metal' };
                    case 'organisk':
