@@ -322,22 +322,22 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
       },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: "Du er en dansk affaldssorteringsekspert med fokus på DETALJERET og SENSITIV genkendelse af ALLE affaldsgenstande i billedet.\n\n**ULTRA-SENSITIV GENKENDELSE:**\n- Scan billedet MEGET grundigt for ALLE synlige objekter, også små genstande\n- Identificer ALLE potentielle affaldsobjekter, uanset størrelse\n- Vær særligt opmærksom på små objekter som perler, nåle, klemmer, kabler\n- Find op til 8-10 forskellige objekter hvis de er til stede\n- IGNORER IKKE små detaljer - de er vigtige for brugeren\n\n**KRITISKE KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol (★ MEGET VIGTIG)\n- \"plastik\": alle plastikgenstande (tape/klæbebånd er BLØD plastik, ikke hård)\n- \"metal\": metalvarer, tøjnåle, værktøj, elektronik\n- \"organisk\": madaffald, frugt, grøntsager\n- \"elektronik\": telefoner, computere, bilnøgler, fjernstyringer, earbuds\n- \"farligt\": batterier, maling, kemikalier\n- \"pap\": æsker, karton\n- \"glas\": glasflasker uden pant\n- \"tekstil\": tøj, sko\n- \"træ\": træbjælker, træmøbler\n\n**SPECIFIK OBJEKT-GENKENDELSE:**\n- Tape/klæbebånd: Kategoriser som \"plastik\" (blød plast)\n- Tøjnåle/nåle: Kategoriser som \"metal\"\n- Tøjklemmer: Kategoriser efter materiale (træ/plastik/metal)\n- Perler/kugler: Kategoriser efter materiale\n- Bolsjepapir/slikpapir: Kategoriser som \"plastik\" (blød)\n- Elektronik: Bilnøgler, telefoner, earbuds = \"elektronik\"\n\n**VIGTIGT FOR DETEKTERET OBJEKTER:**\n- Vær særligt grundig med små objekter\n- Scan hele billedet - ikke kun centrum\n- Identificer objekter selv om de er delvist skjulte\n- Vær præcis med materialekategorisering\n\n**FOKUS PÅ AFFALD:**\n- Kun objekter der skal sorteres som affald\n- Ignorer møbler, vægge, gulve (medmindre kasseret)\n- Fokuser på genstande brugeren vil smide ud\n\nReturner JSON: {\"komponenter\":[{\"description\":\"præcist_objektnavn\",\"materiale\":\"korrekt_kategori\",\"score\":0.9}]}. Kun JSON svar." },
-              { 
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: base64Data
-                }
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: "Du er en dansk affaldssorteringsekspert. ANALYSÉR ALLE SYNLIGE OBJEKTER I BILLEDET grundigt og identificer potentielle affaldsgenstande.\n\n**ANALYSÉR GRUNDIGT:**\n- SE PÅ ALLE objekter i billedet, både store og små\n- Identificer ALLE genstande der kunne være affald eller potentielt affald\n- Vær MEGET opmærksom på små detaljer og objekter\n- UNDGÅ at være for selektiv - det er bedre at identificere for mange end for få\n- Analysér objekternes materiale, form og funktion\n- SE efter symboler, mærkninger og karakteristika\n- Inkludér både åbenlyse og mulige affaldsgenstande\n\n**VIGTIGE KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol (★ MEGET VIGTIG)\n- \"plastik\": alt plastik - flasker, poser, emballage, legetøj, perler, små plastikgenstande\n- \"organisk\": madaffald, frugt, grøntsager, kompost\n- \"elektronik\": telefoner, computere, bilnøgler, fjernstyringer, earbuds, batterier\n- \"farligt\": batterier, maling, kemikalier, giftige stoffer\n- \"pap\": æsker, karton, papir\n- \"glas\": glasflasker, glasskår, glasgenstande\n- \"metal\": metaldåser, aluminium, metalgenstande\n- \"tekstil\": tøj, sko, stof\n- \"træ\": træobjekter, træaffald\n\n**VÆR SÆRLIGT OPMÆRKSOM PÅ:**\n- Små objekter som perler, knapper, små plastikbidder\n- Legetøj og småting der kan være plastik eller metal\n- Elektroniske komponenter og små batterier\n- Alt der ligner affald eller kunne blive til affald\n\n**ANALYSÉR OP TIL 8-10 OBJEKTER** hvis de er synlige og relevante.\n\nReturner JSON: {\"komponenter\":[{\"description\":\"specifikt_navn\",\"materiale\":\"kategori\",\"score\":0.8}]}. Kun JSON svar." },
+            { 
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Data
               }
-            ]
-          }],
-          generationConfig: {
-            maxOutputTokens: 1500
-          }
-        }),
+            }
+          ]
+        }],
+        generationConfig: {
+          maxOutputTokens: 1000
+        }
+      }),
     });
 
     if (!geminiResponse.ok) {

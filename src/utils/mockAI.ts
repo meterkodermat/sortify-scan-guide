@@ -59,16 +59,12 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       // Standard database query for all terms
 
       // Use proper PostgreSQL ILIKE with correct syntax for better matching
-      // Handle Danish characters with Unicode normalization for better matching
-      const normalizedTerm = cleanTerm.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-      console.log(`🔍 Executing query for "${cleanTerm}" (normalized: "${normalizedTerm}")`);
-      
-      // Search with both original and normalized terms, and use unaccent for better Danish character matching
+      console.log(`🔍 Executing query: navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`);
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%,navn.ilike.%${normalizedTerm}%,synonymer.ilike.%${normalizedTerm}%`)
-        .limit(25);
+        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
+        .limit(20);
 
       console.log(`📊 Database query result for "${cleanTerm}":`, {
         hasError: !!error,
@@ -94,7 +90,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 
     console.log(`🎯 Total unique results: ${uniqueResults.length}`);
 
-    // Enhanced scoring system with better sensitivity for finding matches
+    // Enhanced scoring system for better relevance
     return uniqueResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
@@ -104,14 +100,6 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         // Exact name match (highest priority)
         if (a.navn?.toLowerCase() === cleanTerm) aScore += 1000;
         if (b.navn?.toLowerCase() === cleanTerm) bScore += 1000;
-        
-        // Fuzzy matching for common misspellings and variations
-        const aNavn = a.navn?.toLowerCase() || '';
-        const bNavn = b.navn?.toLowerCase() || '';
-        
-        // Check for partial matches with higher tolerance
-        if (aNavn.includes(cleanTerm) || cleanTerm.includes(aNavn)) aScore += 500;
-        if (bNavn.includes(cleanTerm) || cleanTerm.includes(bNavn)) bScore += 500;
         
         // Core item type match (very high priority - e.g., "bjælke" for "træbjælke")
         const coreItems = ['bjælke', 'plade', 'brædder', 'dør', 'vindue'];
@@ -176,50 +164,14 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
-      // Extract all meaningful search terms with smart category mapping and specific handling 
-      const searchTerms = [];
-      
-      for (const label of labels) {
-        // Add main description - this is the primary search term
-        if (label.description) {
-          const desc = label.description.toLowerCase();
-          searchTerms.push(label.description);
-          
-          // Specific handling for problematic objects
-          if (desc.includes('tape') || desc.includes('klæbebånd') || desc.includes('tape')) {
-            searchTerms.push('klæbebånd');
-            searchTerms.push('tape');
-            // Override material to ensure correct categorization
-            label.materiale = 'plastik'; // Tape is soft plastic, not hard plastic
-          }
-          
-          // Fix clothespin/tøjklemme detection
-          if (desc.includes('tøjklemme') || desc.includes('klemme') || desc.includes('clothespin')) {
-            searchTerms.push('tøjklemme');
-            searchTerms.push('klemme');
-          }
-          
-          // Fix textile needle detection
-          if (desc.includes('tøjnål') || desc.includes('nål') || desc.includes('needle')) {
-            searchTerms.push('tøjnål');
-            searchTerms.push('nål');
-            // Override material - textile needles are metal
-            label.materiale = 'metal';
-          }
-          
-          // Improve bead detection
-          if (desc.includes('perle') || desc.includes('bead') || desc.includes('kugle')) {
-            searchTerms.push('perle');
-            searchTerms.push('kugle');
-            searchTerms.push('bead');
-          }
-          
-          // Fix candy wrapper detection
-          if (desc.includes('slik') || desc.includes('bolsje') || desc.includes('candy') || desc.includes('wrapper')) {
-            searchTerms.push('slikpapir');
-            searchTerms.push('bolsjepapir');
-            searchTerms.push('slik');
-          }
+  // Extract all meaningful search terms with smart category mapping  
+  const searchTerms = [];
+  
+  for (const label of labels) {
+    // Add main description - this is the primary search term
+    if (label.description) {
+      const desc = label.description.toLowerCase();
+      searchTerms.push(label.description);
       
       // Extract core item type from compound words (e.g., "træbjælke" -> "bjælke")
       if (desc.includes('bjælke')) {
@@ -267,15 +219,14 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     }
   }
 
-  // Clean and deduplicate terms with better filtering and improved sensitivity
+  // Clean and deduplicate terms with better filtering
   const cleanTerms = [...new Set(searchTerms)]
     .filter(term => {
       if (!term || typeof term !== 'string') return false;
       const cleaned = term.toLowerCase().trim();
-      // More lenient filtering - accept shorter terms for better detection
-      if (cleaned.length < 1) return false;
-      // Reduced stop word filtering to improve detection
-      if (['er', 'en', 'et'].includes(cleaned)) return false;
+      // Filter out very short terms and common stop words
+      if (cleaned.length < 2) return false;
+      if (['er', 'en', 'et', 'og', 'i', 'på', 'af', 'til', 'med'].includes(cleaned)) return false;
       return true;
     })
     .map(term => term.toLowerCase().trim());
@@ -643,47 +594,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       // Fallback to basic categorization from vision data
       console.log('🔧 FALLBACK MODE: Ikke fundet i databasen - bruger AI kategorisering');
       
-      // Enhanced material-based categorization with special item handling and specific fixes
+      // Enhanced material-based categorization with special item handling
       
-      // CRITICAL FIX: Specific handling for commonly misidentified objects
-      const description = primaryLabel.description?.toLowerCase() || '';
+      // Special handling for optical items (glasses, etc.)
+      const isOpticalItem = primaryLabel.description?.toLowerCase().includes('brille') ||
+                           primaryLabel.description?.toLowerCase().includes('linse') ||
+                           primaryLabel.description?.toLowerCase().includes('optisk');
+      
       let homeCategory, recyclingCategory;
       
-      // Special handling for optical items (glasses, etc.)  
-      const isOpticalItem = description.includes('brille') ||
-                           description.includes('linse') ||
-                           description.includes('optisk');
-      
-      // Fix tape categorization - tape is SOFT plastic (restaffald), not hard plastic
-      if (description.includes('tape') || description.includes('klæbebånd')) {
-        homeCategory = 'Restaffald';
-        recyclingCategory = 'Restaffald';
-      }
-      // Fix textile needle categorization - needles are metal
-      else if (description.includes('tøjnål') || description.includes('nål')) {
-        homeCategory = 'Metal';
-        recyclingCategory = 'Metal';
-      }
-      // Fix clothespin categorization
-      else if (description.includes('tøjklemme') || description.includes('klemme')) {
-        if (primaryLabel.materiale === 'metal') {
-          homeCategory = 'Metal';
-          recyclingCategory = 'Metal';
-        } else if (primaryLabel.materiale === 'træ') {
-          homeCategory = 'Restaffald';
-          recyclingCategory = 'Træ';
-        } else {
-          homeCategory = 'Plast';
-          recyclingCategory = 'Hård plast';
-        }
-      }
-      // Fix candy wrapper categorization
-      else if (description.includes('slik') || description.includes('bolsje') || description.includes('wrapper')) {
-        homeCategory = 'Restaffald';
-        recyclingCategory = 'Restaffald';
-      }
-      // Special handling for optical items (glasses, etc.)
-      else if (isOpticalItem) {
+      if (isOpticalItem) {
         // Glasses frames are typically metal or plastic - determine material
         if (primaryLabel.materiale === 'metal' || 
             primaryLabel.description?.toLowerCase().includes('metal') ||
