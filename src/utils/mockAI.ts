@@ -311,6 +311,27 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             tilstand: label.tilstand || ''
           }))
         };
+      } else {
+        // If no database match found, but AI detected something, return AI result
+        const primaryLabel = data.labels[0];
+        console.log('🤖 No database match, returning AI detection:', primaryLabel.description);
+        
+        return {
+          id: Math.random().toString(),
+          name: primaryLabel.description,
+          image: "",
+          homeCategory: "Madaffald",
+          recyclingCategory: "Kompost eller madaffald",
+          description: `Identificeret som ${primaryLabel.description} ved hjælp af AI-analyse. Sortér som madaffald eller kompost hvis muligt.`,
+          confidence: primaryLabel.score || 0.7,
+          timestamp: new Date(),
+          aiThoughtProcess: data.thoughtProcess,
+          components: data.labels.map((label: VisionLabel) => ({
+            genstand: label.description,
+            materiale: label.materiale || '',
+            tilstand: label.tilstand || ''
+          }))
+        };
       }
     }
     
