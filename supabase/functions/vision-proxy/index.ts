@@ -140,7 +140,7 @@ serve(async (req) => {
   }
 
   try {
-    const { image, textQuery } = await req.json();
+    const { image, textQuery, simple = false } = await req.json();
     
     // Handle text-only queries for AI suggestions
     if (textQuery && !image) {
@@ -325,7 +325,9 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Du er en dansk affaldssorteringsekspert. Identificer de hovedaffaldstyper du kan se i billedet.\n\n**GENEREL ANALYSE:**\n- Fokuser på de mest tydelige objekter i billedet\n- Identificer 2-4 hovedobjekter\n- Vær ikke for detaljeret - fokuser på hovedkategorier\n- Ignorer små ubetydelige komponenter\n- **VIGTIGT**: Hvis du ser emballage eller beholdere, identificer BÅDE beholderen og indholdet separat (fx både \"tandpasta tube\" og \"tandpasta\", eller både \"appelsiner net\" og \"appelsiner\")\n\n**KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol\n- \"plastik\": plastikflasker, poser, plastikemballage\n- \"organisk\": madaffald, frugt, grøntsager\n- \"elektronik\": telefoner, computere, elektroniske enheder\n- \"farligt\": batterier, kemikalier\n- \"pap\": æsker, karton, bølgepap\n- \"papir\": aviser, køkkenrulle, husholdningspapir, toiletpapir, kvitteringer, breve\n- \"glas\": glasflasker, glasgenstande\n- \"metal\": metaldåser, metalgenstande\n- \"tekstil\": tøj, tekstiler\n- \"træ\": træobjekter\n\nReturner JSON: {\"komponenter\":[{\"description\":\"navn\",\"materiale\":\"kategori\",\"score\":0.8}]}. Kun JSON svar." },
+            { text: simple 
+              ? "Du er en dansk affaldssorteringsekspert. Identificer det mest grundlæggende affaldsmateriale i billedet.\n\n**SIMPEL ANALYSE:**\n- Fokuser kun på ÉT hovedobjekt\n- Brug kun de mest basale kategorier\n- Vær ikke specifik - brug generelle termer\n\n**BASALE KATEGORIER:**\n- \"plastik\": alt plastik\n- \"organisk\": madaffald\n- \"pap\": karton og æsker\n- \"papir\": papir af alle slags\n- \"glas\": glas\n- \"metal\": metal\n\nReturner JSON: {\"komponenter\":[{\"description\":\"generisk navn\",\"materiale\":\"kategori\",\"score\":0.7}]}. Kun JSON svar."
+              : "Du er en dansk affaldssorteringsekspert. Identificer de hovedaffaldstyper du kan se i billedet.\n\n**GENEREL ANALYSE:**\n- Fokuser på de mest tydelige objekter i billedet\n- Identificer 2-4 hovedobjekter\n- Vær ikke for detaljeret - fokuser på hovedkategorier\n- Ignorer små ubetydelige komponenter\n- **VIGTIGT**: Hvis du ser emballage eller beholdere, identificer BÅDE beholderen og indholdet separat (fx både \"tandpasta tube\" og \"tandpasta\", eller både \"appelsiner net\" og \"appelsiner\")\n\n**KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol\n- \"plastik\": plastikflasker, poser, plastikemballage\n- \"organisk\": madaffald, frugt, grøntsager\n- \"elektronik\": telefoner, computere, elektroniske enheder\n- \"farligt\": batterier, kemikalier\n- \"pap\": æsker, karton, bølgepap\n- \"papir\": aviser, køkkenrulle, husholdningspapir, toiletpapir, kvitteringer, breve\n- \"glas\": glasflasker, glasgenstande\n- \"metal\": metaldåser, metalgenstande\n- \"tekstil\": tøj, tekstiler\n- \"træ\": træobjekter\n\nReturner JSON: {\"komponenter\":[{\"description\":\"navn\",\"materiale\":\"kategori\",\"score\":0.8}]}. Kun JSON svar." },
             { 
               inline_data: {
                 mime_type: "image/jpeg",

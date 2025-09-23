@@ -312,9 +312,44 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }))
         };
       } else {
-        // If no database match found, but AI detected something, return AI result
+        // No database match found, try simpler analysis
+        console.log('🔄 No database match found, trying simpler analysis...');
+        
+        const { data: simpleData, error: simpleError } = await supabase.functions.invoke('vision-proxy', {
+          body: { image: imageData, simple: true }
+        });
+
+        if (!simpleError && simpleData?.labels && simpleData.labels.length > 0) {
+          console.log('🔍 Processing simple AI labels:', simpleData.labels);
+          
+          const simpleMatches = await findBestMatches(simpleData.labels);
+          
+          if (simpleMatches.length > 0) {
+            const bestMatch = simpleMatches[0];
+            console.log('✅ Found database match with simple analysis:', bestMatch.navn);
+            
+            return {
+              id: Math.random().toString(),
+              name: bestMatch.navn,
+              image: "",
+              homeCategory: bestMatch.hjem || "Restaffald",
+              recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+              description: `Identificeret ved hjælp af forenklet AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+              confidence: (simpleData.labels[0]?.score || 0.6) * 0.9, // Slightly lower confidence for simple analysis
+              timestamp: new Date(),
+              aiThoughtProcess: simpleData.thoughtProcess,
+              components: simpleData.labels.map((label: VisionLabel) => ({
+                genstand: label.description,
+                materiale: label.materiale || '',
+                tilstand: label.tilstand || ''
+              }))
+            };
+          }
+        }
+
+        // Still no match, return original AI result
         const primaryLabel = data.labels[0];
-        console.log('🤖 No database match, returning AI detection:', primaryLabel.description);
+        console.log('🤖 No database match found with simple analysis either, returning AI detection:', primaryLabel.description);
         
         return {
           id: Math.random().toString(),
