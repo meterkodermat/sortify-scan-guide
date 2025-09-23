@@ -271,12 +271,55 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
     console.log('🚀 Starting waste identification process...');
     
-    // Return fallback message - no AI analysis allowed
-    console.log('❌ No AI analysis allowed - returning fallback result');
+    // Call the vision-proxy edge function for AI analysis
+    console.log('🤖 Calling vision-proxy for AI analysis...');
+    
+    const { data, error } = await supabase.functions.invoke('vision-proxy', {
+      body: { image: imageData }
+    });
+
+    if (error) {
+      console.error('❌ Vision proxy error:', error);
+      throw error;
+    }
+
+    console.log('✅ Vision proxy response:', data);
+
+    if (data?.labels && data.labels.length > 0) {
+      console.log('🔍 Processing AI labels:', data.labels);
+      
+      // Find matches in database
+      const matches = await findBestMatches(data.labels);
+      
+      if (matches.length > 0) {
+        const bestMatch = matches[0];
+        console.log('✅ Found database match:', bestMatch.navn);
+        
+        return {
+          id: Math.random().toString(),
+          name: bestMatch.navn,
+          image: "",
+          homeCategory: bestMatch.hjem || "Restaffald",
+          recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+          description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+          confidence: data.labels[0]?.score || 0.8,
+          timestamp: new Date(),
+          aiThoughtProcess: data.thoughtProcess,
+          components: data.labels.map((label: VisionLabel) => ({
+            genstand: label.description,
+            materiale: label.materiale || '',
+            tilstand: label.tilstand || ''
+          }))
+        };
+      }
+    }
+    
+    // Fallback if no matches found
+    console.log('❌ No database matches found - returning fallback result');
     
     return {
       id: Math.random().toString(),
-      name: "Genstand ikke fundet i database",
+      name: "Genstand ikke fundet i database", 
       image: "",
       homeCategory: "Restaffald",
       recyclingCategory: "Genbrugsstation - generelt affald",
