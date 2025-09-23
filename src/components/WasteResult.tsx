@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
+import { ArrowLeft, Home, Recycle, Info, Bot } from "lucide-react";
 import farligtAffaldImg from "@/assets/farligtaffald.png";
 import glasImg from "@/assets/glas.png";
 import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
@@ -123,7 +123,16 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
 
 
         {/* Main Item - Top Section */}
-        <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
+        <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20 relative">
+          {/* AI Icon - shown when AI categorization is used */}
+          {item.aiThoughtProcess && (
+            <div className="absolute top-3 right-3">
+              <div className="bg-primary/10 p-2 rounded-full">
+                <Bot className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-4">
             <h1 className="text-3xl font-bold text-foreground">
               {item.name}
@@ -292,16 +301,6 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
           </Card>
         )}
 
-        {/* Additional Info */}
-        <Card className="p-4 bg-muted/50">
-          <div className="flex items-start">
-            <Info className="h-5 w-5 mr-2 text-muted-foreground mt-0.5" />
-            <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-1">Vigtigt at vide:</p>
-              <p>Sørg for at emnet er rent før sortering. Hvis du er i tvivl, kan du altid kontakte din kommune.</p>
-            </div>
-          </div>
-        </Card>
 
         {/* Actions */}
         <div className="flex space-x-3">
