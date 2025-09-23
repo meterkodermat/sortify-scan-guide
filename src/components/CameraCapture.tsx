@@ -1,4 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 interface CameraCaptureProps {
   onCapture: (imageData: string) => Promise<void>;
@@ -7,98 +9,96 @@ interface CameraCaptureProps {
 
 const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [streaming, setStreaming] = useState(false);
 
-  const startCamera = async () => {
-    if (!streaming) {
+  // Kamera-ikon som SVG-komponent
+  const CameraIcon = () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ marginRight: 8, verticalAlign: "middle" }}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="12" cy="13" r="3.2" stroke="white" strokeWidth="2" />
+      <rect x="3" y="7" width="18" height="12" rx="3" stroke="white" strokeWidth="2" />
+      <rect x="9" y="3" width="6" height="4" rx="2" stroke="white" strokeWidth="2" />
+    </svg>
+  );
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const getCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const constraints = {
+          video: {
+            facingMode: { ideal: "environment" }, // Prøv bagkamera på mobil, ellers standard
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints as MediaStreamConstraints);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setStreaming(true);
         }
       } catch (err) {
-        alert("Kunne ikke få adgang til kameraet.");
-      }
-    }
-  };
-
-  const takePicture = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const width = videoRef.current.videoWidth;
-      const height = videoRef.current.videoHeight;
-      canvasRef.current.width = width;
-      canvasRef.current.height = height;
-      const ctx = canvasRef.current.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0, width, height);
-        const imageData = canvasRef.current.toDataURL('image/jpeg', 0.8);
-        await onCapture(imageData);
-      }
-    }
-  };
-
-  React.useEffect(() => {
-    startCamera();
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach((track) => track.stop());
+        console.error("Kunne ikke åbne kameraet:", err);
       }
     };
-    // eslint-disable-next-line
+
+    getCamera();
+
+    // Cleanup: stop camera when component unmounts
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
+  const handleTakePicture = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      const video = videoRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        onCapture(imageData);
+      }
+    }
+  };
+
   return (
-    <div style={{ position: "relative", width: "100%", maxWidth: 400 }}>
-      <button
+    <div className="relative w-full h-screen bg-black">
+      {/* Close button */}
+      <Button
         onClick={onClose}
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          zIndex: 3,
-          padding: "8px 12px",
-          fontSize: 14,
-          background: "#fff",
-          border: "none",
-          borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(15, 81, 2, 0.2)",
-          cursor: "pointer"
-        }}
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 left-4 z-10 bg-black/20 text-white border-white/20 hover:bg-black/40"
       >
-        Luk
-      </button>
+        <X className="h-6 w-6" />
+      </Button>
+
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        style={{ width: "100%", borderRadius: 8 }}
+        className="w-full h-full object-cover"
+        muted
       />
-      <button
-        onClick={takePicture}
-        style={{
-          position: "absolute",
-          bottom: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 2,
-          padding: "12px 24px",
-          fontSize: 16,
-          background: "#fff",
-          border: "none",
-          borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(15, 81, 2, 0.2)",
-          cursor: "pointer"
-        }}
+      
+      <Button
+        onClick={handleTakePicture}
+        className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground hover:bg-primary/90 h-16 px-8 text-lg font-semibold shadow-lg"
       >
+        <CameraIcon />
         Tag billede
-      </button>
-      <canvas
-        ref={canvasRef}
-        style={{ display: "none" }}
-      />
+      </Button>
     </div>
   );
 };
