@@ -292,18 +292,16 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
           </Card>
         )}
 
-        {/* Additional Info - Only show for database matches, not AI categorization */}
-        {!item.aiThoughtProcess && item.name !== "Genstand ikke fundet i database" && (
-          <Card className="p-4 bg-muted/50">
-            <div className="flex items-start">
-              <Info className="h-5 w-5 mr-2 text-muted-foreground mt-0.5" />
-              <div className="text-sm text-muted-foreground">
-                <p className="font-medium mb-1">Vigtigt at vide:</p>
-                <p>Sørg for at emnet er rent før sortering. Hvis du er i tvivl, kan du altid kontakte din kommune.</p>
-              </div>
+        {/* Additional Info */}
+        <Card className="p-4 bg-muted/50">
+          <div className="flex items-start">
+            <Info className="h-5 w-5 mr-2 text-muted-foreground mt-0.5" />
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium mb-1">Vigtigt at vide:</p>
+              <p>Sørg for at emnet er rent før sortering. Hvis du er i tvivl, kan du altid kontakte din kommune.</p>
             </div>
-          </Card>
-        )}
+          </div>
+        </Card>
 
         {/* Actions */}
         <div className="flex space-x-3">
