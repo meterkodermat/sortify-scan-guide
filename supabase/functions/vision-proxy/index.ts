@@ -322,22 +322,22 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: "Du er en dansk affaldssorteringsekspert. Fokuser på de PRIMÆRE affaldsgenstande i billedet og vær opmærksom på vigtige detaljer.\n\n**FOKUS RETNINGSLINJER:**\n- Identificer de hovedgenstande der er tydelige affaldsobjekter i billedet\n- Vær opmærksom på vigtige karakteristika som materialer, symboler og mærkninger\n- Ignorer små baggrundsobjekter der ikke er relevante for affaldssortering\n- Vær særligt opmærksom på PANT (pantflasker og dåser med dansk pantsymbol)\n- Fokuser på genstande der SKAL sorteres som affald\n- Skelne tydeligt mellem lignende objekter (fx bilnøgle vs mobiltelefon)\n\n**VIGTIGE KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol (★ MEGET VIGTIG KATEGORI)\n- \"plastik\": plastikflasker, poser, emballage\n- \"organisk\": madaffald, frugt, grøntsager\n- \"elektronik\": telefoner, computere, bilnøgler, fjernstyringer, earbuds\n- \"farligt\": batterier, maling, kemikalier\n- \"pap\": æsker, karton\n- \"glas\": glasflasker uden pant\n- \"metal\": metaldåser, aluminium\n- \"tekstil\": tøj, sko\n- \"træ\": træbjælker, træmøbler\n\n**SPECIFIK GENKENDELSE:**\n- Bilnøgler: Små elektroniske enheder med knapper, ofte med fjernbetjening, metal nøgle del\n- Mobiltelefoner: Større rektangulære skærm-enheder\n- Earbuds/høretelefoner: Små elektroniske øre-enheder\n\n**EKSEMPLER PÅ HVAD DU SKAL IGNORERE:**\n- Møbler (medmindre de tydeligvis er kasseret)\n- Vægge, gulve, baggrunde\n- Små dekorative genstande\n- Værktøj og udstyr som ikke er affald\n\nIdentificer MAKSIMALT 3-5 hovedgenstande der er tydelige affaldsobjekter.\n\nReturner JSON: {\"komponenter\":[{\"description\":\"specifikt_navn\",\"materiale\":\"kategori\",\"score\":0.9}]}. Kun JSON svar." },
-            { 
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: base64Data
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: "Du er en dansk affaldssorteringsekspert med fokus på DETALJERET og SENSITIV genkendelse af ALLE affaldsgenstande i billedet.\n\n**ULTRA-SENSITIV GENKENDELSE:**\n- Scan billedet MEGET grundigt for ALLE synlige objekter, også små genstande\n- Identificer ALLE potentielle affaldsobjekter, uanset størrelse\n- Vær særligt opmærksom på små objekter som perler, nåle, klemmer, kabler\n- Find op til 8-10 forskellige objekter hvis de er til stede\n- IGNORER IKKE små detaljer - de er vigtige for brugeren\n\n**KRITISKE KATEGORIER:**\n- \"pant\": flasker/dåser med pantsymbol (★ MEGET VIGTIG)\n- \"plastik\": alle plastikgenstande (tape/klæbebånd er BLØD plastik, ikke hård)\n- \"metal\": metalvarer, tøjnåle, værktøj, elektronik\n- \"organisk\": madaffald, frugt, grøntsager\n- \"elektronik\": telefoner, computere, bilnøgler, fjernstyringer, earbuds\n- \"farligt\": batterier, maling, kemikalier\n- \"pap\": æsker, karton\n- \"glas\": glasflasker uden pant\n- \"tekstil\": tøj, sko\n- \"træ\": træbjælker, træmøbler\n\n**SPECIFIK OBJEKT-GENKENDELSE:**\n- Tape/klæbebånd: Kategoriser som \"plastik\" (blød plast)\n- Tøjnåle/nåle: Kategoriser som \"metal\"\n- Tøjklemmer: Kategoriser efter materiale (træ/plastik/metal)\n- Perler/kugler: Kategoriser efter materiale\n- Bolsjepapir/slikpapir: Kategoriser som \"plastik\" (blød)\n- Elektronik: Bilnøgler, telefoner, earbuds = \"elektronik\"\n\n**VIGTIGT FOR DETEKTERET OBJEKTER:**\n- Vær særligt grundig med små objekter\n- Scan hele billedet - ikke kun centrum\n- Identificer objekter selv om de er delvist skjulte\n- Vær præcis med materialekategorisering\n\n**FOKUS PÅ AFFALD:**\n- Kun objekter der skal sorteres som affald\n- Ignorer møbler, vægge, gulve (medmindre kasseret)\n- Fokuser på genstande brugeren vil smide ud\n\nReturner JSON: {\"komponenter\":[{\"description\":\"præcist_objektnavn\",\"materiale\":\"korrekt_kategori\",\"score\":0.9}]}. Kun JSON svar." },
+              { 
+                inline_data: {
+                  mime_type: "image/jpeg",
+                  data: base64Data
+                }
               }
-            }
-          ]
-        }],
-        generationConfig: {
-          maxOutputTokens: 1000
-        }
-      }),
+            ]
+          }],
+          generationConfig: {
+            maxOutputTokens: 1500
+          }
+        }),
     });
 
     if (!geminiResponse.ok) {
