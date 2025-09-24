@@ -347,80 +347,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
 
-        // Still no match, return intelligent material-based categorization
+        // Still no match, return original AI result
         const primaryLabel = data.labels[0];
-        console.log('🤖 No database match found, using intelligent material-based categorization for:', primaryLabel.description, 'Material:', primaryLabel.materiale);
-        
-        // Smart material-based categorization
-        const getMaterialBasedCategories = (material: string) => {
-          const mat = material?.toLowerCase() || '';
-          
-          if (mat.includes('plastik') || mat.includes('plastic')) {
-            return {
-              homeCategory: "Plast",
-              recyclingCategory: "Hård plast",
-              description: "Plastikgenstand identificeret ved AI-analyse. Sortér som hård plast på genbrugspladsen."
-            };
-          }
-          
-          if (mat.includes('farligt') || mat.includes('hazardous') || mat.includes('kemisk')) {
-            return {
-              homeCategory: "Farligt affald",
-              recyclingCategory: "Farligt affald",
-              description: "Potentielt farligt affald identificeret ved AI-analyse. Skal afleveres som farligt affald på genbrugspladsen."
-            };
-          }
-          
-          if (mat.includes('metal')) {
-            return {
-              homeCategory: "Metal",
-              recyclingCategory: "Metal",
-              description: "Metalgenstand identificeret ved AI-analyse. Kan sorteres som metal."
-            };
-          }
-          
-          if (mat.includes('glas')) {
-            return {
-              homeCategory: "Glas",
-              recyclingCategory: "Glas",
-              description: "Glasgenstand identificeret ved AI-analyse. Kan sorteres som glas."
-            };
-          }
-          
-          if (mat.includes('papir') || mat.includes('pap')) {
-            return {
-              homeCategory: "Papir",
-              recyclingCategory: "Papir og pap",
-              description: "Papir/pap genstand identificeret ved AI-analyse. Kan sorteres som papir."
-            };
-          }
-          
-          if (mat.includes('organisk') || mat.includes('organic')) {
-            return {
-              homeCategory: "Madaffald",
-              recyclingCategory: "Kompost eller madaffald",
-              description: "Organisk materiale identificeret ved AI-analyse. Kan sorteres som madaffald eller kompost."
-            };
-          }
-          
-          // Default fallback
-          return {
-            homeCategory: "Restaffald",
-            recyclingCategory: "Genbrugsstation - generelt affald",
-            description: "Genstand ikke fundet i database. Sortér som restaffald eller kontakt din lokale genbrugsstation."
-          };
-        };
-        
-        const categories = getMaterialBasedCategories(primaryLabel.materiale);
+        console.log('🤖 No database match found with simple analysis either, returning AI detection:', primaryLabel.description);
         
         return {
           id: Math.random().toString(),
           name: primaryLabel.description,
           image: "",
-          homeCategory: categories.homeCategory,
-          recyclingCategory: categories.recyclingCategory,
-          description: categories.description,
-          confidence: (primaryLabel.score || 0.7) * 0.8, // Slightly lower confidence for AI-only results
+          homeCategory: "Restaffald",
+          recyclingCategory: "Genbrugsstation - generelt affald",
+          description: `Genstanden "${primaryLabel.description}" kunne ikke identificeres i vores database. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.`,
+          confidence: 0.3,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
           components: data.labels.map((label: VisionLabel) => ({
