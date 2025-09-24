@@ -118,6 +118,17 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
           .limit(10);
         if (data?.length) allResults.push(...data);
       }
+
+      // Special search for cartons and juice containers
+      if (cleanTerm.includes('karton') || cleanTerm.includes('juicekarton') || cleanTerm.includes('drikkekarton') || cleanTerm.includes('kartoner')) {
+        console.log('🔍 Special search for carton/juice container items');
+        const { data } = await supabase
+          .from('demo')
+          .select('*')
+          .or('navn.ilike.%karton%,navn.ilike.%drikke%,synonymer.ilike.%karton%,synonymer.ilike.%drikke%,synonymer.ilike.%juice%')
+          .limit(10);
+        if (data?.length) allResults.push(...data);
+      }
     }
     
     // Remove duplicates by id
@@ -220,17 +231,41 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 };
 
-// Enhanced search with simpler term extraction
+// Enhanced search with smarter term extraction and filtering
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
-  // Extract main search terms - keep it simple
+  // Filter out liquid contents and focus on physical items
+  const filteredLabels = labels.filter(label => {
+    const desc = label.description?.toLowerCase() || '';
+    // Skip liquid contents like juice, milk, etc.
+    if (desc.includes('juice') && !desc.includes('karton') && !desc.includes('beholder')) {
+      console.log('⚠️ Skipping liquid content:', label.description);
+      return false;
+    }
+    if (['mælk', 'vand', 'øl', 'sodavand'].some(liquid => desc.includes(liquid)) && 
+        !desc.includes('karton') && !desc.includes('flaske') && !desc.includes('dåse')) {
+      console.log('⚠️ Skipping liquid content:', label.description);
+      return false;
+    }
+    return true;
+  });
+
+  console.log('🎯 Filtered labels (excluding liquids):', filteredLabels.map(l => l.description));
+  
+  // Extract main search terms with smart mapping
   const searchTerms = [];
   
-  for (const label of labels) {
-    // Add main description
-    if (label.description) {
-      searchTerms.push(label.description);
+  for (const label of filteredLabels) {
+    let searchTerm = label.description;
+    
+    // Smart mapping for common items
+    if (searchTerm?.toLowerCase().includes('juicekarton')) {
+      searchTerms.push('juicekarton');
+      searchTerms.push('drikkekarton');
+      searchTerms.push('kartoner');
+    } else if (searchTerm) {
+      searchTerms.push(searchTerm);
     }
     
     // Add translated text if different
@@ -254,7 +289,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     })
     .map(term => term.toLowerCase().trim());
 
-  console.log('🎯 Simplified search terms:', cleanTerms);
+  console.log('🎯 Smart search terms:', cleanTerms);
 
   if (cleanTerms.length === 0) {
     console.log('❌ No valid search terms found');
@@ -295,9 +330,21 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const bestMatch = matches[0];
         console.log('✅ Found database match:', bestMatch.navn);
         
+        // Count physical items (excluding liquids)
+        const physicalItems = data.labels.filter(label => {
+          const desc = label.description?.toLowerCase() || '';
+          return !(['juice', 'mælk', 'vand', 'øl', 'sodavand'].some(liquid => 
+            desc.includes(liquid) && !desc.includes('karton') && !desc.includes('flaske') && !desc.includes('dåse')
+          ));
+        });
+
+        const itemName = physicalItems.length > 1 ? 
+          `Flere elementer fundet - primært ${bestMatch.navn}` : 
+          bestMatch.navn;
+        
         return {
           id: Math.random().toString(),
-          name: bestMatch.navn,
+          name: itemName,
           image: "",
           homeCategory: bestMatch.hjem || "Restaffald",
           recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
@@ -305,7 +352,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           confidence: data.labels[0]?.score || 0.8,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
-          components: data.labels.map((label: VisionLabel) => ({
+          components: physicalItems.map((label: VisionLabel) => ({
             genstand: label.description,
             materiale: label.materiale || '',
             tilstand: label.tilstand || ''
@@ -328,9 +375,21 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             const bestMatch = simpleMatches[0];
             console.log('✅ Found database match with simple analysis:', bestMatch.navn);
             
+            // Count physical items (excluding liquids)
+            const physicalItems = simpleData.labels.filter(label => {
+              const desc = label.description?.toLowerCase() || '';
+              return !(['juice', 'mælk', 'vand', 'øl', 'sodavand'].some(liquid => 
+                desc.includes(liquid) && !desc.includes('karton') && !desc.includes('flaske') && !desc.includes('dåse')
+              ));
+            });
+
+            const itemName = physicalItems.length > 1 ? 
+              `Flere elementer fundet - primært ${bestMatch.navn}` : 
+              bestMatch.navn;
+            
             return {
               id: Math.random().toString(),
-              name: bestMatch.navn,
+              name: itemName,
               image: "",
               homeCategory: bestMatch.hjem || "Restaffald",
               recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
@@ -338,7 +397,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               confidence: (simpleData.labels[0]?.score || 0.6) * 0.9, // Slightly lower confidence for simple analysis
               timestamp: new Date(),
               aiThoughtProcess: simpleData.thoughtProcess,
-              components: simpleData.labels.map((label: VisionLabel) => ({
+              components: physicalItems.map((label: VisionLabel) => ({
                 genstand: label.description,
                 materiale: label.materiale || '',
                 tilstand: label.tilstand || ''
