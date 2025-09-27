@@ -307,49 +307,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
 
-        // Still no match, use smart fallback logic
+        // Still no match, return clear message about not finding in database
         const primaryLabel = data.labels[0];
-        console.log('🤖 No database match found with simple analysis either, using smart fallback for:', primaryLabel.description);
-        
-        // Smart fallback categorization based on item type and material
-        let smartHomeCategory = "Restaffald";
-        let smartRecyclingCategory = "Genbrugsstation - generelt affald";
-        
-        const itemName = primaryLabel.description?.toLowerCase() || '';
-        const detectedMaterial = primaryLabel.materiale?.toLowerCase() || '';
-        
-        // Smart categorization rules for common items
-        if (itemName.includes('tøjklemmer') || itemName.includes('klemmer')) {
-          if (detectedMaterial.includes('plastik') || detectedMaterial.includes('plast')) {
-            smartHomeCategory = "Plast";
-            smartRecyclingCategory = "Hård plast";
-          } else {
-            // Wooden clothespins go to residual waste
-            smartHomeCategory = "Restaffald";
-            smartRecyclingCategory = "Genbrugsstation - generelt affald";
-          }
-        } else if (detectedMaterial.includes('plastik') || detectedMaterial.includes('plast')) {
-          smartHomeCategory = "Plast";
-          smartRecyclingCategory = "Hård plast";
-        } else if (detectedMaterial.includes('metal')) {
-          smartHomeCategory = "Metal";
-          smartRecyclingCategory = "Metal";
-        } else if (detectedMaterial.includes('glas')) {
-          smartHomeCategory = "Glas";
-          smartRecyclingCategory = "Glas";
-        } else if (detectedMaterial.includes('papir') || detectedMaterial.includes('karton')) {
-          smartHomeCategory = "Papir";
-          smartRecyclingCategory = "Pap og papir";
-        }
+        console.log('🤖 No database match found with simple analysis either, returning not found message for:', primaryLabel.description);
         
         return {
           id: Math.random().toString(),
           name: primaryLabel.description,
           image: "",
-          homeCategory: smartHomeCategory,
-          recyclingCategory: smartRecyclingCategory,
-          description: `Genstanden "${primaryLabel.description}" kunne ikke identificeres præcist i vores database. Baseret på materialet (${detectedMaterial || 'ukendt'}) foreslås følgende sortering. Kontakt din lokale genbrugsstation hvis du er i tvivl.`,
-          confidence: 0.4,
+          homeCategory: "Restaffald",
+          recyclingCategory: "Genbrugsstation - generelt affald",
+          description: `Genstanden "${primaryLabel.description}" kunne ikke findes i vores database. Kontakt din lokale genbrugsstation for vejledning om korrekt sortering.`,
+          confidence: 0.3,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
           components: data.labels.map((label: VisionLabel) => ({
