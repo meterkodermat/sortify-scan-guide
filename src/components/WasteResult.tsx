@@ -52,11 +52,11 @@ const getSortingPictogram = (category: string) => {
     return <img src={madDrikkeKartonerImg} alt="Mad- & drikke-kartoner" className={imgClass} />;
   }
   
-  if (normalizedCategory.includes('pap') && !normalizedCategory.includes('karton')) {
-    return <img src={papImg} alt="Pap" className={imgClass} />;
-  }
   if (normalizedCategory.includes('papir')) {
     return <img src={papirImg} alt="Papir" className={imgClass} />;
+  }
+  if (normalizedCategory.includes('pap') && !normalizedCategory.includes('karton')) {
+    return <img src={papImg} alt="Pap" className={imgClass} />;
   }
   
   if (normalizedCategory.includes('plast') || normalizedCategory.includes('plastic')) {
