@@ -126,7 +126,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
           <div className="space-y-4">
             <h1 className="text-3xl font-bold text-foreground">
-              {item.name}
+              {uniqueComponents.length === 1 ? uniqueComponents[0].genstand : item.name}
             </h1>
             {scannedImage && (
               <div className="mt-4">
@@ -141,46 +141,145 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         </Card>
 
 
-        {/* Main Item Sorting Instructions - Only show for single items */}
-        {uniqueComponents.length === 0 && (
+        {/* Single Component Sorting Instructions - Show when there's exactly 1 component or no components */}
+        {(uniqueComponents.length === 0 || uniqueComponents.length === 1) && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
             
-            {/* Home Sorting */}
-            <Card className="p-4 bg-card border-2 border-muted/50">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-muted/20 rounded-lg">
-                  <Home className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">Hjemmesortering</h3>
-                  <div className="flex items-center gap-3 mt-2">
-                    {getSortingPictogram(item.homeCategory)}
-                    <span className="font-semibold text-lg">{item.homeCategory}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
+            {uniqueComponents.length === 1 ? (
+              // Show sorting for the single component
+              (() => {
+                const component = uniqueComponents[0];
+                const getMaterialSorting = (materiale: string, genstand: string) => {
+                  const itemName = genstand.toLowerCase();
+                  
+                  // Handle pant (deposit bottles/cans) first - very important category
+                  if (materiale.toLowerCase() === 'pant' || itemName.includes('pant')) {
+                    return { home: 'Pant (returneres i butik)', recycling: 'Pant (returneres i butik)' };
+                  }
+                  
+                  // Special handling for tools and industrial items
+                  if (itemName.includes('saks') || 
+                      itemName.includes('værktøj') ||
+                      itemName.includes('skruetrækker') ||
+                      itemName.includes('hammer') ||
+                      itemName.includes('tang') ||
+                      itemName.includes('kniv') ||
+                      itemName.includes('file') ||
+                      itemName.includes('save')) {
+                    return { home: 'Metal', recycling: 'Metal' };
+                  }
+                  
+                  // Specific handling for hedge scissors - only if explicitly named as hedge scissors
+                  if (itemName.includes('hækkesaks')) {
+                    return { home: 'Metal', recycling: 'Metal' };
+                  }
+                  
+                   switch (materiale.toLowerCase()) {
+                      case 'pap': return { home: 'Pap', recycling: 'Pap' };
+                      case 'plastik': 
+                         // Distinguish between hard and soft plastic based on item type
+                         if (itemName.includes('net') || 
+                             itemName.includes('pose') || 
+                             itemName.includes('folie') ||
+                             itemName.includes('film') ||
+                             itemName.includes('sæk') ||
+                             itemName.includes('indpakning') ||
+                             itemName.includes('emballage') ||
+                             itemName.includes('tape') ||
+                             itemName.includes('klæbebånd') ||
+                             itemName.includes('tejp')) {
+                           return { home: 'Plast', recycling: 'Blød plast' };
+                         } else {
+                           return { home: 'Plast', recycling: 'Hård plast' };
+                         }
+                      case 'glas': return { home: 'Glas', recycling: 'Glas' };
+                      case 'metal': return { home: 'Metal', recycling: 'Metal' };
+                      case 'organisk':
+                      case 'madaffald': return { home: 'Madaffald', recycling: 'Ikke muligt' };
+                      case 'farligt': return { home: 'Farligt affald', recycling: 'Farligt affald' };
+                      case 'tekstil': return { home: 'Tekstilaffald', recycling: 'Tekstilaffald' };
+                      default: return { home: 'Ikke fundet i databasen', recycling: 'Ikke fundet i databasen' };
+                    }
+                };
+                
+                const sorting = getMaterialSorting(component.materiale, component.genstand);
+                
+                return (
+                  <>
+                    {/* Home Sorting */}
+                    <Card className="p-4 bg-card border-2 border-muted/50">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-muted/20 rounded-lg">
+                          <Home className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold">Hjemmesortering</h3>
+                          <div className="flex items-center gap-3 mt-2">
+                            {sorting.home !== "Ikke fundet i databasen" && getSortingPictogram(sorting.home)}
+                            <span className="font-semibold text-lg">{sorting.home}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
 
-            {/* Recycling Center */}
-            <Card className="p-4 bg-card border-2 border-muted/50">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-muted/20 rounded-lg">
-                  <Recycle className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">Genbrugsplads</h3>
-                  <div className="mt-2">
-                    <span className="font-semibold text-lg">{item.recyclingCategory}</span>
+                    {/* Recycling Center */}
+                    <Card className="p-4 bg-card border-2 border-muted/50">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-muted/20 rounded-lg">
+                          <Recycle className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold">Genbrugsplads</h3>
+                          <div className="mt-2">
+                            <span className="font-semibold text-lg">{sorting.recycling}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </>
+                );
+              })()
+            ) : (
+              // Show sorting for the main item when no components
+              <>
+                {/* Home Sorting */}
+                <Card className="p-4 bg-card border-2 border-muted/50">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <Home className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold">Hjemmesortering</h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        {getSortingPictogram(item.homeCategory)}
+                        <span className="font-semibold text-lg">{item.homeCategory}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </Card>
+                </Card>
+
+                {/* Recycling Center */}
+                <Card className="p-4 bg-card border-2 border-muted/50">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <Recycle className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold">Genbrugsplads</h3>
+                      <div className="mt-2">
+                        <span className="font-semibold text-lg">{item.recyclingCategory}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
           </div>
         )}
 
-        {/* Individual Components - Only if they exist and are different from main item */}
-        {uniqueComponents.length > 0 && (
+        {/* Multiple Components - Only show when there are 2 or more components */}
+        {uniqueComponents.length > 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Individuelle komponenter:</h2>
             
