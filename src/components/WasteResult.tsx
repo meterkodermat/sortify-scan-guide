@@ -41,7 +41,9 @@ interface WasteResultProps {
 const getSortingPictogram = (category: string) => {
   const imgClass = "w-16 h-16 object-contain";
   
+  console.log('getSortingPictogram - Original category:', category);
   const normalizedCategory = category.toLowerCase();
+  console.log('getSortingPictogram - Normalized category:', normalizedCategory);
   
   // Handle pant (deposit bottles/cans) - very important category
   if (normalizedCategory.includes('pant')) {
