@@ -98,10 +98,21 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       
       // Penalize specific subtypes when searching for generic terms
       if (primaryTerm === 'papir') {
-        if (a.navn?.toLowerCase() === 'papir') aScore += 2000; // Boost exact "papir" match
-        if (b.navn?.toLowerCase() === 'papir') bScore += 2000;
-        if (a.navn?.toLowerCase().includes('bonpapir')) aScore -= 200; // Penalize bonpapir when searching for generic papir
-        if (b.navn?.toLowerCase().includes('bonpapir')) bScore -= 200;
+        if (a.navn?.toLowerCase() === 'papir') {
+          // Boost correct papir entries that are actually sorted as papir
+          if (a.hjem?.toLowerCase() === 'papir') aScore += 3000;
+          else aScore += 1000; // Still boost exact match but less if categorized as restaffald
+        }
+        if (b.navn?.toLowerCase() === 'papir') {
+          // Boost correct papir entries that are actually sorted as papir
+          if (b.hjem?.toLowerCase() === 'papir') bScore += 3000;
+          else bScore += 1000; // Still boost exact match but less if categorized as restaffald
+        }
+        // Penalize specialized papir types when searching for generic papir
+        if (a.navn?.toLowerCase().includes('bonpapir') || a.navn?.toLowerCase().includes('fortroligt') || 
+            a.navn?.toLowerCase().includes('gave') || a.navn?.toLowerCase().includes('mad')) aScore -= 500;
+        if (b.navn?.toLowerCase().includes('bonpapir') || b.navn?.toLowerCase().includes('fortroligt') || 
+            b.navn?.toLowerCase().includes('gave') || b.navn?.toLowerCase().includes('mad')) bScore -= 500;
       }
       
       // Name contains term (lower priority for partial matches)
