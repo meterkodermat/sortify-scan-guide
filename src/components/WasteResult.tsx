@@ -126,7 +126,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
           <div className="space-y-4">
             <h1 className="text-3xl font-bold text-foreground">
-              {uniqueComponents.length === 1 ? uniqueComponents[0].genstand : item.name}
+              {uniqueComponents.length === 1 ? uniqueComponents[0].genstand : "flere elementer"}
             </h1>
             {scannedImage && (
               <div className="mt-4">
