@@ -87,9 +87,22 @@ const getSortingPictogram = (category: string) => {
 };
 
 export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultProps) => {
-  // Simplified logic to determine what to show
+  // Find the component with highest score to show as main title
   const componentCount = item.components ? item.components.length : 0;
-  const showTitle = componentCount === 1 ? item.components![0].genstand : "flere elementer";
+  let showTitle = item.name || "Ukendt genstand";
+  
+  if (item.components && item.components.length > 0) {
+    // Sort by material type - elektronik gets highest priority
+    const sortedComponents = [...item.components].sort((a, b) => {
+      const aScore = a.materiale === 'elektronik' ? 100 : 50;
+      const bScore = b.materiale === 'elektronik' ? 100 : 50;
+      return bScore - aScore;
+    });
+    
+    // Use genstand property or fallback to description (for compatibility)
+    const bestComponent = sortedComponents[0];
+    showTitle = bestComponent.genstand || (bestComponent as any).description || item.name || "Ukendt genstand";
+  }
   
   console.log('WasteResult - Component count:', componentCount);
   console.log('WasteResult - Show title:', showTitle);
