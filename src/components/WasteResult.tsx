@@ -87,28 +87,12 @@ const getSortingPictogram = (category: string) => {
 };
 
 export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultProps) => {
-  console.log('WasteResult received item:', item);
-  console.log('WasteResult received components:', item.components);
+  // Simplified logic to determine what to show
+  const componentCount = item.components ? item.components.length : 0;
+  const showTitle = componentCount === 1 ? item.components![0].genstand : "flere elementer";
   
-  // Group identical components to avoid repetition
-  const groupedComponents = item.components ? 
-    item.components.reduce((groups, component) => {
-      const key = `${component.genstand}-${component.materiale}`;
-      if (!groups[key]) {
-        groups[key] = { ...component, count: 0 };
-      }
-      groups[key].count++;
-      return groups;
-    }, {} as Record<string, any>) : {};
-
-  console.log('WasteResult - Grouped components:', groupedComponents);
-
-  // Don't filter out components that are different from the main item
-  // Instead, show all components regardless if they match the main item name
-  const uniqueComponents = Object.values(groupedComponents);
-  
-  console.log('WasteResult - All components to show:', uniqueComponents);
-  console.log('WasteResult - Main item name for reference:', item.name.toLowerCase());
+  console.log('WasteResult - Component count:', componentCount);
+  console.log('WasteResult - Show title:', showTitle);
   
   return (
     <div className="min-h-screen bg-background p-4">
@@ -126,7 +110,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         <Card className="p-8 bg-gradient-card shadow-card text-center border-2 border-primary/20">
           <div className="space-y-4">
             <h1 className="text-3xl font-bold text-foreground">
-              {uniqueComponents.length === 1 ? uniqueComponents[0].genstand : "flere elementer"}
+              {showTitle}
             </h1>
             {scannedImage && (
               <div className="mt-4">
