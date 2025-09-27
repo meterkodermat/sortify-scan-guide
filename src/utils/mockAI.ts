@@ -54,179 +54,61 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 
   try {
-    console.log(`🔍 Database search starting with ${searchTerms.length} terms:`, searchTerms);
-    console.log(`🔍 DETAILED SEARCH TERMS:`, searchTerms.map((term, i) => `${i+1}. "${term}"`));
+    console.log(`🔍 Database search with ${searchTerms.length} terms`);
     
-    // Create search queries for each term with better SQL patterns
+    // Limit search terms to most relevant ones to improve performance
+    const limitedTerms = searchTerms.slice(0, 3);
     const allResults = [];
       
-    for (const term of searchTerms) {
+    for (const term of limitedTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 2) {
-        console.log(`⚠️ Skipping short term: "${cleanTerm}"`);
-        continue;
-      }
+      if (cleanTerm.length < 2) continue;
 
-      // Create normalized version for Danish character matching
-      const normalizedTerm = normalizeDanishText(cleanTerm);
-      
-      // Multi-stage search for maximum sensitivity
-      const searchQueries = [
-        // Exact match (highest priority)
-        `navn.ilike.${cleanTerm},synonymer.ilike.${cleanTerm}`,
-        // Partial match with original term  
-        `navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`,
-        // Normalized Danish character search
-        `navn.ilike.%${normalizedTerm}%,synonymer.ilike.%${normalizedTerm}%,variation.ilike.%${normalizedTerm}%`,
-        // Core word extraction (remove common prefixes/suffixes)
-        `navn.ilike.%${cleanTerm.replace(/affald|genstand|materiale/, '')}%`
-      ];
+      // Prioritize exact matches first for better performance
+      const { data, error } = await supabase
+        .from('demo')
+        .select('*')
+        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%`)
+        .limit(10);
 
-      for (const query of searchQueries) {
-        if (query.includes('undefined') || query.includes('%%')) continue;
-        
-        console.log(`🔍 Executing enhanced query: ${query}`);
-        const { data, error } = await supabase
-          .from('demo')
-          .select('*')
-          .or(query)
-          .limit(15);
-
-        if (!error && data?.length) {
-          console.log(`✅ Found ${data.length} matches for "${cleanTerm}" with query "${query}"`);
-          allResults.push(...data);
-        }
-      }
-
-      // Special fallback searches for tricky items
-      if (cleanTerm.includes('tape') || cleanTerm.includes('klæbebånd') || cleanTerm.includes('tejp')) {
-        console.log('🔍 Special search for tape/adhesive items');
-        const { data } = await supabase
-          .from('demo')
-          .select('*')
-          .or('navn.ilike.%tape%,navn.ilike.%klæbebånd%,navn.ilike.%tejp%,synonymer.ilike.%tape%,synonymer.ilike.%klæbebånd%')
-          .limit(10);
-        if (data?.length) allResults.push(...data);
-      }
-
-      if (cleanTerm.includes('clock') || cleanTerm.includes('ur') || cleanTerm.includes('vækkeur')) {
-        console.log('🔍 Special search for clock/timer items');
-        const { data } = await supabase
-          .from('demo')
-          .select('*')
-          .or('navn.ilike.%ur%,navn.ilike.%clock%,navn.ilike.%vækkeur%,navn.ilike.%timer%,synonymer.ilike.%clock%,synonymer.ilike.%ur%')
-          .limit(10);
-        if (data?.length) allResults.push(...data);
-      }
-
-      // Special search for cartons and juice containers
-      if (cleanTerm.includes('karton') || cleanTerm.includes('juicekarton') || cleanTerm.includes('drikkekarton') || cleanTerm.includes('kartoner')) {
-        console.log('🔍 Special search for carton/juice container items');
-        const { data } = await supabase
-          .from('demo')
-          .select('*')
-          .or('navn.ilike.%karton%,navn.ilike.%drikke%,synonymer.ilike.%karton%,synonymer.ilike.%drikke%,synonymer.ilike.%juice%')
-          .limit(10);
-        if (data?.length) allResults.push(...data);
+      if (!error && data?.length) {
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}"`);
+        allResults.push(...data);
       }
     }
     
-    // Remove duplicates by id
+    // Remove duplicates by id and limit total results
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.id, item])).values()
-    );
+    ).slice(0, 15); // Limit to 15 results max for performance
 
-    console.log(`🎯 Total unique results: ${uniqueResults.length}`);
-    console.log('📋 All unique results:', uniqueResults.map(r => r.navn));
+    console.log(`🎯 Total results: ${uniqueResults.length}`);
 
-    // Enhanced scoring system for better relevance with improved sensitivity
+    // Simplified scoring for better performance
     return uniqueResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
-      for (const term of searchTerms) {
-        const cleanTerm = term.toLowerCase();
-        const normalizedTerm = normalizeDanishText(cleanTerm);
-        
-        // Exact name match (highest priority)
-        if (a.navn?.toLowerCase() === cleanTerm) aScore += 1000;
-        if (b.navn?.toLowerCase() === cleanTerm) bScore += 1000;
-        
-        // Exact name match with normalization
-        if (normalizeDanishText(a.navn || '') === normalizedTerm) aScore += 950;
-        if (normalizeDanishText(b.navn || '') === normalizedTerm) bScore += 950;
-        
-        // Core item type match (very high priority)
-        const coreItems = ['bjælke', 'plade', 'brædder', 'dør', 'vindue', 'tape', 'klæbebånd', 'ur', 'clock'];
-        if (coreItems.includes(cleanTerm)) {
-          if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 900;
-          if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 900;
-        }
-        
-        // Exact synonym match (very high priority)
-        const aSynonyms = (a.synonymer || '').toLowerCase();
-        const bSynonyms = (b.synonymer || '').toLowerCase();
-        
-        // Check for exact word match in synonyms (not just substring)
-        const aSynonymWords = aSynonyms.split(',').map(s => s.trim());
-        const bSynonymWords = bSynonyms.split(',').map(s => s.trim());
-        
-        if (aSynonymWords.includes(cleanTerm)) aScore += 800;
-        if (bSynonymWords.includes(cleanTerm)) bScore += 800;
-        
-        // Normalized synonym matching 
-        if (aSynonymWords.some(syn => normalizeDanishText(syn) === normalizedTerm)) aScore += 750;
-        if (bSynonymWords.some(syn => normalizeDanishText(syn) === normalizedTerm)) bScore += 750;
-        
-        // Partial synonym match
-        if (aSynonyms.includes(cleanTerm)) aScore += 600;
-        if (bSynonyms.includes(cleanTerm)) bScore += 600;
-        
-        // Name contains term (increased sensitivity)
-        if (a.navn?.toLowerCase().includes(cleanTerm)) aScore += 500;
-        if (b.navn?.toLowerCase().includes(cleanTerm)) bScore += 500;
-        
-        // Name contains normalized term
-        if (normalizeDanishText(a.navn || '').includes(normalizedTerm)) aScore += 450;
-        if (normalizeDanishText(b.navn || '').includes(normalizedTerm)) bScore += 450;
-        
-        // Variation match (high priority for treatment/condition)
-        if (a.variation?.toLowerCase().includes(cleanTerm)) {
-          if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
-            aScore += 700;
-          } else {
-            aScore += 400;
-          }
-        }
-        if (b.variation?.toLowerCase().includes(cleanTerm)) {
-          if (['imprægneret', 'trykimprægneret', 'behandlet'].includes(cleanTerm)) {
-            bScore += 700;
-          } else {
-            bScore += 400;
-          }
-        }
-        
-        // Material match (increased from 100 to 200 for better sensitivity)
-        if (a.materiale?.toLowerCase().includes(cleanTerm)) aScore += 200;
-        if (b.materiale?.toLowerCase().includes(cleanTerm)) bScore += 200;
-        
-        // Partial word matching for better sensitivity
-        if (cleanTerm.length >= 4) {
-          const partialTerm = cleanTerm.substring(0, Math.floor(cleanTerm.length * 0.75));
-          if (a.navn?.toLowerCase().includes(partialTerm)) aScore += 100;
-          if (b.navn?.toLowerCase().includes(partialTerm)) bScore += 100;
-        }
-      }
+      // Only use first search term for scoring to improve performance
+      const primaryTerm = searchTerms[0]?.toLowerCase() || '';
+      if (!primaryTerm) return 0;
       
-      console.log(`📊 Enhanced scores: ${a.navn} = ${aScore}, ${b.navn} = ${bScore}`);
+      // Exact name match (highest priority)
+      if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
+      if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
+      
+      // Name contains term
+      if (a.navn?.toLowerCase().includes(primaryTerm)) aScore += 500;
+      if (b.navn?.toLowerCase().includes(primaryTerm)) bScore += 500;
+      
+      // Synonym match
+      if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
+      if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
+      
       return bScore - aScore;
-    }).slice(0, 3); // Keep it simple with fewer results
+    }).slice(0, 8); // Limit to 8 results for better performance
 
   } catch (error) {
-    console.error('Database search error details:', {
-      message: error.message,
-      stack: error.stack,
-      searchTerms: searchTerms
-    });
+    console.error('Database search error:', error.message);
     return [];
   }
 };
