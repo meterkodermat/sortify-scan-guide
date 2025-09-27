@@ -45,6 +45,11 @@ const getSortingPictogram = (category: string) => {
   const normalizedCategory = category.toLowerCase();
   console.log('getSortingPictogram - Normalized category:', normalizedCategory);
   
+  // Handle bonpapir (receipt paper) specifically
+  if (normalizedCategory.includes('bonpapir')) {
+    return <img src={papirImg} alt="Bonpapir" className={imgClass} />;
+  }
+  
   // Handle pant (deposit bottles/cans) - very important category
   if (normalizedCategory.includes('pant')) {
     return <img src={plastImg} alt="Pant" className={imgClass} />;
