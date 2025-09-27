@@ -96,9 +96,17 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
       
-      // Name contains term
-      if (a.navn?.toLowerCase().includes(primaryTerm)) aScore += 500;
-      if (b.navn?.toLowerCase().includes(primaryTerm)) bScore += 500;
+      // Penalize specific subtypes when searching for generic terms
+      if (primaryTerm === 'papir') {
+        if (a.navn?.toLowerCase() === 'papir') aScore += 2000; // Boost exact "papir" match
+        if (b.navn?.toLowerCase() === 'papir') bScore += 2000;
+        if (a.navn?.toLowerCase().includes('bonpapir')) aScore -= 200; // Penalize bonpapir when searching for generic papir
+        if (b.navn?.toLowerCase().includes('bonpapir')) bScore -= 200;
+      }
+      
+      // Name contains term (lower priority for partial matches)
+      if (a.navn?.toLowerCase().includes(primaryTerm)) aScore += 300;
+      if (b.navn?.toLowerCase().includes(primaryTerm)) bScore += 300;
       
       // Synonym match
       if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
@@ -228,8 +236,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           id: Math.random().toString(),
           name: itemName,
           image: "",
-          homeCategory: bestMatch.navn === 'Bonpapir' ? 'Bonpapir (Papir)' : bestMatch.hjem || "Restaffald",
-          recyclingCategory: bestMatch.navn === 'Bonpapir' ? 'Bonpapir (Papir)' : bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+          homeCategory: bestMatch.hjem || "Restaffald",
+          recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
           description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
           confidence: data.labels[0]?.score || 0.8,
           timestamp: new Date(),
@@ -273,8 +281,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               id: Math.random().toString(),
               name: itemName,
               image: "",
-              homeCategory: bestMatch.navn === 'Bonpapir' ? 'Bonpapir (Papir)' : bestMatch.hjem || "Restaffald",
-              recyclingCategory: bestMatch.navn === 'Bonpapir' ? 'Bonpapir (Papir)' : bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+              homeCategory: bestMatch.hjem || "Restaffald",
+              recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
               description: `Identificeret ved hjælp af forenklet AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
               confidence: (simpleData.labels[0]?.score || 0.6) * 0.9, // Slightly lower confidence for simple analysis
               timestamp: new Date(),
