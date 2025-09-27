@@ -32,7 +32,7 @@ function validateGeminiApiKey(apiKey: string): { valid: boolean, errors: string[
 // Test API key validity with a simple request
 async function testGeminiApiKey(apiKey: string): Promise<{ valid: boolean, error?: string }> {
   try {
-    const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+    const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -57,7 +57,7 @@ async function testGeminiApiKey(apiKey: string): Promise<{ valid: boolean, error
     
     return { valid: testResponse.ok, error: testResponse.ok ? undefined : `HTTP ${testResponse.status}` };
   } catch (error) {
-    return { valid: false, error: `Network error: ${error.message}` };
+    return { valid: false, error: `Network error: ${(error as Error).message}` };
   }
 }
 
@@ -316,8 +316,8 @@ serve(async (req) => {
       });
     }
 
-    // Call Gemini 1.5 Pro API for image analysis
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`, {
+    // Call Gemini 2.0 Flash API for image analysis
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -386,7 +386,7 @@ serve(async (req) => {
         // Handle new komponenter format with confidence
         if (parsedResult.komponenter && Array.isArray(parsedResult.komponenter)) {
           console.log('Using komponenter format, found:', parsedResult.komponenter.length, 'items');
-          allResults = parsedResult.komponenter.map(component => ({
+          allResults = parsedResult.komponenter.map((component: any) => ({
             description: component.description || component.navne?.[0] || component.navn || 'ukendt objekt',
             score: component.score || component.confidence || 0.9,
             type: 'gemini_detection',
@@ -425,7 +425,7 @@ serve(async (req) => {
           };
           
           allResults = [{
-            description: materialDescriptions[parsedResult.materiale] || 'ukendt genstand',
+            description: materialDescriptions[parsedResult.materiale as keyof typeof materialDescriptions] || 'ukendt genstand',
             score: 0.7, // Lower confidence for generic material-only detection
             type: 'gemini_detection',
             materiale: parsedResult.materiale,
@@ -490,7 +490,7 @@ serve(async (req) => {
     console.error('Error in vision-proxy function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: `Server error: ${error.message}` 
+      error: `Server error: ${(error as Error).message}` 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
