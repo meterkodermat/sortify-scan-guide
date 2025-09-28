@@ -426,12 +426,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           // Override for paper items that are clearly paper
           else if ((itemDescription.includes('papir') || 
-                   (detectedItem?.materiale?.toLowerCase().includes('papir'))) && 
+                   (detectedItem?.materiale?.toLowerCase().includes('papir')) ||
+                   (detectedItem?.description?.toLowerCase() === 'papir')) && 
                   bestMatch.hjem?.toLowerCase() !== 'papir') {
             console.log('🔧 Overriding category: paper item detected, changing to Papir');
             bestMatch = {
               ...bestMatch,
-              navn: detectedItem?.description || 'Papir',
+              navn: 'Papir',
               hjem: 'Papir',
               genbrugsplads: 'Genbrugsstation - pap og papir'
             };
