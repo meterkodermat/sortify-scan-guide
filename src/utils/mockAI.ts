@@ -92,6 +92,14 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
+      // Special boost for electronics when searching for oplader/strømforsyning
+      if (primaryTerm.includes('oplader') || primaryTerm === 'strømforsyning') {
+        if (a.navn?.toLowerCase() === 'strømforsyning') aScore += 2000;
+        if (b.navn?.toLowerCase() === 'strømforsyning') bScore += 2000;
+        if (a.synonymer?.toLowerCase().includes('oplader')) aScore += 1500;
+        if (b.synonymer?.toLowerCase().includes('oplader')) bScore += 1500;
+      }
+      
       // Exact name match (highest priority)
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
@@ -165,6 +173,11 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push('juicekarton');
       searchTerms.push('drikkekarton');
       searchTerms.push('kartoner');
+    } else if (searchTerm?.toLowerCase().includes('oplader')) {
+      // Map all types of chargers to the database terms
+      searchTerms.push('strømforsyning');
+      searchTerms.push('oplader');
+      searchTerms.push('mobiloplader');
     } else if (searchTerm) {
       searchTerms.push(searchTerm);
     }
