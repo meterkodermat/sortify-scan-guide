@@ -236,6 +236,13 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       if (matches.length > 0) {
         const bestMatch = matches[0];
         console.log('✅ Found database match:', bestMatch.navn);
+        console.log('🏠 Database match details:', {
+          navn: bestMatch.navn,
+          hjem: bestMatch.hjem,
+          genbrugsplads: bestMatch.genbrugsplads,
+          materiale: bestMatch.materiale,
+          variation: bestMatch.variation
+        });
         
         // Count physical items (excluding liquids)
         const physicalItems = data.labels.filter(label => {
