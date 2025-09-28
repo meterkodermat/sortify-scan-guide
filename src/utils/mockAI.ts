@@ -311,7 +311,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const primaryLabel = data.labels[0];
         console.log('🤖 No database match found with simple analysis either, returning not found message for:', primaryLabel.description);
         
-        // Determine category based on material
+        // Determine category based on material for items not in database
         let homeCategory = "Restaffald";
         let recyclingCategory = "Genbrugsstation - generelt affald";
         
@@ -331,11 +331,11 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
         return {
           id: Math.random().toString(),
-          name: primaryLabel.description,
+          name: "Ikke fundet i databasen",
           image: "",
           homeCategory,
           recyclingCategory,
-          description: "Ikke fundet i databasen",
+          description: "Genstanden kunne ikke identificeres i vores database. Sortér som angivet eller kontakt din lokale genbrugsstation for vejledning.",
           confidence: 0.3,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
