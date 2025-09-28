@@ -195,6 +195,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         .filter(desc => desc && desc.length > 1);
       
       console.log('🔍 Searching database with terms:', searchTerms);
+      console.log('🔍 All Gemini labels received:', data.labels.map(l => l.description));
       
       const matches = await searchWasteInDatabase(searchTerms);
       
@@ -203,29 +204,38 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log('✅ Using database result:', bestMatch.navn, '->', bestMatch.hjem);
         
         // Filter out generic/broad matches when we have more specific alternatives
-        if (bestMatch.navn.toLowerCase() === 'bonpapir' && searchTerms.some(term => 
-          term.toLowerCase().includes('gave') || 
-          term.toLowerCase().includes('gift') || 
-          term.toLowerCase().includes('wrapping')
-        )) {
-          console.log('🔍 Bonpapir detected, looking for more specific match...');
-          const specificMatch = matches.find(match => 
-            match.navn.toLowerCase().includes('gave') ||
-            match.navn.toLowerCase().includes('papir') && match.navn.toLowerCase() !== 'bonpapir'
-          );
-          if (specificMatch) {
-            console.log('✅ Found more specific match:', specificMatch.navn);
-            return {
-              id: Math.random().toString(),
-              name: specificMatch.navn,
-              image: getIconForCategory(specificMatch.hjem || ""),
-              homeCategory: specificMatch.hjem || "Restaffald",
-              recyclingCategory: specificMatch.genbrugsplads || "Genbrugsstation - generelt affald",
-              description: `Identificeret ved hjælp af AI-analyse. ${specificMatch.variation ? `Variation: ${specificMatch.variation}. ` : ''}${specificMatch.tilstand ? `Tilstand: ${specificMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
-              confidence: data.labels[0]?.score || 0.8,
-              timestamp: new Date(),
-              aiThoughtProcess: data.thoughtProcess
-            };
+        // Deprioritize "bonpapir" unless search terms clearly indicate receipt paper
+        if (bestMatch.navn.toLowerCase() === 'bonpapir') {
+          console.log('🔍 Bonpapir detected as best match, checking for better alternatives...');
+          console.log('🔍 Search terms:', searchTerms);
+          
+          // Only use bonpapir if search terms clearly indicate receipt paper
+          const isReceiptPaper = searchTerms.some(term => {
+            const lowerTerm = term.toLowerCase();
+            return lowerTerm.includes('bon') || 
+                   lowerTerm.includes('kvittering') || 
+                   lowerTerm.includes('receipt');
+          });
+          
+          if (!isReceiptPaper && matches.length > 1) {
+            console.log('🔍 No clear receipt indicators, looking for alternative match...');
+            const alternativeMatch = matches.find((match, index) => 
+              index > 0 && match.navn.toLowerCase() !== 'bonpapir'
+            );
+            if (alternativeMatch) {
+              console.log('✅ Found better alternative match:', alternativeMatch.navn);
+              return {
+                id: Math.random().toString(),
+                name: alternativeMatch.navn,
+                image: getIconForCategory(alternativeMatch.hjem || ""),
+                homeCategory: alternativeMatch.hjem || "Restaffald",
+                recyclingCategory: alternativeMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+                description: `Identificeret ved hjælp af AI-analyse. ${alternativeMatch.variation ? `Variation: ${alternativeMatch.variation}. ` : ''}${alternativeMatch.tilstand ? `Tilstand: ${alternativeMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+                confidence: data.labels[0]?.score || 0.8,
+                timestamp: new Date(),
+                aiThoughtProcess: data.thoughtProcess
+              };
+            }
           }
         }
         
