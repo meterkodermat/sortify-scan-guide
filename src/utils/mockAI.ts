@@ -317,7 +317,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           image: "",
           homeCategory: "Restaffald",
           recyclingCategory: "Genbrugsstation - generelt affald",
-          description: `Genstanden "${primaryLabel.description}" kunne ikke findes i vores database. Kontakt din lokale genbrugsstation for vejledning om korrekt sortering.`,
+          description: "Ikke fundet i databasen",
           confidence: 0.3,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
