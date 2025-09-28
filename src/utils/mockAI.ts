@@ -189,13 +189,24 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     if (data?.labels && data.labels.length > 0) {
       // Simple approach: take top labels and search database directly
-      const searchTerms = data.labels
+      let searchTerms = data.labels
         .slice(0, 3) // Top 3 labels
         .map(label => label.description)
         .filter(desc => desc && desc.length > 1);
       
-      console.log('🔍 Searching database with terms:', searchTerms);
-      console.log('🔍 All Gemini labels received:', data.labels.map(l => l.description));
+      // Map generic terms to more specific database terms
+      const mappedTerms = searchTerms.map(term => {
+        const lowerTerm = term.toLowerCase();
+        if (lowerTerm === 'papirark' || lowerTerm === 'papir ark') {
+          return ['avis', 'bog', 'konvolut']; // Map to common paper items
+        }
+        return [term];
+      }).flat();
+      
+      searchTerms = [...new Set([...searchTerms, ...mappedTerms])]; // Remove duplicates
+      
+      console.log('🔍 Original terms:', data.labels.map(l => l.description));
+      console.log('🔍 Enhanced search terms:', searchTerms);
       
       const matches = await searchWasteInDatabase(searchTerms);
       
