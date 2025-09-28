@@ -311,12 +311,30 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const primaryLabel = data.labels[0];
         console.log('🤖 No database match found with simple analysis either, returning not found message for:', primaryLabel.description);
         
+        // Determine category based on material
+        let homeCategory = "Restaffald";
+        let recyclingCategory = "Genbrugsstation - generelt affald";
+        
+        if (primaryLabel.materiale?.toLowerCase().includes('plastik') || primaryLabel.materiale?.toLowerCase().includes('plastic')) {
+          homeCategory = "Plast";
+          recyclingCategory = "Genbrugsstation - plast";
+        } else if (primaryLabel.materiale?.toLowerCase().includes('metal')) {
+          homeCategory = "Metal";
+          recyclingCategory = "Genbrugsstation - metal";
+        } else if (primaryLabel.materiale?.toLowerCase().includes('papir') || primaryLabel.materiale?.toLowerCase().includes('paper')) {
+          homeCategory = "Papir";
+          recyclingCategory = "Genbrugsstation - papir";
+        } else if (primaryLabel.materiale?.toLowerCase().includes('glas') || primaryLabel.materiale?.toLowerCase().includes('glass')) {
+          homeCategory = "Glas";
+          recyclingCategory = "Genbrugsstation - glas";
+        }
+
         return {
           id: Math.random().toString(),
           name: primaryLabel.description,
           image: "",
-          homeCategory: "Restaffald",
-          recyclingCategory: "Genbrugsstation - generelt affald",
+          homeCategory,
+          recyclingCategory,
           description: "Ikke fundet i databasen",
           confidence: 0.3,
           timestamp: new Date(),
