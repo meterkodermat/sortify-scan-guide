@@ -349,12 +349,78 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     if (data?.labels && data.labels.length > 0) {
       console.log('🔍 Processing AI labels:', data.labels);
       
-      // Find matches in database
-      const matches = await findBestMatches(data.labels);
-      
-      if (matches.length > 0) {
-        const bestMatch = matches[0];
-        console.log('✅ Found database match:', bestMatch.navn);
+        // Find matches in database
+        const matches = await findBestMatches(data.labels);
+        
+        if (matches.length > 0) {
+          let bestMatch = matches[0];
+          console.log('✅ Found database match:', bestMatch.navn);
+          
+          // Smart material override - if item name clearly indicates material, override database category
+          const detectedItem = data.labels.find(item => item.score >= 0.8) || data.labels[0];
+          const itemDescription = detectedItem?.description?.toLowerCase() || '';
+          
+          console.log('🧠 Smart material check for:', itemDescription);
+          
+          // Override for plastic items that are clearly plastic
+          if ((itemDescription.includes('plastik') || itemDescription.includes('plast') || 
+               (detectedItem?.materiale?.toLowerCase().includes('plast'))) && 
+              bestMatch.hjem?.toLowerCase() !== 'plast') {
+            console.log('🔧 Overriding category: plastic item detected, changing to Plast');
+            bestMatch = {
+              ...bestMatch,
+              hjem: 'Plast',
+              genbrugsplads: 'Genbrugsstation - hård plast'
+            };
+          }
+          
+          // Override for paper items that are clearly paper
+          else if ((itemDescription.includes('papir') || 
+                   (detectedItem?.materiale?.toLowerCase().includes('papir'))) && 
+                  bestMatch.hjem?.toLowerCase() !== 'papir') {
+            console.log('🔧 Overriding category: paper item detected, changing to Papir');
+            bestMatch = {
+              ...bestMatch,
+              hjem: 'Papir',
+              genbrugsplads: 'Genbrugsstation - papir'
+            };
+          }
+          
+          // Override for cardboard items
+          else if ((itemDescription.includes('karton') || itemDescription.includes('pap') || 
+                   (detectedItem?.materiale?.toLowerCase().includes('karton'))) && 
+                  bestMatch.hjem?.toLowerCase() !== 'pap') {
+            console.log('🔧 Overriding category: cardboard item detected, changing to Pap');
+            bestMatch = {
+              ...bestMatch,
+              hjem: 'Pap',
+              genbrugsplads: 'Genbrugsstation - pap og papir'
+            };
+          }
+          
+          // Override for glass items
+          else if ((itemDescription.includes('glas') || 
+                   (detectedItem?.materiale?.toLowerCase().includes('glas'))) && 
+                  bestMatch.hjem?.toLowerCase() !== 'glas') {
+            console.log('🔧 Overriding category: glass item detected, changing to Glas');
+            bestMatch = {
+              ...bestMatch,
+              hjem: 'Glas',
+              genbrugsplads: 'Genbrugsstation - glas'
+            };
+          }
+          
+          // Override for metal items
+          else if ((itemDescription.includes('metal') || itemDescription.includes('stål') || itemDescription.includes('aluminium') ||
+                   (detectedItem?.materiale?.toLowerCase().includes('metal'))) && 
+                  bestMatch.hjem?.toLowerCase() !== 'metal') {
+            console.log('🔧 Overriding category: metal item detected, changing to Metal');
+            bestMatch = {
+              ...bestMatch,
+              hjem: 'Metal',
+              genbrugsplads: 'Genbrugsstation - metal'
+            };
+          }
         
         // Count physical items (excluding liquids)
         const physicalItems = data.labels.filter(label => {
