@@ -377,6 +377,70 @@ const findBestMatches = async (labels: VisionLabel[]) => {
   return matches;
 };
 
+// Filter labels to prioritize electronics over plastic variants of same item
+const filterSmartLabels = (labels: VisionLabel[]): VisionLabel[] => {
+  console.log('🎯 Starting smart label filtering...');
+  
+  // Group labels by base description (remove material prefixes)
+  const groupedLabels = new Map<string, VisionLabel[]>();
+  
+  labels.forEach(label => {
+    const description = label.description?.toLowerCase() || '';
+    
+    // Extract base description (remove material prefixes like "plastik ")
+    let baseDescription = description;
+    if (description.startsWith('plastik ')) {
+      baseDescription = description.replace('plastik ', '');
+    } else if (description.startsWith('metal ')) {
+      baseDescription = description.replace('metal ', '');
+    } else if (description.startsWith('glas ')) {
+      baseDescription = description.replace('glas ', '');
+    }
+    
+    if (!groupedLabels.has(baseDescription)) {
+      groupedLabels.set(baseDescription, []);
+    }
+    groupedLabels.get(baseDescription)!.push(label);
+  });
+  
+  const filteredLabels: VisionLabel[] = [];
+  
+  // For each group, select the best label
+  groupedLabels.forEach((labelGroup, baseDescription) => {
+    if (labelGroup.length === 1) {
+      // Only one label for this item, keep it
+      filteredLabels.push(labelGroup[0]);
+    } else {
+      // Multiple labels for same item - prioritize by material type and score
+      console.log(`🔍 Found ${labelGroup.length} variants for "${baseDescription}":`, labelGroup.map(l => `${l.description} (${l.materiale}, ${l.score})`));
+      
+      // Sort by priority: electronics > others > plastic, then by score
+      const sorted = labelGroup.sort((a, b) => {
+        const aMaterial = a.materiale?.toLowerCase() || '';
+        const bMaterial = b.materiale?.toLowerCase() || '';
+        
+        // Electronics has highest priority
+        if (aMaterial.includes('elektronik') && !bMaterial.includes('elektronik')) return -1;
+        if (!aMaterial.includes('elektronik') && bMaterial.includes('elektronik')) return 1;
+        
+        // Plastic has lowest priority
+        if (aMaterial.includes('plast') && !bMaterial.includes('plast')) return 1;
+        if (!aMaterial.includes('plast') && bMaterial.includes('plast')) return -1;
+        
+        // Same material priority, sort by score
+        return b.score - a.score;
+      });
+      
+      const bestLabel = sorted[0];
+      console.log(`✅ Selected best variant: ${bestLabel.description} (${bestLabel.materiale}, ${bestLabel.score})`);
+      filteredLabels.push(bestLabel);
+    }
+  });
+  
+  console.log('🎯 Smart filtering complete. Original:', labels.length, 'Filtered:', filteredLabels.length);
+  return filteredLabels;
+};
+
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
     console.log('🚀 Starting waste identification process...');
@@ -398,8 +462,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     if (data?.labels && data.labels.length > 0) {
       console.log('🔍 Processing AI labels:', data.labels);
       
+      // Filter labels to prioritize electronics over plastic variants
+      const filteredLabels = filterSmartLabels(data.labels);
+      console.log('🎯 Filtered labels:', filteredLabels);
+      
         // Find matches in database
-        const matches = await findBestMatches(data.labels);
+        const matches = await findBestMatches(filteredLabels);
         
         if (matches.length > 0) {
           let bestMatch = matches[0];
