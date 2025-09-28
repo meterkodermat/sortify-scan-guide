@@ -217,11 +217,34 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                    lowerTerm.includes('receipt');
           });
           
-          if (!isReceiptPaper && matches.length > 1) {
-            console.log('🔍 No clear receipt indicators, looking for alternative match...');
-            const alternativeMatch = matches.find((match, index) => 
-              index > 0 && match.navn.toLowerCase() !== 'bonpapir'
-            );
+           if (!isReceiptPaper && matches.length > 1) {
+             console.log('🔍 No clear receipt indicators, looking for better paper alternative...');
+             // First try to find other paper items that sort as "Papir" 
+             const paperMatch = matches.find((match, index) => 
+               index > 0 && 
+               match.navn.toLowerCase() !== 'bonpapir' &&
+               match.hjem === 'Papir'
+             );
+             
+             if (paperMatch) {
+               console.log('✅ Found better paper match:', paperMatch.navn);
+               return {
+                 id: Math.random().toString(),
+                 name: paperMatch.navn,
+                 image: getIconForCategory(paperMatch.hjem || ""),
+                 homeCategory: paperMatch.hjem || "Restaffald", 
+                 recyclingCategory: paperMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+                 description: `Identificeret ved hjælp af AI-analyse. ${paperMatch.variation ? `Variation: ${paperMatch.variation}. ` : ''}${paperMatch.tilstand ? `Tilstand: ${paperMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+                 confidence: data.labels[0]?.score || 0.8,
+                 timestamp: new Date(),
+                 aiThoughtProcess: data.thoughtProcess
+               };
+             }
+             
+             // If no proper paper match, find any alternative
+             const alternativeMatch = matches.find((match, index) => 
+               index > 0 && match.navn.toLowerCase() !== 'bonpapir'
+             );
             if (alternativeMatch) {
               console.log('✅ Found better alternative match:', alternativeMatch.navn);
               return {
