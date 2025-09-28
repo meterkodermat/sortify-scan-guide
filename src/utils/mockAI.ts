@@ -92,6 +92,11 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
+      // CRITICAL: Boost proper categorization over generic categorization
+      // Prioritize items that are NOT categorized as "Restaffald" when there are better alternatives
+      if (a.hjem?.toLowerCase() !== 'restaffald') aScore += 2000;
+      if (b.hjem?.toLowerCase() !== 'restaffald') bScore += 2000;
+      
       // Exact name match (highest priority)
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
