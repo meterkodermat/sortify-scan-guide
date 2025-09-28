@@ -173,31 +173,44 @@ const getMaterialSorting = (materiale: string, description?: string): { hjem: st
   const material = materiale.toLowerCase();
   const desc = description?.toLowerCase() || '';
   
+  console.log('getMaterialSorting called with:', { materiale, description, material, desc });
+  
   // Handle paper items specifically based on description
   if (desc.includes('papir') || desc.includes('kvittering') || desc.includes('bonpapir')) {
+    console.log('✅ Matched paper description, returning Papir');
     return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };
   }
   
   // Handle bonpapir/kvittering specifically - must come before 'pap' check
   if (material.includes('bonpapir') || material.includes('kvittering')) {
+    console.log('✅ Matched bonpapir/kvittering material, returning Papir');
     return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };
   } else if (material.includes('plastik') || material.includes('plast')) {
+    console.log('✅ Matched plastic material, returning Plast');
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
   } else if (material.includes('elektronik') || material.includes('elektronisk')) {
+    console.log('✅ Matched electronic material, returning Farligt affald');
     return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
   } else if (material.includes('metal') || material.includes('stål') || material.includes('aluminium')) {
+    console.log('✅ Matched metal material, returning Metal');
     return { hjem: 'Metal', genbrugsplads: 'Genbrugsstation - metal' };
   } else if (material.includes('glas')) {
+    console.log('✅ Matched glass material, returning Glas');
     return { hjem: 'Glas', genbrugsplads: 'Genbrugsstation - glas' };
   } else if (material.includes('papir')) {
+    console.log('✅ Matched papir material, returning Papir');
     return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };  
   } else if (material.includes('pap') || material.includes('karton')) {
+    console.log('✅ Matched pap/karton material, returning Pap');
     return { hjem: 'Pap', genbrugsplads: 'Genbrugsstation - pap og papir' };
   } else if (material.includes('tekstil') || material.includes('tøj')) {
+    console.log('✅ Matched textile material, returning Tekstilaffald');
     return { hjem: 'Tekstilaffald', genbrugsplads: 'Genbrugsstation - tekstil' };
   } else if (material.includes('organisk') || material.includes('mad')) {
+    console.log('✅ Matched organic material, returning Madaffald');
     return { hjem: 'Madaffald', genbrugsplads: 'Genbrugsstation - organisk affald' };
   } else {
+    console.log('❌ No match found, returning Restaffald');
     return { hjem: 'Restaffald', genbrugsplads: 'Genbrugsstation - restaffald' };
   }
 };
