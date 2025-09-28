@@ -435,8 +435,9 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             };
           }
           
-          // Override for cardboard items
-          else if ((itemDescription.includes('karton') || itemDescription.includes('pap') || 
+          // Override for cardboard items (but not paper items)
+          else if ((itemDescription.includes('karton') || 
+                   (itemDescription.includes('pap') && !itemDescription.includes('papir')) || 
                    (detectedItem?.materiale?.toLowerCase().includes('karton'))) && 
                   bestMatch.hjem?.toLowerCase() !== 'pap') {
             console.log('🔧 Overriding category: cardboard item detected, changing to Pap');
