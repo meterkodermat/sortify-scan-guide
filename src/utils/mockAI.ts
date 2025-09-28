@@ -223,6 +223,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     if (data?.labels && data.labels.length > 0) {
       console.log('🔍 Processing AI labels:', data.labels);
+      console.log('🔍 First label details:', JSON.stringify(data.labels[0], null, 2));
       
       // Find matches in database
       const matches = await findBestMatches(data.labels);
@@ -310,6 +311,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         // Still no match, return clear message about not finding in database
         const primaryLabel = data.labels[0];
         console.log('🤖 No database match found with simple analysis either, returning not found message for:', primaryLabel.description);
+        console.log('🔍 Primary label material:', primaryLabel.materiale);
+        console.log('🔍 Primary label full data:', primaryLabel);
         
         // Determine category based on material for items not in database
         let homeCategory = "Restaffald";
