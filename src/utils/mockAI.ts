@@ -260,6 +260,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           `Flere elementer fundet - primært ${bestMatch.navn}` : 
           bestMatch.navn;
         
+        console.log('✅ Using database match for categorization:', {
+          name: bestMatch.navn,
+          homeCategory: bestMatch.hjem,
+          recyclingCategory: bestMatch.genbrugsplads
+        });
+        
         return {
           id: Math.random().toString(),
           name: itemName,
@@ -289,9 +295,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           const simpleMatches = await findBestMatches(simpleData.labels);
           
-          if (simpleMatches.length > 0) {
+            if (simpleMatches.length > 0) {
             const bestMatch = simpleMatches[0];
             console.log('✅ Found database match with simple analysis:', bestMatch.navn);
+            console.log('✅ Using database match for categorization (simple):', {
+              name: bestMatch.navn,
+              homeCategory: bestMatch.hjem,
+              recyclingCategory: bestMatch.genbrugsplads
+            });
             
             // Count physical items (excluding liquids)
             const physicalItems = simpleData.labels.filter(label => {
