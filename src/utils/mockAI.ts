@@ -14,6 +14,8 @@ interface WasteItem {
     genstand: string;
     materiale: string;
     tilstand?: string;
+    hjem: string;
+    genbrugsplads: string;
   }>;
 }
 
@@ -163,6 +165,31 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   } catch (error) {
     console.error('Database search error:', error.message);
     return [];
+  }
+};
+
+// Function to map material to sorting categories
+const getMaterialSorting = (materiale: string): { hjem: string; genbrugsplads: string } => {
+  const material = materiale.toLowerCase();
+  
+  if (material.includes('plastik') || material.includes('plast')) {
+    return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
+  } else if (material.includes('elektronik') || material.includes('elektronisk')) {
+    return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
+  } else if (material.includes('metal') || material.includes('stål') || material.includes('aluminium')) {
+    return { hjem: 'Metal', genbrugsplads: 'Genbrugsstation - metal' };
+  } else if (material.includes('glas')) {
+    return { hjem: 'Glas', genbrugsplads: 'Genbrugsstation - glas' };
+  } else if (material.includes('pap') || material.includes('karton')) {
+    return { hjem: 'Pap', genbrugsplads: 'Genbrugsstation - pap og papir' };
+  } else if (material.includes('papir')) {
+    return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - papir' };
+  } else if (material.includes('tekstil') || material.includes('tøj')) {
+    return { hjem: 'Tekstilaffald', genbrugsplads: 'Genbrugsstation - tekstil' };
+  } else if (material.includes('organisk') || material.includes('mad')) {
+    return { hjem: 'Madaffald', genbrugsplads: 'Genbrugsstation - organisk affald' };
+  } else {
+    return { hjem: 'Restaffald', genbrugsplads: 'Genbrugsstation - restaffald' };
   }
 };
 
@@ -447,11 +474,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           confidence: data.labels[0]?.score || 0.8,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
-          components: physicalItems.map((label: VisionLabel) => ({
-            genstand: label.description,
-            materiale: label.materiale || '',
-            tilstand: label.tilstand || ''
-          }))
+          components: physicalItems.map((label: VisionLabel) => {
+            const sorting = getMaterialSorting(label.materiale || '');
+            return {
+              genstand: label.description,
+              materiale: label.materiale || '',
+              tilstand: label.tilstand || '',
+              hjem: sorting.hjem,
+              genbrugsplads: sorting.genbrugsplads
+            };
+          })
         };
       } else {
         // No database match found, try simpler analysis
@@ -492,11 +524,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               confidence: (simpleData.labels[0]?.score || 0.6) * 0.9, // Slightly lower confidence for simple analysis
               timestamp: new Date(),
               aiThoughtProcess: simpleData.thoughtProcess,
-              components: physicalItems.map((label: VisionLabel) => ({
-                genstand: label.description,
-                materiale: label.materiale || '',
-                tilstand: label.tilstand || ''
-              }))
+              components: physicalItems.map((label: VisionLabel) => {
+                const sorting = getMaterialSorting(label.materiale || '');
+                return {
+                  genstand: label.description,
+                  materiale: label.materiale || '',
+                  tilstand: label.tilstand || '',
+                  hjem: sorting.hjem,
+                  genbrugsplads: sorting.genbrugsplads
+                };
+              })
             };
           }
         }
@@ -550,11 +587,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           confidence: (primaryLabel?.score || 0.6) * 0.8, // Lower confidence for fallback
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
-          components: physicalItems.map((label: VisionLabel) => ({
-            genstand: label.description,
-            materiale: label.materiale || '',
-            tilstand: label.tilstand || ''
-          }))
+          components: physicalItems.map((label: VisionLabel) => {
+            const sorting = getMaterialSorting(label.materiale || '');
+            return {
+              genstand: label.description,
+              materiale: label.materiale || '',
+              tilstand: label.tilstand || '',
+              hjem: sorting.hjem,
+              genbrugsplads: sorting.genbrugsplads
+            };
+          })
         };
       }
     }

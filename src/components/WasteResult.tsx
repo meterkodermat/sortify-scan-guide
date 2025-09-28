@@ -28,6 +28,8 @@ interface WasteItem {
     genstand: string;
     materiale: string;
     tilstand?: string;
+    hjem: string;
+    genbrugsplads: string;
   }>;
 }
 
@@ -169,8 +171,8 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                       <Home className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex items-center gap-2">
-                      {getSortingPictogram(item.homeCategory)}
-                      <span className="font-medium">{item.homeCategory}</span>
+                      {getSortingPictogram(component.hjem)}
+                      <span className="font-medium">{component.hjem}</span>
                     </div>
                   </div>
                   
@@ -180,7 +182,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                       <Recycle className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <span className="font-medium">{item.recyclingCategory}</span>
+                      <span className="font-medium">{component.genbrugsplads}</span>
                     </div>
                   </div>
                 </div>
