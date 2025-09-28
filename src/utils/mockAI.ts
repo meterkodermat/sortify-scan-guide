@@ -411,9 +411,34 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           console.log('🧠 Smart material check for:', itemDescription);
           
-          // Override for plastic items that are clearly plastic
-          if ((itemDescription.includes('plastik') || itemDescription.includes('plast') || 
+          // Check all detected items for electronics (priority override)
+          const hasElectronics = data.labels.some(item => 
+            item.materiale?.toLowerCase().includes('elektronik') || 
+            item.description?.toLowerCase().includes('elektronik') ||
+            item.description?.toLowerCase().includes('fjernbetjening') ||
+            item.description?.toLowerCase().includes('elektronisk')
+          );
+          
+          // Override for electronic items (highest priority)
+          if (hasElectronics && bestMatch.hjem?.toLowerCase() !== 'farligt affald') {
+            console.log('🔧 Overriding category: electronics detected, changing to Farligt affald');
+            const electronicsItem = data.labels.find(item => 
+              item.materiale?.toLowerCase().includes('elektronik') || 
+              item.description?.toLowerCase().includes('elektronik') ||
+              item.description?.toLowerCase().includes('fjernbetjening')
+            ) || detectedItem;
+            bestMatch = {
+              ...bestMatch,
+              navn: electronicsItem?.description || 'Elektronisk affald',
+              hjem: 'Farligt affald',
+              genbrugsplads: 'Genbrugsstation - elektronik'
+            };
+          }
+          
+          // Override for plastic items that are clearly plastic (but not if electronics detected)
+          else if ((itemDescription.includes('plastik') || itemDescription.includes('plast') || 
                (detectedItem?.materiale?.toLowerCase().includes('plast'))) && 
+              !hasElectronics &&
               bestMatch.hjem?.toLowerCase() !== 'plast') {
             console.log('🔧 Overriding category: plastic item detected, changing to Plast');
             bestMatch = {
