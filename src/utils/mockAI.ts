@@ -194,11 +194,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         .map(label => label.description)
         .filter(desc => desc && desc.length > 1);
       
-      // Map generic terms to more specific database terms
+      // Map generic terms to more specific database terms based on detected material
+      const detectedMaterial = data.labels[0]?.materiale?.toLowerCase() || '';
       const mappedTerms = searchTerms.map(term => {
         const lowerTerm = term.toLowerCase();
         if (lowerTerm === 'papirark' || lowerTerm === 'papir ark') {
-          return ['avis', 'bog', 'konvolut']; // Map to common paper items
+          if (detectedMaterial === 'pap') {
+            return ['bog', 'kasse', 'emballage']; // Map to Pap category items
+          } else {
+            return ['avis', 'bog', 'konvolut']; // Map to Papir category items
+          }
         }
         return [term];
       }).flat();
