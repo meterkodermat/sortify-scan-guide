@@ -202,6 +202,33 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const bestMatch = matches[0];
         console.log('✅ Using database result:', bestMatch.navn, '->', bestMatch.hjem);
         
+        // Filter out generic/broad matches when we have more specific alternatives
+        if (bestMatch.navn.toLowerCase() === 'bonpapir' && searchTerms.some(term => 
+          term.toLowerCase().includes('gave') || 
+          term.toLowerCase().includes('gift') || 
+          term.toLowerCase().includes('wrapping')
+        )) {
+          console.log('🔍 Bonpapir detected, looking for more specific match...');
+          const specificMatch = matches.find(match => 
+            match.navn.toLowerCase().includes('gave') ||
+            match.navn.toLowerCase().includes('papir') && match.navn.toLowerCase() !== 'bonpapir'
+          );
+          if (specificMatch) {
+            console.log('✅ Found more specific match:', specificMatch.navn);
+            return {
+              id: Math.random().toString(),
+              name: specificMatch.navn,
+              image: getIconForCategory(specificMatch.hjem || ""),
+              homeCategory: specificMatch.hjem || "Restaffald",
+              recyclingCategory: specificMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+              description: `Identificeret ved hjælp af AI-analyse. ${specificMatch.variation ? `Variation: ${specificMatch.variation}. ` : ''}${specificMatch.tilstand ? `Tilstand: ${specificMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+              confidence: data.labels[0]?.score || 0.8,
+              timestamp: new Date(),
+              aiThoughtProcess: data.thoughtProcess
+            };
+          }
+        }
+        
         return {
           id: Math.random().toString(),
           name: bestMatch.navn,
