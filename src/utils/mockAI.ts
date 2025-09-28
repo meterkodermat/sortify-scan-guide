@@ -418,6 +418,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🔧 Overriding category: plastic item detected, changing to Plast');
             bestMatch = {
               ...bestMatch,
+              navn: detectedItem?.description || 'Plast',
               hjem: 'Plast',
               genbrugsplads: 'Genbrugsstation - hård plast'
             };
@@ -430,6 +431,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🔧 Overriding category: paper item detected, changing to Papir');
             bestMatch = {
               ...bestMatch,
+              navn: detectedItem?.description || 'Papir',
               hjem: 'Papir',
               genbrugsplads: 'Genbrugsstation - pap og papir'
             };
@@ -443,6 +445,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🔧 Overriding category: cardboard item detected, changing to Pap');
             bestMatch = {
               ...bestMatch,
+              navn: detectedItem?.description || 'Pap',
               hjem: 'Pap',
               genbrugsplads: 'Genbrugsstation - pap og papir'
             };
@@ -455,6 +458,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🔧 Overriding category: glass item detected, changing to Glas');
             bestMatch = {
               ...bestMatch,
+              navn: detectedItem?.description || 'Glas',
               hjem: 'Glas',
               genbrugsplads: 'Genbrugsstation - glas'
             };
@@ -467,6 +471,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             console.log('🔧 Overriding category: metal item detected, changing to Metal');
             bestMatch = {
               ...bestMatch,
+              navn: detectedItem?.description || 'Metal',
               hjem: 'Metal',
               genbrugsplads: 'Genbrugsstation - metal'
             };
