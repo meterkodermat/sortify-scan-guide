@@ -436,7 +436,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               ...bestMatch,
               navn: detectedItem?.description || 'Papir',
               hjem: 'Papir',
-              genbrugsplads: 'Genbrugsstation - pap og papir'
+              genbrugsplads: 'Papir'
             };
             console.log('🔧 Updated bestMatch:', bestMatch);
           }
