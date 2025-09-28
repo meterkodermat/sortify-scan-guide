@@ -170,8 +170,18 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 const findBestMatches = async (labels: VisionLabel[]) => {
   console.log('🔍 Processing Gemini labels:', labels);
   
+  // Sort labels by score to prioritize the most confident detections
+  const sortedLabels = [...labels].sort((a, b) => (b.score || 0) - (a.score || 0));
+  console.log('📊 Labels sorted by confidence:', sortedLabels.map(l => `${l.description} (${l.score})`));
+  
+  // Get primary item (highest confidence)
+  const primaryLabel = sortedLabels[0];
+  const primaryMaterial = primaryLabel?.materiale?.toLowerCase();
+  
+  console.log('🎯 Primary item:', primaryLabel?.description, 'Material:', primaryMaterial);
+  
   // Filter out liquid contents and focus on physical items
-  const filteredLabels = labels.filter(label => {
+  const filteredLabels = sortedLabels.filter(label => {
     const desc = label.description?.toLowerCase() || '';
     // Skip liquid contents like juice, milk, etc.
     if (desc.includes('juice') && !desc.includes('karton') && !desc.includes('beholder')) {
@@ -188,43 +198,81 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
   console.log('🎯 Filtered labels (excluding liquids):', filteredLabels.map(l => l.description));
   
-  // Extract main search terms with smart mapping
+  // Extract main search terms with smart mapping - prioritize primary item
   const searchTerms = [];
   
-  for (const label of filteredLabels) {
-    let searchTerm = label.description;
+  // Start with primary item terms
+  if (primaryLabel?.description) {
+    const primaryTerm = primaryLabel.description.toLowerCase();
     
-    console.log('🔍 Processing search term:', searchTerm);
+    console.log('🔍 Processing primary term:', primaryTerm);
     
     // Smart mapping for common items
-    if (searchTerm?.toLowerCase().includes('juicekarton')) {
+    if (primaryTerm.includes('balje') || primaryTerm.includes('skål')) {
+      searchTerms.push('balje');
+      searchTerms.push('skål');
+      console.log('🥣 Added bowl/balje terms');
+    } else if (primaryTerm.includes('cover') || primaryTerm.includes('hylster')) {
+      searchTerms.push('cover');
+      searchTerms.push('mobilcover');
+      searchTerms.push('hylster');
+      console.log('📱 Added cover terms');
+    } else if (primaryTerm.includes('juicekarton')) {
       searchTerms.push('juicekarton');
       searchTerms.push('drikkekarton');
       searchTerms.push('kartoner');
       console.log('📦 Mapped to juice carton terms');
-    } else if (searchTerm?.toLowerCase().includes('strømforsyning') || searchTerm?.toLowerCase().includes('oplader')) {
-      // Map all types of chargers/power supplies to the database terms
+    } else if (primaryTerm.includes('strømforsyning') || primaryTerm.includes('oplader')) {
       console.log('⚡ Detected power supply/charger, mapping terms...');
       searchTerms.push('strømforsyning');
       searchTerms.push('oplader');
       searchTerms.push('mobiloplader');
-      // Also add the original term
-      if (searchTerm) searchTerms.push(searchTerm);
-    } else if (searchTerm) {
-      searchTerms.push(searchTerm);
     }
+    
+    // Always add the primary term
+    searchTerms.push(primaryLabel.description);
     
     // Add translated text if different
-    if (label.translatedText && label.translatedText !== label.description) {
-      searchTerms.push(label.translatedText);
+    if (primaryLabel.translatedText && primaryLabel.translatedText !== primaryLabel.description) {
+      searchTerms.push(primaryLabel.translatedText);
+    }
+  }
+  
+  // Add material-based search terms (only if they make sense for the primary item)
+  if (primaryMaterial) {
+    console.log('🔬 Adding material-based terms for:', primaryMaterial);
+    
+    if (primaryMaterial === 'plastik' || primaryMaterial === 'plast') {
+      searchTerms.push('plast');
+      searchTerms.push('plastik');
+      // Only add specific plastic terms if they match the primary item
+      if (primaryLabel?.description?.toLowerCase().includes('balje')) {
+        searchTerms.push('plastbalje');
+        searchTerms.push('plastikbalje');
+      }
+      if (primaryLabel?.description?.toLowerCase().includes('cover')) {
+        searchTerms.push('plastcover');
+        searchTerms.push('mobilcover');
+      }
+    } else if (primaryMaterial === 'pap' || primaryMaterial === 'karton') {
+      searchTerms.push('pap');
+      searchTerms.push('karton');
+    }
+  }
+  
+  // Add secondary items only if they don't conflict with primary material
+  for (let i = 1; i < Math.min(filteredLabels.length, 3); i++) {
+    const secondaryLabel = filteredLabels[i];
+    const secondaryMaterial = secondaryLabel?.materiale?.toLowerCase();
+    
+    // Skip secondary items that have conflicting materials unless they're very relevant
+    if (primaryMaterial && secondaryMaterial && primaryMaterial !== secondaryMaterial) {
+      console.log(`⚠️ Skipping secondary item "${secondaryLabel.description}" (${secondaryMaterial}) - conflicts with primary material (${primaryMaterial})`);
+      continue;
     }
     
-    // IGNORE material for electronics to prevent wrong categorization
-    if (label.materiale && ['pap', 'glas', 'metal'].includes(label.materiale)) {
-      // Only add non-electronic materials
-      if (!searchTerm?.toLowerCase().includes('strømforsyning') && !searchTerm?.toLowerCase().includes('oplader')) {
-        searchTerms.push(label.materiale);
-      }
+    if (secondaryLabel?.description) {
+      searchTerms.push(secondaryLabel.description);
     }
   }
 
@@ -247,6 +295,35 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
   const matches = await searchWasteInDatabase(cleanTerms);
   console.log(`✅ Found ${matches.length} database matches:`, matches.map(m => `${m.navn} (${m.hjem})`));
+  
+  // Re-score matches based on material compatibility
+  if (primaryMaterial && matches.length > 0) {
+    console.log('🎯 Re-scoring matches based on material compatibility...');
+    
+    const rescoredMatches = matches.map(match => {
+      let materialScore = 0;
+      
+      // Boost matches that align with detected material
+      if (primaryMaterial === 'plastik' || primaryMaterial === 'plast') {
+        if (match.hjem?.toLowerCase() === 'plast') materialScore += 1000;
+        if (match.genbrugsplads?.toLowerCase().includes('plast')) materialScore += 500;
+        // Penalize non-plastic categories for plastic items
+        if (match.hjem?.toLowerCase() === 'pap' || match.hjem?.toLowerCase() === 'papir') materialScore -= 2000;
+      } else if (primaryMaterial === 'pap' || primaryMaterial === 'karton') {
+        if (match.hjem?.toLowerCase() === 'pap') materialScore += 1000;
+        if (match.genbrugsplads?.toLowerCase().includes('pap')) materialScore += 500;
+      }
+      
+      return { ...match, materialScore };
+    });
+    
+    // Sort by material score
+    rescoredMatches.sort((a, b) => (b.materialScore || 0) - (a.materialScore || 0));
+    
+    console.log('📊 Rescored matches:', rescoredMatches.map(m => `${m.navn} (${m.hjem}) - score: ${m.materialScore}`));
+    
+    return rescoredMatches;
+  }
   
   return matches;
 };
@@ -287,9 +364,12 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           ));
         });
 
+        // Get primary item for naming
+        const primaryItem = physicalItems.find(item => item.score >= 0.8) || physicalItems[0];
+        
         const itemName = physicalItems.length > 1 ? 
-          `Flere elementer fundet - primært ${bestMatch.navn}` : 
-          bestMatch.navn;
+          `Flere komponenter fundet` : 
+          (bestMatch.navn || primaryItem?.description || "Ukendt genstand");
         
         return {
           id: Math.random().toString(),
@@ -333,8 +413,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             });
 
             const itemName = physicalItems.length > 1 ? 
-              `Flere elementer fundet - primært ${bestMatch.navn}` : 
-              bestMatch.navn;
+              `Flere komponenter fundet` : 
+              (bestMatch.navn || physicalItems[0]?.description || "Ukendt genstand");
             
             return {
               id: Math.random().toString(),
@@ -355,21 +435,56 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
 
-        // Still no match, return original AI result
+        // No database match - use material-based fallback
+        console.log('🔄 No database match found, using material-based fallback...');
+        
         const primaryLabel = data.labels[0];
-        console.log('🤖 No database match found with simple analysis either, returning AI detection:', primaryLabel.description);
+        const detectedMaterial = primaryLabel?.materiale?.toLowerCase();
+        
+        let homeCategory = "Restaffald";
+        let recyclingCategory = "Genbrugsstation - generelt affald";
+        
+        // Use detected material for better categorization
+        if (detectedMaterial === 'plastik' || detectedMaterial === 'plast') {
+          homeCategory = "Plast";
+          recyclingCategory = "Hård plast";
+          console.log('🔬 Applied plastic categorization based on detected material');
+        } else if (detectedMaterial === 'pap' || detectedMaterial === 'karton') {
+          homeCategory = "Pap";
+          recyclingCategory = "Pap";
+          console.log('🔬 Applied cardboard categorization based on detected material');
+        } else if (detectedMaterial === 'metal') {
+          homeCategory = "Metal";
+          recyclingCategory = "Metal";
+          console.log('🔬 Applied metal categorization based on detected material');
+        } else if (detectedMaterial === 'glas') {
+          homeCategory = "Glas";
+          recyclingCategory = "Glas";
+          console.log('🔬 Applied glass categorization based on detected material');
+        }
+        
+        const physicalItems = data.labels.filter(label => {
+          const desc = label.description?.toLowerCase() || '';
+          return !(['juice', 'mælk', 'vand', 'øl', 'sodavand'].some(liquid => 
+            desc.includes(liquid) && !desc.includes('karton') && !desc.includes('flaske') && !desc.includes('dåse')
+          ));
+        });
+
+        const itemName = physicalItems.length > 1 ? 
+          `Flere komponenter fundet` : 
+          (primaryLabel?.description || "Ukendt genstand");
         
         return {
           id: Math.random().toString(),
-          name: primaryLabel.description,
+          name: itemName,
           image: "",
-          homeCategory: "Restaffald",
-          recyclingCategory: "Genbrugsstation - generelt affald",
-          description: `Genstanden "${primaryLabel.description}" kunne ikke identificeres i vores database. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.`,
-          confidence: 0.3,
+          homeCategory,
+          recyclingCategory,
+          description: `Identificeret som ${detectedMaterial || 'ukendt materiale'} ved hjælp af AI-analyse. Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+          confidence: (primaryLabel?.score || 0.6) * 0.8, // Lower confidence for fallback
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
-          components: data.labels.map((label: VisionLabel) => ({
+          components: physicalItems.map((label: VisionLabel) => ({
             genstand: label.description,
             materiale: label.materiale || '',
             tilstand: label.tilstand || ''
