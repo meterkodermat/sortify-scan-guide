@@ -172,7 +172,10 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 const getMaterialSorting = (materiale: string): { hjem: string; genbrugsplads: string } => {
   const material = materiale.toLowerCase();
   
-  if (material.includes('plastik') || material.includes('plast')) {
+  // Handle bonpapir/kvittering specifically - must come before 'pap' check
+  if (material.includes('bonpapir') || material.includes('kvittering')) {
+    return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };
+  } else if (material.includes('plastik') || material.includes('plast')) {
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
   } else if (material.includes('elektronik') || material.includes('elektronisk')) {
     return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
@@ -180,10 +183,10 @@ const getMaterialSorting = (materiale: string): { hjem: string; genbrugsplads: s
     return { hjem: 'Metal', genbrugsplads: 'Genbrugsstation - metal' };
   } else if (material.includes('glas')) {
     return { hjem: 'Glas', genbrugsplads: 'Genbrugsstation - glas' };
+  } else if (material.includes('papir')) {
+    return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };  
   } else if (material.includes('pap') || material.includes('karton')) {
     return { hjem: 'Pap', genbrugsplads: 'Genbrugsstation - pap og papir' };
-  } else if (material.includes('papir')) {
-    return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - papir' };
   } else if (material.includes('tekstil') || material.includes('tøj')) {
     return { hjem: 'Tekstilaffald', genbrugsplads: 'Genbrugsstation - tekstil' };
   } else if (material.includes('organisk') || material.includes('mad')) {
