@@ -211,17 +211,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
           confidence: data.labels[0]?.score || 0.8,
           timestamp: new Date(),
-          aiThoughtProcess: data.thoughtProcess,
-          components: data.labels.map((label: VisionLabel) => {
-            const sorting = getMaterialSorting(label.materiale || '', label.description);
-            return {
-              genstand: label.description,
-              materiale: label.materiale || '',
-              tilstand: label.tilstand || '',
-              hjem: sorting.hjem,
-              genbrugsplads: sorting.genbrugsplads
-            };
-          })
+          aiThoughtProcess: data.thoughtProcess
         };
       }
     }
