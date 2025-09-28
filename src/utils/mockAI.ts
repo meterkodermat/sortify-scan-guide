@@ -169,8 +169,14 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 };
 
 // Function to map material to sorting categories
-const getMaterialSorting = (materiale: string): { hjem: string; genbrugsplads: string } => {
+const getMaterialSorting = (materiale: string, description?: string): { hjem: string; genbrugsplads: string } => {
   const material = materiale.toLowerCase();
+  const desc = description?.toLowerCase() || '';
+  
+  // Handle paper items specifically based on description
+  if (desc.includes('papir') || desc.includes('kvittering') || desc.includes('bonpapir')) {
+    return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };
+  }
   
   // Handle bonpapir/kvittering specifically - must come before 'pap' check
   if (material.includes('bonpapir') || material.includes('kvittering')) {
@@ -478,7 +484,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
           components: physicalItems.map((label: VisionLabel) => {
-            const sorting = getMaterialSorting(label.materiale || '');
+            const sorting = getMaterialSorting(label.materiale || '', label.description);
             return {
               genstand: label.description,
               materiale: label.materiale || '',
@@ -528,7 +534,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               timestamp: new Date(),
               aiThoughtProcess: simpleData.thoughtProcess,
               components: physicalItems.map((label: VisionLabel) => {
-                const sorting = getMaterialSorting(label.materiale || '');
+                const sorting = getMaterialSorting(label.materiale || '', label.description);
                 return {
                   genstand: label.description,
                   materiale: label.materiale || '',
@@ -591,7 +597,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
           components: physicalItems.map((label: VisionLabel) => {
-            const sorting = getMaterialSorting(label.materiale || '');
+            const sorting = getMaterialSorting(label.materiale || '', label.description);
             return {
               genstand: label.description,
               materiale: label.materiale || '',
