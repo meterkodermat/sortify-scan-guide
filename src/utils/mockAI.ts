@@ -429,7 +429,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             ) || detectedItem;
             bestMatch = {
               ...bestMatch,
-              navn: electronicsItem?.description || 'Elektronisk affald',
+              navn: electronicsItem?.description || detectedItem?.description || 'Elektronisk affald',
               hjem: 'Farligt affald',
               genbrugsplads: 'Genbrugsstation - elektronik'
             };
