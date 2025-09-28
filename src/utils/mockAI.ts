@@ -92,11 +92,6 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
-      // CRITICAL: Boost proper categorization over generic categorization
-      // Prioritize items that are NOT categorized as "Restaffald" when there are better alternatives
-      if (a.hjem?.toLowerCase() !== 'restaffald') aScore += 2000;
-      if (b.hjem?.toLowerCase() !== 'restaffald') bScore += 2000;
-      
       // Exact name match (highest priority)
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
@@ -170,10 +165,6 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push('juicekarton');
       searchTerms.push('drikkekarton');
       searchTerms.push('kartoner');
-    } else if (searchTerm?.toLowerCase().includes('strømforsyning')) {
-      searchTerms.push('strømforsyning');
-      searchTerms.push('oplader');
-      searchTerms.push('mobiloplader');
     } else if (searchTerm) {
       searchTerms.push(searchTerm);
     }
@@ -232,7 +223,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     if (data?.labels && data.labels.length > 0) {
       console.log('🔍 Processing AI labels:', data.labels);
-      console.log('🔍 First label details:', JSON.stringify(data.labels[0], null, 2));
       
       // Find matches in database
       const matches = await findBestMatches(data.labels);
@@ -240,13 +230,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       if (matches.length > 0) {
         const bestMatch = matches[0];
         console.log('✅ Found database match:', bestMatch.navn);
-        console.log('🏠 Database match details:', {
-          navn: bestMatch.navn,
-          hjem: bestMatch.hjem,
-          genbrugsplads: bestMatch.genbrugsplads,
-          materiale: bestMatch.materiale,
-          variation: bestMatch.variation
-        });
         
         // Count physical items (excluding liquids)
         const physicalItems = data.labels.filter(label => {
@@ -259,12 +242,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const itemName = physicalItems.length > 1 ? 
           `Flere elementer fundet - primært ${bestMatch.navn}` : 
           bestMatch.navn;
-        
-        console.log('✅ Using database match for categorization:', {
-          name: bestMatch.navn,
-          homeCategory: bestMatch.hjem,
-          recyclingCategory: bestMatch.genbrugsplads
-        });
         
         return {
           id: Math.random().toString(),
@@ -295,14 +272,9 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           const simpleMatches = await findBestMatches(simpleData.labels);
           
-            if (simpleMatches.length > 0) {
+          if (simpleMatches.length > 0) {
             const bestMatch = simpleMatches[0];
             console.log('✅ Found database match with simple analysis:', bestMatch.navn);
-            console.log('✅ Using database match for categorization (simple):', {
-              name: bestMatch.navn,
-              homeCategory: bestMatch.hjem,
-              recyclingCategory: bestMatch.genbrugsplads
-            });
             
             // Count physical items (excluding liquids)
             const physicalItems = simpleData.labels.filter(label => {
@@ -335,40 +307,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           }
         }
 
-        // Still no match, return clear message about not finding in database
+        // Still no match, return original AI result
         const primaryLabel = data.labels[0];
-        console.log('🤖 No database match found with simple analysis either, returning not found message for:', primaryLabel.description);
-        console.log('🔍 Primary label material:', primaryLabel.materiale);
-        console.log('🔍 Primary label full data:', primaryLabel);
+        console.log('🤖 No database match found with simple analysis either, returning AI detection:', primaryLabel.description);
         
-        // Determine category based on material for items not in database
-        let homeCategory = "Restaffald";
-        let recyclingCategory = "Genbrugsstation - generelt affald";
-        
-        if (primaryLabel.materiale?.toLowerCase().includes('elektronik')) {
-          homeCategory = "Storskrald";
-          recyclingCategory = "Genbrugsstation - elektronik";
-        } else if (primaryLabel.materiale?.toLowerCase().includes('plastik') || primaryLabel.materiale?.toLowerCase().includes('plastic')) {
-          homeCategory = "Plast";
-          recyclingCategory = "Genbrugsstation - plast";
-        } else if (primaryLabel.materiale?.toLowerCase().includes('metal')) {
-          homeCategory = "Metal";
-          recyclingCategory = "Genbrugsstation - metal";
-        } else if (primaryLabel.materiale?.toLowerCase().includes('papir') || primaryLabel.materiale?.toLowerCase().includes('paper')) {
-          homeCategory = "Papir";
-          recyclingCategory = "Genbrugsstation - papir";
-        } else if (primaryLabel.materiale?.toLowerCase().includes('glas') || primaryLabel.materiale?.toLowerCase().includes('glass')) {
-          homeCategory = "Glas";
-          recyclingCategory = "Genbrugsstation - glas";
-        }
-
         return {
           id: Math.random().toString(),
-          name: "Ikke fundet i databasen",
+          name: primaryLabel.description,
           image: "",
-          homeCategory,
-          recyclingCategory,
-          description: "Genstanden kunne ikke identificeres i vores database. Sortér som angivet eller kontakt din lokale genbrugsstation for vejledning.",
+          homeCategory: "Restaffald",
+          recyclingCategory: "Genbrugsstation - generelt affald",
+          description: `Genstanden "${primaryLabel.description}" kunne ikke identificeres i vores database. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.`,
           confidence: 0.3,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess,
