@@ -431,12 +431,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
                   bestMatch.hjem?.toLowerCase() !== 'papir') {
             console.log('🔧 Overriding category: paper item detected, changing to Papir');
             console.log('🔧 Detected item:', detectedItem);
+            console.log('🔧 Setting name to:', detectedItem?.description);
             bestMatch = {
               ...bestMatch,
               navn: detectedItem?.description || 'Papir',
               hjem: 'Papir',
               genbrugsplads: 'Genbrugsstation - pap og papir'
             };
+            console.log('🔧 Updated bestMatch:', bestMatch);
           }
           
           // Override for cardboard items (but not paper items)
@@ -490,9 +492,16 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         // Get primary item for naming
         const primaryItem = physicalItems.find(item => item.score >= 0.8) || physicalItems[0];
         
+        // Use the updated bestMatch.navn if it was overridden by material detection, otherwise use original logic
         const itemName = physicalItems.length > 1 ? 
           `Flere komponenter fundet` : 
           (bestMatch.navn || primaryItem?.description || "Ukendt genstand");
+        
+        console.log('🏷️ Final item name calculation:');
+        console.log('  - physicalItems.length:', physicalItems.length);
+        console.log('  - bestMatch.navn:', bestMatch.navn);
+        console.log('  - primaryItem?.description:', primaryItem?.description);
+        console.log('  - Final itemName:', itemName);
         
         return {
           id: Math.random().toString(),
