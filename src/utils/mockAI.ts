@@ -64,6 +64,8 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const cleanTerm = term.toLowerCase().trim();
       if (cleanTerm.length < 2) continue;
 
+      console.log(`🔍 Searching database for term: "${cleanTerm}"`);
+
       // Prioritize exact matches first for better performance
       const { data, error } = await supabase
         .from('demo')
@@ -71,9 +73,16 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
         .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%`)
         .limit(10);
 
-      if (!error && data?.length) {
-        console.log(`✅ Found ${data.length} matches for "${cleanTerm}"`);
+      if (error) {
+        console.error(`❌ Database error for term "${cleanTerm}":`, error);
+        continue;
+      }
+
+      if (data?.length) {
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(d => `${d.navn} (${d.hjem})`));
         allResults.push(...data);
+      } else {
+        console.log(`❌ No matches found for term: "${cleanTerm}"`);
       }
     }
     
@@ -82,7 +91,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       new Map(allResults.map(item => [item.id, item])).values()
     ).slice(0, 15); // Limit to 15 results max for performance
 
-    console.log(`🎯 Total results: ${uniqueResults.length}`);
+    console.log(`🎯 Total unique results: ${uniqueResults.length}`);
 
     // Simplified scoring for better performance
     return uniqueResults.sort((a, b) => {
@@ -92,12 +101,27 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
+      console.log(`🎯 Scoring results for primary term: "${primaryTerm}"`);
+      
       // Special boost for electronics when searching for oplader/strømforsyning
-      if (primaryTerm.includes('oplader') || primaryTerm === 'strømforsyning') {
-        if (a.navn?.toLowerCase() === 'strømforsyning') aScore += 2000;
-        if (b.navn?.toLowerCase() === 'strømforsyning') bScore += 2000;
-        if (a.synonymer?.toLowerCase().includes('oplader')) aScore += 1500;
-        if (b.synonymer?.toLowerCase().includes('oplader')) bScore += 1500;
+      if (primaryTerm.includes('oplader') || primaryTerm.includes('strømforsyning')) {
+        console.log('⚡ Applying electronics boost for', primaryTerm);
+        if (a.navn?.toLowerCase() === 'strømforsyning') {
+          aScore += 2000;
+          console.log(`⚡ Boosting ${a.navn} by 2000 points`);
+        }
+        if (b.navn?.toLowerCase() === 'strømforsyning') {
+          bScore += 2000;
+          console.log(`⚡ Boosting ${b.navn} by 2000 points`);
+        }
+        if (a.synonymer?.toLowerCase().includes('oplader')) {
+          aScore += 1500;
+          console.log(`⚡ Boosting ${a.navn} by 1500 points for oplader synonym`);
+        }
+        if (b.synonymer?.toLowerCase().includes('oplader')) {
+          bScore += 1500;
+          console.log(`⚡ Boosting ${b.navn} by 1500 points for oplader synonym`);
+        }
       }
       
       // Exact name match (highest priority)
@@ -131,7 +155,9 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
       if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
       
-      return bScore - aScore;
+      const finalScore = bScore - aScore;
+      console.log(`📊 Final scores: ${a.navn}: ${aScore}, ${b.navn}: ${bScore} (diff: ${finalScore})`);
+      return finalScore;
     }).slice(0, 8); // Limit to 8 results for better performance
 
   } catch (error) {
@@ -168,16 +194,22 @@ const findBestMatches = async (labels: VisionLabel[]) => {
   for (const label of filteredLabels) {
     let searchTerm = label.description;
     
+    console.log('🔍 Processing search term:', searchTerm);
+    
     // Smart mapping for common items
     if (searchTerm?.toLowerCase().includes('juicekarton')) {
       searchTerms.push('juicekarton');
       searchTerms.push('drikkekarton');
       searchTerms.push('kartoner');
-    } else if (searchTerm?.toLowerCase().includes('oplader')) {
-      // Map all types of chargers to the database terms
+      console.log('📦 Mapped to juice carton terms');
+    } else if (searchTerm?.toLowerCase().includes('strømforsyning') || searchTerm?.toLowerCase().includes('oplader')) {
+      // Map all types of chargers/power supplies to the database terms
+      console.log('⚡ Detected power supply/charger, mapping terms...');
       searchTerms.push('strømforsyning');
       searchTerms.push('oplader');
       searchTerms.push('mobiloplader');
+      // Also add the original term
+      if (searchTerm) searchTerms.push(searchTerm);
     } else if (searchTerm) {
       searchTerms.push(searchTerm);
     }
@@ -187,9 +219,12 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push(label.translatedText);
     }
     
-    // Add material only for specific cases
-    if (label.materiale && ['plastik', 'pap', 'glas', 'metal'].includes(label.materiale)) {
-      searchTerms.push(label.materiale);
+    // IGNORE material for electronics to prevent wrong categorization
+    if (label.materiale && ['pap', 'glas', 'metal'].includes(label.materiale)) {
+      // Only add non-electronic materials
+      if (!searchTerm?.toLowerCase().includes('strømforsyning') && !searchTerm?.toLowerCase().includes('oplader')) {
+        searchTerms.push(label.materiale);
+      }
     }
   }
 
@@ -203,7 +238,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
     })
     .map(term => term.toLowerCase().trim());
 
-  console.log('🎯 Smart search terms:', cleanTerms);
+  console.log('🎯 Final search terms:', cleanTerms);
 
   if (cleanTerms.length === 0) {
     console.log('❌ No valid search terms found');
@@ -211,7 +246,7 @@ const findBestMatches = async (labels: VisionLabel[]) => {
   }
 
   const matches = await searchWasteInDatabase(cleanTerms);
-  console.log(`✅ Found ${matches.length} database matches`);
+  console.log(`✅ Found ${matches.length} database matches:`, matches.map(m => `${m.navn} (${m.hjem})`));
   
   return matches;
 };
