@@ -170,6 +170,10 @@ const findBestMatches = async (labels: VisionLabel[]) => {
       searchTerms.push('juicekarton');
       searchTerms.push('drikkekarton');
       searchTerms.push('kartoner');
+    } else if (searchTerm?.toLowerCase().includes('strømforsyning')) {
+      searchTerms.push('strømforsyning');
+      searchTerms.push('oplader');
+      searchTerms.push('mobiloplader');
     } else if (searchTerm) {
       searchTerms.push(searchTerm);
     }
@@ -330,7 +334,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         let homeCategory = "Restaffald";
         let recyclingCategory = "Genbrugsstation - generelt affald";
         
-        if (primaryLabel.materiale?.toLowerCase().includes('plastik') || primaryLabel.materiale?.toLowerCase().includes('plastic')) {
+        if (primaryLabel.materiale?.toLowerCase().includes('elektronik')) {
+          homeCategory = "Storskrald";
+          recyclingCategory = "Genbrugsstation - elektronik";
+        } else if (primaryLabel.materiale?.toLowerCase().includes('plastik') || primaryLabel.materiale?.toLowerCase().includes('plastic')) {
           homeCategory = "Plast";
           recyclingCategory = "Genbrugsstation - plast";
         } else if (primaryLabel.materiale?.toLowerCase().includes('metal')) {
