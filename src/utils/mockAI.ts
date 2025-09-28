@@ -379,66 +379,60 @@ const findBestMatches = async (labels: VisionLabel[]) => {
 
 // Filter labels to prioritize electronics over plastic variants of same item
 const filterSmartLabels = (labels: VisionLabel[]): VisionLabel[] => {
-  console.log('🎯 Starting smart label filtering...');
+  console.log('🎯 Starting smart label filtering for labels:', labels.map(l => `${l.description} (${l.materiale})`));
   
-  // Group labels by base description (remove material prefixes)
-  const groupedLabels = new Map<string, VisionLabel[]>();
+  // Special case: if we have electronic items, prioritize them and remove plastic variants
+  const electronicsLabels = labels.filter(label => 
+    label.materiale?.toLowerCase().includes('elektronik') ||
+    label.description?.toLowerCase().includes('elektronik') ||
+    label.description?.toLowerCase().includes('fjernbetjening') ||
+    label.description?.toLowerCase().includes('elektronisk')
+  );
   
-  labels.forEach(label => {
-    const description = label.description?.toLowerCase() || '';
+  if (electronicsLabels.length > 0) {
+    console.log('🔌 Found electronics labels:', electronicsLabels.map(l => l.description));
     
-    // Extract base description (remove material prefixes like "plastik ")
-    let baseDescription = description;
-    if (description.startsWith('plastik ')) {
-      baseDescription = description.replace('plastik ', '');
-    } else if (description.startsWith('metal ')) {
-      baseDescription = description.replace('metal ', '');
-    } else if (description.startsWith('glas ')) {
-      baseDescription = description.replace('glas ', '');
-    }
+    // Get base names of electronic items (without material prefixes)
+    const electronicBaseNames = electronicsLabels.map(label => {
+      let baseName = label.description?.toLowerCase() || '';
+      // Remove material prefixes
+      baseName = baseName.replace(/^(plastik|metal|glas)\s+/, '');
+      return baseName;
+    });
     
-    if (!groupedLabels.has(baseDescription)) {
-      groupedLabels.set(baseDescription, []);
-    }
-    groupedLabels.get(baseDescription)!.push(label);
-  });
-  
-  const filteredLabels: VisionLabel[] = [];
-  
-  // For each group, select the best label
-  groupedLabels.forEach((labelGroup, baseDescription) => {
-    if (labelGroup.length === 1) {
-      // Only one label for this item, keep it
-      filteredLabels.push(labelGroup[0]);
-    } else {
-      // Multiple labels for same item - prioritize by material type and score
-      console.log(`🔍 Found ${labelGroup.length} variants for "${baseDescription}":`, labelGroup.map(l => `${l.description} (${l.materiale}, ${l.score})`));
+    console.log('🔌 Electronic base names:', electronicBaseNames);
+    
+    // Filter out plastic/metal variants of electronic items
+    const filteredLabels = labels.filter(label => {
+      const desc = label.description?.toLowerCase() || '';
+      const material = label.materiale?.toLowerCase() || '';
       
-      // Sort by priority: electronics > others > plastic, then by score
-      const sorted = labelGroup.sort((a, b) => {
-        const aMaterial = a.materiale?.toLowerCase() || '';
-        const bMaterial = b.materiale?.toLowerCase() || '';
-        
-        // Electronics has highest priority
-        if (aMaterial.includes('elektronik') && !bMaterial.includes('elektronik')) return -1;
-        if (!aMaterial.includes('elektronik') && bMaterial.includes('elektronik')) return 1;
-        
-        // Plastic has lowest priority
-        if (aMaterial.includes('plast') && !bMaterial.includes('plast')) return 1;
-        if (!aMaterial.includes('plast') && bMaterial.includes('plast')) return -1;
-        
-        // Same material priority, sort by score
-        return b.score - a.score;
-      });
+      // Keep electronics
+      if (material.includes('elektronik') || desc.includes('elektronik') || desc.includes('fjernbetjening')) {
+        return true;
+      }
       
-      const bestLabel = sorted[0];
-      console.log(`✅ Selected best variant: ${bestLabel.description} (${bestLabel.materiale}, ${bestLabel.score})`);
-      filteredLabels.push(bestLabel);
-    }
-  });
+      // Remove plastic/metal variants of electronic items
+      const baseName = desc.replace(/^(plastik|metal|glas)\s+/, '');
+      const isVariantOfElectronic = electronicBaseNames.some(eName => 
+        baseName === eName || eName.includes(baseName) || baseName.includes(eName)
+      );
+      
+      if (isVariantOfElectronic && (material.includes('plast') || desc.startsWith('plastik '))) {
+        console.log(`❌ Filtering out plastic variant: ${label.description} (base: ${baseName})`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log('🎯 After electronics filtering:', filteredLabels.map(l => `${l.description} (${l.materiale})`));
+    return filteredLabels;
+  }
   
-  console.log('🎯 Smart filtering complete. Original:', labels.length, 'Filtered:', filteredLabels.length);
-  return filteredLabels;
+  // No electronics found, use regular filtering
+  console.log('🎯 No electronics found, using regular filtering');
+  return labels;
 };
 
 // Get icon for category
