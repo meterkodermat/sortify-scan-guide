@@ -182,7 +182,7 @@ const getIconForCategory = (category: string): string => {
 
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
   try {
-    console.log('🚀 Starting simple waste identification...');
+    console.log('🚀 Starting enhanced waste identification with multi-object scoring...');
     
     // Call the vision-proxy edge function for AI analysis
     const { data, error } = await supabase.functions.invoke('vision-proxy', {
@@ -197,114 +197,108 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     console.log('✅ Gemini labels:', data.labels);
 
     if (data?.labels && data.labels.length > 0) {
-      // Simple approach: take top labels and search database directly
-      let searchTerms = data.labels
-        .slice(0, 3) // Top 3 labels
-        .map(label => label.description)
-        .filter(desc => desc && desc.length > 1);
+      // NEW APPROACH: Score each Gemini detection individually
+      const scoredCandidates = [];
       
-      // Map generic terms to more specific database terms based on detected material
-      const detectedMaterial = data.labels[0]?.materiale?.toLowerCase() || '';
-      const mappedTerms = searchTerms.map(term => {
-        const lowerTerm = term.toLowerCase();
-        if (lowerTerm === 'papirark' || lowerTerm === 'papir ark') {
-          if (detectedMaterial === 'pap') {
-            return ['bog', 'kasse', 'emballage']; // Map to Pap category items
+      for (let i = 0; i < Math.min(data.labels.length, 5); i++) { // Process top 5 labels
+        const label = data.labels[i];
+        console.log(`\n🔍 Processing Gemini label ${i + 1}: "${label.description}" (confidence: ${label.score})`);
+        
+        // Generate search terms for this specific label
+        let searchTerms = [label.description];
+        
+        // Map generic terms to more specific database terms
+        const lowerDesc = label.description.toLowerCase();
+        if (lowerDesc.includes('pizza') || lowerDesc.includes('æske') || lowerDesc.includes('box')) {
+          searchTerms = ['kasse', 'pizza', 'emballage', label.description];
+        } else if (lowerDesc.includes('cardboard') || lowerDesc.includes('carton') || lowerDesc.includes('container')) {
+          searchTerms = ['kasse', 'emballage', 'pap', label.description];
+        } else if (lowerDesc === 'papirark' || lowerDesc === 'papir ark') {
+          if (label.materiale?.toLowerCase() === 'pap') {
+            searchTerms = ['bog', 'kasse', 'emballage', label.description];
           } else {
-            return ['avis', 'bog', 'konvolut']; // Map to Papir category items
+            searchTerms = ['avis', 'bog', 'konvolut', label.description];
           }
         }
-        // Map pizza-related terms to pizza box/cardboard
-        if (lowerTerm.includes('pizza') || lowerTerm.includes('æske') || lowerTerm.includes('box')) {
-          return ['kasse', 'pizza', 'emballage'];
-        }
-        // Map cardboard/box terms
-        if (lowerTerm.includes('cardboard') || lowerTerm.includes('carton') || lowerTerm.includes('container')) {
-          return ['kasse', 'emballage', 'pap'];
-        }
-        return [term];
-      }).flat();
-      
-      searchTerms = [...new Set([...searchTerms, ...mappedTerms])]; // Remove duplicates
-      
-      console.log('🔍 Original terms:', data.labels.map(l => l.description));
-      console.log('🔍 Enhanced search terms:', searchTerms);
-      
-      const matches = await searchWasteInDatabase(searchTerms);
-      
-      if (matches.length > 0) {
-        const bestMatch = matches[0];
-        console.log('✅ Using database result:', bestMatch.navn, '->', bestMatch.hjem);
         
-        // Filter out generic/broad matches when we have more specific alternatives
-        // Deprioritize "bonpapir" unless search terms clearly indicate receipt paper
-        if (bestMatch.navn.toLowerCase() === 'bonpapir') {
-          console.log('🔍 Bonpapir detected as best match, checking for better alternatives...');
-          console.log('🔍 Search terms:', searchTerms);
+        console.log(`🔍 Search terms for "${label.description}":`, searchTerms);
+        
+        // Find database matches for this specific label
+        const matches = await searchWasteInDatabase(searchTerms);
+        
+        if (matches.length > 0) {
+          const bestDbMatch = matches[0];
           
-          // Only use bonpapir if search terms clearly indicate receipt paper
-          const isReceiptPaper = searchTerms.some(term => {
-            const lowerTerm = term.toLowerCase();
-            return lowerTerm.includes('bon') || 
-                   lowerTerm.includes('kvittering') || 
-                   lowerTerm.includes('receipt');
+          // Calculate combined score: Gemini confidence × database match quality
+          let dbMatchQuality = 1.0; // Base quality
+          
+          // Boost quality for exact name matches
+          if (bestDbMatch.navn?.toLowerCase() === label.description.toLowerCase()) {
+            dbMatchQuality = 2.0;
+          }
+          
+          // Boost quality for specific objects over generic materials
+          const specificObjects = ['kasse', 'pizza', 'æske', 'flaske', 'dåse', 'bog', 'avis'];
+          if (specificObjects.some(obj => bestDbMatch.navn?.toLowerCase().includes(obj))) {
+            dbMatchQuality *= 1.5;
+          }
+          
+          // Boost quality for good recycling categories
+          const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
+          if (goodCategories.includes(bestDbMatch.hjem)) {
+            dbMatchQuality *= 1.2;
+          }
+          
+          // Penalize "Restaffald"
+          if (bestDbMatch.hjem === 'Restaffald') {
+            dbMatchQuality *= 0.5;
+          }
+          
+          // Penalize generic materials when specific objects are available
+          const genericMaterials = ['aluminiumsfolie', 'plastikfolie', 'metalfolie'];
+          if (genericMaterials.some(material => bestDbMatch.navn?.toLowerCase().includes(material))) {
+            dbMatchQuality *= 0.7;
+          }
+          
+          const combinedScore = label.score * dbMatchQuality;
+          
+          console.log(`📊 Scoring for "${label.description}":`, {
+            geminiScore: label.score,
+            dbMatch: bestDbMatch.navn,
+            dbCategory: bestDbMatch.hjem,
+            dbMatchQuality,
+            combinedScore
           });
           
-           if (!isReceiptPaper && matches.length > 1) {
-             console.log('🔍 No clear receipt indicators, looking for better paper alternative...');
-             // First try to find other paper items that sort as "Papir" 
-             const paperMatch = matches.find((match, index) => 
-               index > 0 && 
-               match.navn.toLowerCase() !== 'bonpapir' &&
-               match.hjem === 'Papir'
-             );
-             
-             if (paperMatch) {
-               console.log('✅ Found better paper match:', paperMatch.navn);
-               return {
-                 id: Math.random().toString(),
-                 name: paperMatch.navn,
-                 image: getIconForCategory(paperMatch.hjem || ""),
-                 homeCategory: paperMatch.hjem || "Restaffald", 
-                 recyclingCategory: paperMatch.genbrugsplads || "Genbrugsstation - generelt affald",
-                 description: `Identificeret ved hjælp af AI-analyse. ${paperMatch.variation ? `Variation: ${paperMatch.variation}. ` : ''}${paperMatch.tilstand ? `Tilstand: ${paperMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
-                 confidence: data.labels[0]?.score || 0.8,
-                 timestamp: new Date(),
-                 aiThoughtProcess: data.thoughtProcess
-               };
-             }
-             
-             // If no proper paper match, find any alternative that doesn't sort as "Restaffald"
-             const alternativeMatch = matches.find((match, index) => 
-               index > 0 && 
-               match.navn.toLowerCase() !== 'bonpapir' &&
-               match.hjem !== 'Restaffald'
-             );
-             if (alternativeMatch) {
-               console.log('✅ Found better alternative match:', alternativeMatch.navn);
-               return {
-                 id: Math.random().toString(),
-                 name: alternativeMatch.navn,
-                 image: getIconForCategory(alternativeMatch.hjem || ""),
-                 homeCategory: alternativeMatch.hjem || "Restaffald",
-                 recyclingCategory: alternativeMatch.genbrugsplads || "Genbrugsstation - generelt affald",
-                 description: `Identificeret ved hjælp af AI-analyse. ${alternativeMatch.variation ? `Variation: ${alternativeMatch.variation}. ` : ''}${alternativeMatch.tilstand ? `Tilstand: ${alternativeMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
-                 confidence: data.labels[0]?.score || 0.8,
-                 timestamp: new Date(),
-                 aiThoughtProcess: data.thoughtProcess
-               };
-             }
-            }
+          scoredCandidates.push({
+            label,
+            dbMatch: bestDbMatch,
+            combinedScore,
+            dbMatchQuality
+          });
         }
+      }
+      
+      // Sort by combined score and select the best candidate
+      scoredCandidates.sort((a, b) => b.combinedScore - a.combinedScore);
+      
+      console.log('\n🏆 Final scoring results:');
+      scoredCandidates.forEach((candidate, index) => {
+        console.log(`${index + 1}. "${candidate.label.description}" -> "${candidate.dbMatch.navn}" (${candidate.dbMatch.hjem}) - Score: ${candidate.combinedScore.toFixed(3)}`);
+      });
+      
+      if (scoredCandidates.length > 0) {
+        const winner = scoredCandidates[0];
+        console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}" (${winner.dbMatch.hjem})`);
         
         return {
           id: Math.random().toString(),
-          name: bestMatch.navn,
-          image: getIconForCategory(bestMatch.hjem || ""),
-          homeCategory: bestMatch.hjem || "Restaffald",
-          recyclingCategory: bestMatch.genbrugsplads || "Genbrugsstation - generelt affald",
-          description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
-          confidence: data.labels[0]?.score || 0.8,
+          name: winner.dbMatch.navn,
+          image: getIconForCategory(winner.dbMatch.hjem || ""),
+          homeCategory: winner.dbMatch.hjem || "Restaffald",
+          recyclingCategory: winner.dbMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+          description: `Identificeret ved hjælp af AI-analyse. ${winner.dbMatch.variation ? `Variation: ${winner.dbMatch.variation}. ` : ''}${winner.dbMatch.tilstand ? `Tilstand: ${winner.dbMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+          confidence: winner.label.score || 0.8,
           timestamp: new Date(),
           aiThoughtProcess: data.thoughtProcess
         };
