@@ -214,6 +214,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             return ['avis', 'bog', 'konvolut']; // Map to Papir category items
           }
         }
+        // Map pizza-related terms to pizza box/cardboard
+        if (lowerTerm.includes('pizza') || lowerTerm.includes('æske') || lowerTerm.includes('box')) {
+          return ['kasse', 'pizza', 'emballage'];
+        }
+        // Map cardboard/box terms
+        if (lowerTerm.includes('cardboard') || lowerTerm.includes('carton') || lowerTerm.includes('container')) {
+          return ['kasse', 'emballage', 'pap'];
+        }
         return [term];
       }).flat();
       
