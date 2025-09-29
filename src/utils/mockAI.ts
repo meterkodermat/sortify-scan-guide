@@ -35,7 +35,7 @@ interface VisionResponse {
   error?: string;
 }
 
-// Enhanced database search with better Danish character handling and sensitivity
+// Enhanced database search with clean variant prioritization
 const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   console.log('🔍 searchWasteInDatabase called with terms:', searchTerms);
   
@@ -57,12 +57,12 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
 
-      // Prioritize exact matches first for better performance
+      // Search for matches including clean/dirty variants
       const { data, error } = await supabase
         .from('demo')
         .select('*')
         .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%`)
-        .limit(10);
+        .limit(20); // Increased limit to capture all variants
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -70,25 +70,67 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       }
 
       if (data?.length) {
-        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(d => `${d.navn} (${d.hjem})`));
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(d => `${d.navn} (${d.hjem}) [${d.tilstand || 'no condition'}]`));
         allResults.push(...data);
       } else {
         console.log(`❌ No matches found for term: "${cleanTerm}"`);
       }
     }
     
-    // Remove duplicates by id and limit total results
+    // Remove duplicates by id
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.id, item])).values()
-    ).slice(0, 15); // Limit to 15 results max for performance
+    );
 
     console.log(`🎯 Total unique results: ${uniqueResults.length}`);
 
-    // Simplified scoring for better performance with category prioritization
-    return uniqueResults.sort((a, b) => {
+    // Group by name to handle clean/dirty variants of the same object
+    const groupedByName = new Map();
+    uniqueResults.forEach(item => {
+      const name = item.navn?.toLowerCase() || '';
+      if (!groupedByName.has(name)) {
+        groupedByName.set(name, []);
+      }
+      groupedByName.get(name).push(item);
+    });
+
+    // For each name group, prioritize clean variants
+    const prioritizedResults = [];
+    groupedByName.forEach((variants, name) => {
+      if (variants.length === 1) {
+        prioritizedResults.push(variants[0]);
+      } else {
+        // Sort variants to prioritize clean ones
+        const sortedVariants = variants.sort((a, b) => {
+          const aCondition = (a.tilstand || '').toLowerCase();
+          const bCondition = (b.tilstand || '').toLowerCase();
+          
+          // Prioritize clean conditions
+          const aIsClean = aCondition.includes('rent') || aCondition.includes('tør');
+          const bIsClean = bCondition.includes('rent') || bCondition.includes('tør');
+          
+          if (aIsClean && !bIsClean) return -1;
+          if (!aIsClean && bIsClean) return 1;
+          
+          // If both are clean or both are dirty, prefer non-Restaffald
+          const aIsRestaffald = a.hjem === 'Restaffald';
+          const bIsRestaffald = b.hjem === 'Restaffald';
+          
+          if (!aIsRestaffald && bIsRestaffald) return -1;
+          if (aIsRestaffald && !bIsRestaffald) return 1;
+          
+          return 0;
+        });
+        
+        console.log(`🔄 Prioritized "${name}": ${sortedVariants[0].hjem} (${sortedVariants[0].tilstand || 'no condition'}) over ${sortedVariants.length - 1} other variant(s)`);
+        prioritizedResults.push(sortedVariants[0]);
+      }
+    });
+
+    // Score and sort the prioritized results
+    return prioritizedResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
-      // Only use first search term for scoring to improve performance
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
@@ -98,7 +140,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
       
-      // Name contains term (lower priority for partial matches)
+      // Name contains term
       if (a.navn?.toLowerCase().includes(primaryTerm)) aScore += 300;
       if (b.navn?.toLowerCase().includes(primaryTerm)) bScore += 300;
       
@@ -106,17 +148,27 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
       if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
       
+      // Condition-based scoring
+      const aCondition = (a.tilstand || '').toLowerCase();
+      const bCondition = (b.tilstand || '').toLowerCase();
+      
+      if (aCondition.includes('rent') || aCondition.includes('tør')) aScore += 200;
+      if (bCondition.includes('rent') || bCondition.includes('tør')) bScore += 200;
+      
+      if (aCondition.includes('beskidt') || aCondition.includes('ikke tømt')) aScore -= 100;
+      if (bCondition.includes('beskidt') || bCondition.includes('ikke tømt')) bScore -= 100;
+      
       // Category prioritization - prefer proper recycling categories over "Restaffald"
       const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
-      if (goodCategories.includes(a.hjem)) aScore += 100;
-      if (goodCategories.includes(b.hjem)) bScore += 100;
+      if (goodCategories.includes(a.hjem)) aScore += 150;
+      if (goodCategories.includes(b.hjem)) bScore += 150;
       
-      // Penalize "Restaffald" when better alternatives exist
-      if (a.hjem === 'Restaffald') aScore -= 50;
-      if (b.hjem === 'Restaffald') bScore -= 50;
+      // Strong penalty for "Restaffald" when better alternatives exist
+      if (a.hjem === 'Restaffald') aScore -= 200;
+      if (b.hjem === 'Restaffald') bScore -= 200;
       
       const finalScore = bScore - aScore;
-      console.log(`📊 Final scores: ${a.navn}: ${aScore}, ${b.navn}: ${bScore} (diff: ${finalScore})`);
+      console.log(`📊 Final scores: ${a.navn} (${a.tilstand || 'no condition'}): ${aScore}, ${b.navn} (${b.tilstand || 'no condition'}): ${bScore} (diff: ${finalScore})`);
       return finalScore;
     }).slice(0, 8); // Limit to 8 results for better performance
 
