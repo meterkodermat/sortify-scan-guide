@@ -84,7 +84,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
 
     console.log(`🎯 Total unique results: ${uniqueResults.length}`);
 
-    // Simplified scoring for better performance
+    // Simplified scoring for better performance with category prioritization
     return uniqueResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
@@ -105,6 +105,15 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       // Synonym match
       if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
       if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
+      
+      // Category prioritization - prefer proper recycling categories over "Restaffald"
+      const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
+      if (goodCategories.includes(a.hjem)) aScore += 100;
+      if (goodCategories.includes(b.hjem)) bScore += 100;
+      
+      // Penalize "Restaffald" when better alternatives exist
+      if (a.hjem === 'Restaffald') aScore -= 50;
+      if (b.hjem === 'Restaffald') bScore -= 50;
       
       const finalScore = bScore - aScore;
       console.log(`📊 Final scores: ${a.navn}: ${aScore}, ${b.navn}: ${bScore} (diff: ${finalScore})`);
