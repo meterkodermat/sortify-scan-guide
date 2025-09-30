@@ -357,8 +357,31 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       }
     }
     
-    // Fallback if no matches found
-    console.log('❌ No database matches found - returning fallback result');
+    // Fallback: Try to use material information from Gemini if available
+    console.log('❌ No database matches found - checking for material-based fallback');
+    
+    if (data?.labels && data.labels.length > 0) {
+      const topLabel = data.labels[0];
+      if (topLabel.materiale) {
+        console.log(`🔄 Using material-based fallback for "${topLabel.description}" with material "${topLabel.materiale}"`);
+        const sorting = getMaterialSorting(topLabel.materiale, topLabel.description);
+        
+        return {
+          id: Math.random().toString(),
+          name: topLabel.description || "Ukendt genstand",
+          image: getIconForCategory(sorting.hjem),
+          homeCategory: sorting.hjem,
+          recyclingCategory: sorting.genbrugsplads,
+          description: `Identificeret som ${topLabel.materiale}. Genstanden findes ikke i vores database, men baseret på materialet anbefales sortering som angivet. Kontakt din lokale genbrugsstation hvis du er i tvivl.`,
+          confidence: topLabel.score || 0.6,
+          timestamp: new Date(),
+          aiThoughtProcess: data.thoughtProcess
+        };
+      }
+    }
+    
+    // Final fallback if no material information available
+    console.log('❌ No material information available - returning generic fallback');
     
     return {
       id: Math.random().toString(),
