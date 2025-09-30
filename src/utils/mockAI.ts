@@ -47,22 +47,22 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   try {
     console.log(`🔍 Database search with ${searchTerms.length} terms`);
     
-    // Limit search terms to most relevant ones to improve performance
-    const limitedTerms = searchTerms.slice(0, 3);
+    // Use more search terms for better sensitivity (top 8 instead of 3)
+    const limitedTerms = searchTerms.slice(0, 8);
     const allResults = [];
       
     for (const term of limitedTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 2) continue;
+      if (cleanTerm.length < 1) continue; // Accept single character searches
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
 
-      // Search for matches including clean/dirty variants
+      // Search for matches including variation field and with fuzzy matching
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%`)
-        .limit(20); // Increased limit to capture all variants
+        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%`)
+        .limit(30); // Increased limit to capture more variants
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -170,7 +170,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const finalScore = bScore - aScore;
       console.log(`📊 Final scores: ${a.navn} (${a.tilstand || 'no condition'}): ${aScore}, ${b.navn} (${b.tilstand || 'no condition'}): ${bScore} (diff: ${finalScore})`);
       return finalScore;
-    }).slice(0, 8); // Limit to 8 results for better performance
+    }).slice(0, 12); // Increased to 12 results for better matching
 
   } catch (error) {
     console.error('Database search error:', error.message);
@@ -260,25 +260,27 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       // NEW APPROACH: Score each Gemini detection individually
       const scoredCandidates = [];
       
-      for (let i = 0; i < Math.min(data.labels.length, 5); i++) { // Process top 5 labels
+      for (let i = 0; i < Math.min(data.labels.length, 8); i++) { // Process top 8 labels for better sensitivity
         const label = data.labels[i];
         console.log(`\n🔍 Processing Gemini label ${i + 1}: "${label.description}" (confidence: ${label.score})`);
         
-        // Generate search terms for this specific label
+        // Generate search terms for this specific label - include more variations
         let searchTerms = [label.description];
         
         // Map generic terms to more specific database terms
         const lowerDesc = label.description.toLowerCase();
         if (lowerDesc.includes('pizza') || lowerDesc.includes('æske') || lowerDesc.includes('box')) {
-          searchTerms = ['kasse', 'pizza', 'emballage', label.description];
+          searchTerms = ['kasse', 'pizza', 'æske', 'emballage', 'karton', label.description];
         } else if (lowerDesc.includes('cardboard') || lowerDesc.includes('carton') || lowerDesc.includes('container')) {
-          searchTerms = ['kasse', 'emballage', 'pap', label.description];
+          searchTerms = ['kasse', 'emballage', 'pap', 'karton', label.description];
         } else if (lowerDesc === 'papirark' || lowerDesc === 'papir ark') {
           if (label.materiale?.toLowerCase() === 'pap') {
             searchTerms = ['bog', 'kasse', 'emballage', label.description];
           } else {
             searchTerms = ['avis', 'bog', 'konvolut', label.description];
           }
+        } else if (lowerDesc.includes('plastik') || lowerDesc.includes('plastic') || lowerDesc.includes('plast')) {
+          searchTerms = ['plastik', 'plast', 'plastikemballage', 'plastpose', label.description];
         }
         
         console.log(`🔍 Search terms for "${label.description}":`, searchTerms);
