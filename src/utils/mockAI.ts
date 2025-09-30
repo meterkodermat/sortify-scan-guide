@@ -353,16 +353,19 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const winner = scoredCandidates[0];
         console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}" (${winner.dbMatch.hjem})`);
         
-        // If AI provided material classification, use it for sorting (overrides database)
+        // Use database values directly - they are already correct
         let homeCategory = winner.dbMatch.hjem || "Restaffald";
         let recyclingCategory = winner.dbMatch.genbrugsplads || "Genbrugsstation - generelt affald";
         
-        if (winner.label.materiale) {
-          console.log(`\n🤖 AI provided material: "${winner.label.materiale}" - using getMaterialSorting`);
+        console.log(`✅ Using database values: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
+        
+        // Only use AI material classification as fallback if database doesn't have values
+        if ((!winner.dbMatch.hjem || !winner.dbMatch.genbrugsplads) && winner.label.materiale) {
+          console.log(`\n🤖 Database missing values, using AI material: "${winner.label.materiale}"`);
           const aiSorting = getMaterialSorting(winner.label.materiale, winner.label.description);
-          homeCategory = aiSorting.hjem;
-          recyclingCategory = aiSorting.genbrugsplads;
-          console.log(`✅ AI sorting result: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
+          if (!winner.dbMatch.hjem) homeCategory = aiSorting.hjem;
+          if (!winner.dbMatch.genbrugsplads) recyclingCategory = aiSorting.genbrugsplads;
+          console.log(`✅ AI sorting fallback: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
         }
         
         return {

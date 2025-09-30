@@ -219,7 +219,6 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
                   <Recycle className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">Genbrugsplads</h3>
                   <div className="mt-2">
                     <span className="font-semibold text-lg">{item.recyclingCategory}</span>
                   </div>
