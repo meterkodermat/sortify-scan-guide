@@ -351,12 +351,24 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         const winner = scoredCandidates[0];
         console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}" (${winner.dbMatch.hjem})`);
         
+        // If AI provided material classification, use it for sorting (overrides database)
+        let homeCategory = winner.dbMatch.hjem || "Restaffald";
+        let recyclingCategory = winner.dbMatch.genbrugsplads || "Genbrugsstation - generelt affald";
+        
+        if (winner.label.materiale) {
+          console.log(`\n🤖 AI provided material: "${winner.label.materiale}" - using getMaterialSorting`);
+          const aiSorting = getMaterialSorting(winner.label.materiale, winner.label.description);
+          homeCategory = aiSorting.hjem;
+          recyclingCategory = aiSorting.genbrugsplads;
+          console.log(`✅ AI sorting result: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
+        }
+        
         return {
           id: Math.random().toString(),
           name: winner.dbMatch.navn,
-          image: getIconForCategory(winner.dbMatch.hjem || ""),
-          homeCategory: winner.dbMatch.hjem || "Restaffald",
-          recyclingCategory: winner.dbMatch.genbrugsplads || "Genbrugsstation - generelt affald",
+          image: getIconForCategory(homeCategory),
+          homeCategory: homeCategory,
+          recyclingCategory: recyclingCategory,
           description: `Identificeret ved hjælp af AI-analyse. ${winner.dbMatch.variation ? `Variation: ${winner.dbMatch.variation}. ` : ''}${winner.dbMatch.tilstand ? `Tilstand: ${winner.dbMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
           confidence: winner.label.score || 0.8,
           timestamp: new Date(),
