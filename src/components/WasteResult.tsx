@@ -192,7 +192,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         )}
 
         {/* Main Sorting Instructions (for single item or primary sorting) */}
-        {!hasMultipleComponents && (
+        {!hasMultipleComponents && item.name !== "Ikke fundet i databasen" && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
             
@@ -227,6 +227,18 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
               </div>
             </Card>
           </div>
+        )}
+        
+        {/* Message when not found in database */}
+        {item.name === "Ikke fundet i databasen" && (
+          <Card className="p-6 bg-muted/30 border-dashed">
+            <div className="flex items-start">
+              <Info className="h-5 w-5 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-muted-foreground">
+                <p>{item.description}</p>
+              </div>
+            </div>
+          </Card>
         )}
 
         {/* AI Analysis Process (if available) */}
