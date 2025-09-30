@@ -48,12 +48,12 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
     console.log(`🔍 Database search with ${searchTerms.length} terms`);
     
     // Limit search terms to most relevant ones to improve performance
-    const limitedTerms = searchTerms.slice(0, 5);
+    const limitedTerms = searchTerms.slice(0, 3);
     const allResults = [];
       
     for (const term of limitedTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 1) continue;
+      if (cleanTerm.length < 2) continue;
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
 
@@ -61,8 +61,8 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%`)
-        .limit(30); // Increased limit to capture all variants
+        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%`)
+        .limit(20); // Increased limit to capture all variants
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -170,7 +170,7 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       const finalScore = bScore - aScore;
       console.log(`📊 Final scores: ${a.navn} (${a.tilstand || 'no condition'}): ${aScore}, ${b.navn} (${b.tilstand || 'no condition'}): ${bScore} (diff: ${finalScore})`);
       return finalScore;
-    }).slice(0, 12); // Limit to 12 results for better performance
+    }).slice(0, 8); // Limit to 8 results for better performance
 
   } catch (error) {
     console.error('Database search error:', error.message);
@@ -252,7 +252,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
       // NEW APPROACH: Score each Gemini detection individually
       const scoredCandidates = [];
       
-      for (let i = 0; i < Math.min(data.labels.length, 8); i++) { // Process top 8 labels
+      for (let i = 0; i < Math.min(data.labels.length, 5); i++) { // Process top 5 labels
         const label = data.labels[i];
         console.log(`\n🔍 Processing Gemini label ${i + 1}: "${label.description}" (confidence: ${label.score})`);
         
