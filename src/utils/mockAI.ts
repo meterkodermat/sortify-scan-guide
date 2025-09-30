@@ -362,7 +362,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     
     return {
       id: Math.random().toString(),
-      name: "Genstand ikke fundet i database", 
+      name: "Ikke fundet i databasen", 
       image: getIconForCategory("Restaffald"),
       homeCategory: "Restaffald",
       recyclingCategory: "Genbrugsstation - generelt affald",
@@ -375,7 +375,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     console.error('❌ Error in identifyWaste:', error);
     return {
       id: Math.random().toString(),
-      name: "Genstand ikke fundet i database",
+      name: "Ikke fundet i databasen",
       image: getIconForCategory("Restaffald"),
       homeCategory: "Restaffald",  
       recyclingCategory: "Genbrugsstation - generelt affald",
