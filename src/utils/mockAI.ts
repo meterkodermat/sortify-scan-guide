@@ -265,8 +265,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           searchTerms = ['kasse', 'pizza', 'emballage', label.description];
         } else if (lowerDesc.includes('cardboard') || lowerDesc.includes('carton') || lowerDesc.includes('container')) {
           searchTerms = ['kasse', 'emballage', 'pap', label.description];
-        } else if (lowerDesc.includes('silkepapir') || lowerDesc.includes('silke papir') || lowerDesc.includes('tissue paper')) {
-          searchTerms = ['gavepapir', 'indpakningspapir', 'gaveindpakning', label.description];
         } else if (lowerDesc === 'papirark' || lowerDesc === 'papir ark') {
           if (label.materiale?.toLowerCase() === 'pap') {
             searchTerms = ['bog', 'kasse', 'emballage', label.description];
