@@ -188,9 +188,17 @@ const getMaterialSorting = (materiale: string, description?: string): { hjem: st
   if (material.includes('elektronik') || material.includes('elektronisk')) {
     console.log('✅ Matched electronic material, returning Farligt affald');
     return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
-  } else if (material.includes('plastik') || material.includes('plast')) {
-    console.log('✅ Matched plastic material, returning Plast');
+  } else if (material.includes('blød plastik') || material.includes('blød plast') || 
+             material.includes('plastpose') || material.includes('plastfolie') || 
+             material.includes('plastfilm') || material.includes('plastindpakning')) {
+    console.log('✅ Matched soft plastic material, returning Plast');
+    return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - plast' };
+  } else if (material.includes('hård plastik') || material.includes('hård plast')) {
+    console.log('✅ Matched hard plastic material, returning Plast / Hård plast');
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
+  } else if (material.includes('plastik') || material.includes('plast')) {
+    console.log('✅ Matched generic plastic material, returning Plast (default)');
+    return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - plast' };
   } else if (material.includes('metal') || material.includes('stål') || material.includes('aluminium')) {
     console.log('✅ Matched metal material, returning Metal');
     return { hjem: 'Metal', genbrugsplads: 'Genbrugsstation - metal' };
