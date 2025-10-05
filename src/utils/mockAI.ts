@@ -486,10 +486,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     return {
       id: Math.random().toString(),
       name: NOT_FOUND_MESSAGE,
-      image: getIconForCategory("Restaffald"),
-      homeCategory: "Restaffald",
-      recyclingCategory: "Genbrugsstation - generelt affald",
-      description: "Genstanden kunne ikke identificeres i vores database. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.",
+      image: "",
+      homeCategory: "",
+      recyclingCategory: "",
+      description: "Genstanden kunne ikke identificeres i vores database. Prøv at søge efter det manuelt eller kontakt din lokale genbrugsstation for vejledning.",
       confidence: 0,
       timestamp: new Date(),
       aiThoughtProcess: decisionLog.join('\n')
@@ -502,10 +502,10 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     return {
       id: Math.random().toString(),
       name: NOT_FOUND_MESSAGE,
-      image: getIconForCategory("Restaffald"),
-      homeCategory: "Restaffald",  
-      recyclingCategory: "Genbrugsstation - generelt affald",
-      description: "Der opstod en fejl under analysen. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.",
+      image: "",
+      homeCategory: "",
+      recyclingCategory: "",
+      description: "Der opstod en fejl under analysen. Prøv at søge efter det manuelt eller kontakt din lokale genbrugsstation for vejledning.",
       confidence: 0,
       timestamp: new Date(),
       aiThoughtProcess: decisionLog.join('\n')

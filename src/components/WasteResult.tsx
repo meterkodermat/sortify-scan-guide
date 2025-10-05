@@ -193,7 +193,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         )}
 
         {/* Main Sorting Instructions (for single item or primary sorting) */}
-        {!hasMultipleComponents && item.name !== NOT_FOUND_MESSAGE && (
+        {!hasMultipleComponents && item.name !== NOT_FOUND_MESSAGE && item.homeCategory && item.recyclingCategory && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
             
