@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Home, Recycle, Info } from "lucide-react";
+import { NOT_FOUND_MESSAGE } from "@/utils/mockAI";
 import farligtAffaldImg from "@/assets/farligtaffald.png";
 import glasImg from "@/assets/glas.png";
 import madDrikkeKartonerImg from "@/assets/mad-drikke-kartoner.png";
@@ -192,7 +193,7 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
         )}
 
         {/* Main Sorting Instructions (for single item or primary sorting) */}
-        {!hasMultipleComponents && item.name !== "Ikke fundet i databasen" && (
+        {!hasMultipleComponents && item.name !== NOT_FOUND_MESSAGE && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Sortering:</h2>
             
@@ -212,13 +213,14 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
               </div>
             </Card>
 
-            {/* Recycling Center */}
+            {/* Recycling Center - PHASE 3: Restored header */}
             <Card className="p-4 bg-card border-2 border-muted/50">
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-muted/20 rounded-lg">
                   <Recycle className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
+                  <h3 className="font-semibold">Genbrugsplads</h3>
                   <div className="mt-2">
                     <span className="font-semibold text-lg">{item.recyclingCategory}</span>
                   </div>
@@ -228,8 +230,8 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
           </div>
         )}
         
-        {/* Message when not found in database */}
-        {item.name === "Ikke fundet i databasen" && (
+        {/* Message when not found in database - PHASE 1: Use constant */}
+        {item.name === NOT_FOUND_MESSAGE && (
           <Card className="p-6 bg-muted/30 border-dashed">
             <div className="flex items-start">
               <Info className="h-5 w-5 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -240,15 +242,21 @@ export const WasteResult = ({ item, onBack, onHome, scannedImage }: WasteResultP
           </Card>
         )}
 
-        {/* AI Analysis Process (if available) */}
+        {/* AI Analysis Process - PHASE 7: Expandable section */}
         {item.aiThoughtProcess && (
           <Card className="p-4 bg-muted/30 border-dashed">
-            <div className="flex items-start">
-              <Info className="h-4 w-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-muted-foreground">
-                <p className="italic">{item.aiThoughtProcess}</p>
+            <details className="group">
+              <summary className="flex items-center cursor-pointer list-none">
+                <Info className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm font-medium text-muted-foreground">AI Analyse (klik for detaljer)</span>
+                <svg className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div className="mt-3 text-xs text-muted-foreground font-mono whitespace-pre-wrap">
+                {item.aiThoughtProcess}
               </div>
-            </div>
+            </details>
           </Card>
         )}
 

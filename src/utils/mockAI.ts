@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// ============= PHASE 1: Standardize "Not Found" message =============
+export const NOT_FOUND_MESSAGE = "Ikke fundet i databasen";
+
 interface WasteItem {
   id: string;
   name: string;
@@ -35,9 +38,9 @@ interface VisionResponse {
   error?: string;
 }
 
-// Enhanced database search with clean variant prioritization
-const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
-  console.log('🔍 searchWasteInDatabase called with terms:', searchTerms);
+// ============= PHASE 4: Enhanced database search with material-aware scoring =============
+const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string): Promise<any[]> => {
+  console.log('🔍 searchWasteInDatabase called with terms:', searchTerms, 'AI material:', aiMaterial);
   
   if (!searchTerms.length) {
     console.log('❌ No search terms provided');
@@ -47,22 +50,20 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   try {
     console.log(`🔍 Database search with ${searchTerms.length} terms`);
     
-    // Use more search terms for better sensitivity (top 8 instead of 3)
     const limitedTerms = searchTerms.slice(0, 8);
     const allResults = [];
       
     for (const term of limitedTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 1) continue; // Accept single character searches
+      if (cleanTerm.length < 1) continue;
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
 
-      // Search for matches including variation field and with fuzzy matching
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%`)
-        .limit(30); // Increased limit to capture more variants
+        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
+        .limit(30);
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -70,21 +71,21 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       }
 
       if (data?.length) {
-        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, data.map(d => `${d.navn} (${d.hjem}) [${d.tilstand || 'no condition'}]`));
+        console.log(`✅ Found ${data.length} matches for "${cleanTerm}":`, 
+          data.map(d => `${d.navn} (Materiale: ${d.materiale || 'none'}, Hjem: ${d.hjem})`));
         allResults.push(...data);
       } else {
         console.log(`❌ No matches found for term: "${cleanTerm}"`);
       }
     }
     
-    // Remove duplicates by id
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.id, item])).values()
     );
 
     console.log(`🎯 Total unique results: ${uniqueResults.length}`);
 
-    // Group by name to handle clean/dirty variants of the same object
+    // PHASE 4: Group by name and prioritize material-matching variants
     const groupedByName = new Map();
     uniqueResults.forEach(item => {
       const name = item.navn?.toLowerCase() || '';
@@ -94,49 +95,84 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       groupedByName.get(name).push(item);
     });
 
-    // For each name group, prioritize clean variants
     const prioritizedResults = [];
     groupedByName.forEach((variants, name) => {
       if (variants.length === 1) {
         prioritizedResults.push(variants[0]);
       } else {
-        // Sort variants to prioritize clean ones
+        console.log(`🔄 Multiple variants found for "${name}":`, variants.map(v => 
+          `${v.materiale || 'no material'} -> ${v.hjem}`));
+        
+        // Sort variants with material-aware prioritization
         const sortedVariants = variants.sort((a, b) => {
+          let aScore = 0, bScore = 0;
+          
+          // PHASE 4: Material matching score
+          if (aiMaterial) {
+            const aiMat = aiMaterial.toLowerCase();
+            const aMat = (a.materiale || '').toLowerCase();
+            const bMat = (b.materiale || '').toLowerCase();
+            
+            // Exact material match gets highest bonus
+            if (aMat === aiMat) aScore += 500;
+            if (bMat === aiMat) bScore += 500;
+            
+            // Partial material match
+            if (aMat.includes(aiMat) || aiMat.includes(aMat)) aScore += 300;
+            if (bMat.includes(aiMat) || aiMat.includes(bMat)) bScore += 300;
+            
+            // Special plastic handling
+            if (aiMat.includes('blød') && aMat.includes('blød')) aScore += 400;
+            if (aiMat.includes('blød') && bMat.includes('blød')) bScore += 400;
+            if (aiMat.includes('hård') && aMat.includes('hård')) aScore += 400;
+            if (aiMat.includes('hård') && bMat.includes('hård')) bScore += 400;
+            
+            console.log(`  Material scoring: "${a.materiale}" score=${aScore}, "${b.materiale}" score=${bScore}`);
+          }
+          
+          // Clean condition priority
           const aCondition = (a.tilstand || '').toLowerCase();
           const bCondition = (b.tilstand || '').toLowerCase();
           
-          // Prioritize clean conditions
           const aIsClean = aCondition.includes('rent') || aCondition.includes('tør');
           const bIsClean = bCondition.includes('rent') || bCondition.includes('tør');
           
-          if (aIsClean && !bIsClean) return -1;
-          if (!aIsClean && bIsClean) return 1;
+          if (aIsClean && !bIsClean) aScore += 200;
+          if (bIsClean && !aIsClean) bScore += 200;
           
-          // If both are clean or both are dirty, prefer non-Restaffald
-          const aIsRestaffald = a.hjem === 'Restaffald';
-          const bIsRestaffald = b.hjem === 'Restaffald';
+          // Prefer non-Restaffald
+          if (a.hjem !== 'Restaffald') aScore += 100;
+          if (b.hjem !== 'Restaffald') bScore += 100;
           
-          if (!aIsRestaffald && bIsRestaffald) return -1;
-          if (aIsRestaffald && !bIsRestaffald) return 1;
-          
-          return 0;
+          return bScore - aScore;
         });
         
-        console.log(`🔄 Prioritized "${name}": ${sortedVariants[0].hjem} (${sortedVariants[0].tilstand || 'no condition'}) over ${sortedVariants.length - 1} other variant(s)`);
+        console.log(`✅ Selected variant for "${name}": ${sortedVariants[0].materiale || 'no material'} -> ${sortedVariants[0].hjem}`);
         prioritizedResults.push(sortedVariants[0]);
       }
     });
 
-    // Score and sort the prioritized results
+    // Final scoring and sorting
     return prioritizedResults.sort((a, b) => {
       let aScore = 0, bScore = 0;
       
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
-      console.log(`🎯 Scoring results for primary term: "${primaryTerm}"`);
+      // PHASE 4: Add material precision bonus
+      if (aiMaterial) {
+        const aiMat = aiMaterial.toLowerCase();
+        const aMat = (a.materiale || '').toLowerCase();
+        const bMat = (b.materiale || '').toLowerCase();
+        
+        if (aMat === aiMat) aScore += 600;
+        if (bMat === aiMat) bScore += 600;
+        
+        if (aMat.includes(aiMat)) aScore += 400;
+        if (bMat.includes(aiMat)) bScore += 400;
+      }
       
-      // Exact name match (highest priority)
+      // Exact name match
       if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
       if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
       
@@ -148,29 +184,23 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
       if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
       if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
       
-      // Condition-based scoring
+      // Condition scoring
       const aCondition = (a.tilstand || '').toLowerCase();
       const bCondition = (b.tilstand || '').toLowerCase();
       
       if (aCondition.includes('rent') || aCondition.includes('tør')) aScore += 200;
       if (bCondition.includes('rent') || bCondition.includes('tør')) bScore += 200;
       
-      if (aCondition.includes('beskidt') || aCondition.includes('ikke tømt')) aScore -= 100;
-      if (bCondition.includes('beskidt') || bCondition.includes('ikke tømt')) bScore -= 100;
-      
-      // Category prioritization - prefer proper recycling categories over "Restaffald"
+      // Category prioritization
       const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
       if (goodCategories.includes(a.hjem)) aScore += 150;
       if (goodCategories.includes(b.hjem)) bScore += 150;
       
-      // Strong penalty for "Restaffald" when better alternatives exist
       if (a.hjem === 'Restaffald') aScore -= 200;
       if (b.hjem === 'Restaffald') bScore -= 200;
       
-      const finalScore = bScore - aScore;
-      console.log(`📊 Final scores: ${a.navn} (${a.tilstand || 'no condition'}): ${aScore}, ${b.navn} (${b.tilstand || 'no condition'}): ${bScore} (diff: ${finalScore})`);
-      return finalScore;
-    }).slice(0, 12); // Increased to 12 results for better matching
+      return bScore - aScore;
+    }).slice(0, 12);
 
   } catch (error) {
     console.error('Database search error:', error.message);
@@ -178,49 +208,121 @@ const searchWasteInDatabase = async (searchTerms: string[]): Promise<any[]> => {
   }
 };
 
-// Function to map material to sorting categories
+// ============= PHASE 2: Improved material classification with description checking =============
 const getMaterialSorting = (materiale: string, description?: string): { hjem: string; genbrugsplads: string } => {
   const material = materiale.toLowerCase();
   const desc = description?.toLowerCase() || '';
   
-  console.log('getMaterialSorting called with:', { materiale, description, material, desc });
+  console.log('🔍 getMaterialSorting called with:', { materiale, description });
   
+  // Check description for plastic type hints first
+  if (desc.includes('blød') || desc.includes('pose') || desc.includes('folie') || desc.includes('film')) {
+    console.log('✅ Description indicates soft plastic');
+    return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - plast' };
+  }
+  if (desc.includes('hård') || desc.includes('flaske') || desc.includes('beholder')) {
+    console.log('✅ Description indicates hard plastic');
+    return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
+  }
+  
+  // Then check material classification
   if (material.includes('elektronik') || material.includes('elektronisk')) {
-    console.log('✅ Matched electronic material, returning Farligt affald');
+    console.log('✅ Matched electronic material');
     return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
   } else if (material.includes('blød plastik') || material.includes('blød plast') || 
              material.includes('plastpose') || material.includes('plastfolie') || 
              material.includes('plastfilm') || material.includes('plastindpakning')) {
-    console.log('✅ Matched soft plastic material, returning Plast');
+    console.log('✅ Matched soft plastic material');
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - plast' };
   } else if (material.includes('hård plastik') || material.includes('hård plast')) {
-    console.log('✅ Matched hard plastic material, returning Plast / Hård plast');
+    console.log('✅ Matched hard plastic material');
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - hård plast' };
   } else if (material.includes('plastik') || material.includes('plast')) {
-    console.log('✅ Matched generic plastic material, returning Plast (default)');
+    console.log('✅ Matched generic plastic (defaulting to soft)');
     return { hjem: 'Plast', genbrugsplads: 'Genbrugsstation - plast' };
   } else if (material.includes('metal') || material.includes('stål') || material.includes('aluminium')) {
-    console.log('✅ Matched metal material, returning Metal');
+    console.log('✅ Matched metal material');
     return { hjem: 'Metal', genbrugsplads: 'Genbrugsstation - metal' };
   } else if (material.includes('glas')) {
-    console.log('✅ Matched glass material, returning Glas');
+    console.log('✅ Matched glass material');
     return { hjem: 'Glas', genbrugsplads: 'Genbrugsstation - glas' };
   } else if (material.includes('papir')) {
-    console.log('✅ Matched papir material, returning Papir');
+    console.log('✅ Matched papir material');
     return { hjem: 'Papir', genbrugsplads: 'Genbrugsstation - pap og papir' };  
   } else if (material.includes('pap') || material.includes('karton')) {
-    console.log('✅ Matched pap/karton material, returning Pap');
+    console.log('✅ Matched pap/karton material');
     return { hjem: 'Pap', genbrugsplads: 'Genbrugsstation - pap og papir' };
   } else if (material.includes('tekstil') || material.includes('tøj')) {
-    console.log('✅ Matched textile material, returning Tekstilaffald');
+    console.log('✅ Matched textile material');
     return { hjem: 'Tekstilaffald', genbrugsplads: 'Genbrugsstation - tekstil' };
   } else if (material.includes('organisk') || material.includes('mad')) {
-    console.log('✅ Matched organic material, returning Madaffald');
+    console.log('✅ Matched organic material');
     return { hjem: 'Madaffald', genbrugsplads: 'Genbrugsstation - organisk affald' };
   } else {
     console.log('❌ No match found, returning Restaffald');
     return { hjem: 'Restaffald', genbrugsplads: 'Genbrugsstation - restaffald' };
   }
+};
+
+// ============= PHASE 2: Intelligent material sorting that combines database + AI =============
+const intelligentMaterialSorting = (
+  dbMaterial: string | null,
+  dbHome: string | null, 
+  dbRecycling: string | null,
+  aiMaterial: string | null,
+  aiDescription: string
+): { hjem: string; genbrugsplads: string; source: string } => {
+  
+  console.log('\n🧠 intelligentMaterialSorting called:');
+  console.log('  DB:', { material: dbMaterial, home: dbHome, recycling: dbRecycling });
+  console.log('  AI:', { material: aiMaterial, description: aiDescription });
+  
+  // Check if database has precise material info (e.g., "Plast - blød" vs just "Plast")
+  const dbHasPreciseMaterial = dbMaterial && (
+    dbMaterial.includes(' - ') || 
+    dbMaterial.includes('blød') || 
+    dbMaterial.includes('hård')
+  );
+  
+  // If database has both values AND precise material, use database
+  if (dbHome && dbRecycling && dbHasPreciseMaterial) {
+    console.log('✅ Database has complete + precise info, using database');
+    return { hjem: dbHome, genbrugsplads: dbRecycling, source: 'database-precise' };
+  }
+  
+  // If database has both values but generic material, check if AI has more specific info
+  if (dbHome && dbRecycling && !dbHasPreciseMaterial && aiMaterial) {
+    const aiMat = aiMaterial.toLowerCase();
+    const dbMat = (dbMaterial || '').toLowerCase();
+    
+    // If AI provides more specific plastic type than database
+    if (dbMat === 'plast' && (aiMat.includes('blød') || aiMat.includes('hård'))) {
+      console.log('✅ AI has more specific plastic type than database, using AI');
+      const aiSorting = getMaterialSorting(aiMaterial, aiDescription);
+      return { ...aiSorting, source: 'ai-specific' };
+    }
+  }
+  
+  // If database has values, use them
+  if (dbHome && dbRecycling) {
+    console.log('✅ Database has complete info, using database');
+    return { hjem: dbHome, genbrugsplads: dbRecycling, source: 'database' };
+  }
+  
+  // If database is incomplete but we have AI material, use AI
+  if (aiMaterial) {
+    console.log('✅ Database incomplete, using AI material classification');
+    const aiSorting = getMaterialSorting(aiMaterial, aiDescription);
+    return { ...aiSorting, source: 'ai-fallback' };
+  }
+  
+  // Last resort: use whatever database values we have
+  console.log('⚠️ Using partial database values as last resort');
+  return { 
+    hjem: dbHome || 'Restaffald', 
+    genbrugsplads: dbRecycling || 'Genbrugsstation - generelt affald',
+    source: 'fallback'
+  };
 };
 
 // Get icon for waste category
@@ -240,11 +342,15 @@ const getIconForCategory = (category: string): string => {
   return categoryMap[category] || "/src/assets/restaffald.png";
 };
 
+// ============= PHASE 5: Main identification function with comprehensive logging =============
 export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
+  // PHASE 5: Decision log for transparency
+  const decisionLog: string[] = [];
+  
   try {
-    console.log('🚀 Starting enhanced waste identification with multi-object scoring...');
+    console.log('🚀 Starting enhanced waste identification with material-aware matching...');
+    decisionLog.push('🚀 Started waste identification');
     
-    // Call the vision-proxy edge function for AI analysis
     const { data, error } = await supabase.functions.invoke('vision-proxy', {
       body: { image: imageData }
     });
@@ -255,19 +361,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     }
 
     console.log('✅ Gemini labels:', data.labels);
+    decisionLog.push(`✅ Received ${data.labels?.length || 0} AI labels from Gemini`);
 
     if (data?.labels && data.labels.length > 0) {
-      // NEW APPROACH: Score each Gemini detection individually
       const scoredCandidates = [];
       
-      for (let i = 0; i < Math.min(data.labels.length, 8); i++) { // Process top 8 labels for better sensitivity
+      for (let i = 0; i < Math.min(data.labels.length, 8); i++) {
         const label = data.labels[i];
-        console.log(`\n🔍 Processing Gemini label ${i + 1}: "${label.description}" (confidence: ${label.score})`);
+        console.log(`\n🔍 Processing label ${i + 1}: "${label.description}" (AI confidence: ${label.score})`);
+        decisionLog.push(`🔍 Label ${i + 1}: "${label.description}" (confidence: ${label.score.toFixed(3)}, material: ${label.materiale || 'none'})`);
         
-        // Generate search terms for this specific label - include more variations
         let searchTerms = [label.description];
         
-        // Map generic terms to more specific database terms
         const lowerDesc = label.description.toLowerCase();
         if (lowerDesc.includes('pizza') || lowerDesc.includes('æske') || lowerDesc.includes('box')) {
           searchTerms = ['kasse', 'pizza', 'æske', 'emballage', 'karton', label.description];
@@ -283,40 +388,33 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           searchTerms = ['plastik', 'plast', 'plastikemballage', 'plastpose', label.description];
         }
         
-        console.log(`🔍 Search terms for "${label.description}":`, searchTerms);
-        
-        // Find database matches for this specific label
-        const matches = await searchWasteInDatabase(searchTerms);
+        // PHASE 4: Pass AI material to database search for material-aware matching
+        const matches = await searchWasteInDatabase(searchTerms, label.materiale);
         
         if (matches.length > 0) {
           const bestDbMatch = matches[0];
+          decisionLog.push(`  ✅ Found database match: "${bestDbMatch.navn}" (Material: ${bestDbMatch.materiale || 'none'}, Home: ${bestDbMatch.hjem})`);
           
-          // Calculate combined score: Gemini confidence × database match quality
-          let dbMatchQuality = 1.0; // Base quality
+          let dbMatchQuality = 1.0;
           
-          // Boost quality for exact name matches
           if (bestDbMatch.navn?.toLowerCase() === label.description.toLowerCase()) {
             dbMatchQuality = 2.0;
           }
           
-          // Boost quality for specific objects over generic materials
           const specificObjects = ['kasse', 'pizza', 'æske', 'flaske', 'dåse', 'bog', 'avis'];
           if (specificObjects.some(obj => bestDbMatch.navn?.toLowerCase().includes(obj))) {
             dbMatchQuality *= 1.5;
           }
           
-          // Boost quality for good recycling categories
           const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
           if (goodCategories.includes(bestDbMatch.hjem)) {
             dbMatchQuality *= 1.2;
           }
           
-          // Penalize "Restaffald"
           if (bestDbMatch.hjem === 'Restaffald') {
             dbMatchQuality *= 0.5;
           }
           
-          // Penalize generic materials when specific objects are available
           const genericMaterials = ['aluminiumsfolie', 'plastikfolie', 'metalfolie'];
           if (genericMaterials.some(material => bestDbMatch.navn?.toLowerCase().includes(material))) {
             dbMatchQuality *= 0.7;
@@ -324,13 +422,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           
           const combinedScore = label.score * dbMatchQuality;
           
-          console.log(`📊 Scoring for "${label.description}":`, {
-            geminiScore: label.score,
-            dbMatch: bestDbMatch.navn,
-            dbCategory: bestDbMatch.hjem,
-            dbMatchQuality,
-            combinedScore
-          });
+          console.log(`📊 Combined score: ${combinedScore.toFixed(3)} (AI: ${label.score.toFixed(3)} × DB quality: ${dbMatchQuality.toFixed(2)})`);
           
           scoredCandidates.push({
             label,
@@ -338,75 +430,85 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             combinedScore,
             dbMatchQuality
           });
+        } else {
+          decisionLog.push(`  ❌ No database match found for "${label.description}"`);
         }
       }
       
-      // Sort by combined score and select the best candidate
       scoredCandidates.sort((a, b) => b.combinedScore - a.combinedScore);
       
       console.log('\n🏆 Final scoring results:');
+      decisionLog.push('\n🏆 Final candidate ranking:');
       scoredCandidates.forEach((candidate, index) => {
-        console.log(`${index + 1}. "${candidate.label.description}" -> "${candidate.dbMatch.navn}" (${candidate.dbMatch.hjem}) - Score: ${candidate.combinedScore.toFixed(3)}`);
+        const logEntry = `${index + 1}. "${candidate.label.description}" → "${candidate.dbMatch.navn}" (${candidate.dbMatch.hjem}) - Score: ${candidate.combinedScore.toFixed(3)}`;
+        console.log(logEntry);
+        decisionLog.push(logEntry);
       });
       
       if (scoredCandidates.length > 0) {
         const winner = scoredCandidates[0];
-        console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}" (${winner.dbMatch.hjem})`);
+        console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}"`);
+        decisionLog.push(`\n🎯 WINNER: "${winner.label.description}" → "${winner.dbMatch.navn}"`);
         
-        // Use database values directly - they are already correct
-        let homeCategory = winner.dbMatch.hjem || "Restaffald";
-        let recyclingCategory = winner.dbMatch.genbrugsplads || "Genbrugsstation - generelt affald";
+        // PHASE 2: Use intelligent material sorting
+        const sorting = intelligentMaterialSorting(
+          winner.dbMatch.materiale,
+          winner.dbMatch.hjem,
+          winner.dbMatch.genbrugsplads,
+          winner.label.materiale,
+          winner.label.description
+        );
         
-        console.log(`✅ Using database values: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
+        decisionLog.push(`📋 Categorization (${sorting.source}):`);
+        decisionLog.push(`  Home: ${sorting.hjem}`);
+        decisionLog.push(`  Recycling: ${sorting.genbrugsplads}`);
         
-        // Only use AI material classification as fallback if database doesn't have values
-        if ((!winner.dbMatch.hjem || !winner.dbMatch.genbrugsplads) && winner.label.materiale) {
-          console.log(`\n🤖 Database missing values, using AI material: "${winner.label.materiale}"`);
-          const aiSorting = getMaterialSorting(winner.label.materiale, winner.label.description);
-          if (!winner.dbMatch.hjem) homeCategory = aiSorting.hjem;
-          if (!winner.dbMatch.genbrugsplads) recyclingCategory = aiSorting.genbrugsplads;
-          console.log(`✅ AI sorting fallback: Home: "${homeCategory}", Recycling: "${recyclingCategory}"`);
-        }
+        const thoughtProcess = decisionLog.join('\n');
         
         return {
           id: Math.random().toString(),
           name: winner.dbMatch.navn,
-          image: getIconForCategory(homeCategory),
-          homeCategory: homeCategory,
-          recyclingCategory: recyclingCategory,
-          description: `Identificeret ved hjælp af AI-analyse. ${winner.dbMatch.variation ? `Variation: ${winner.dbMatch.variation}. ` : ''}${winner.dbMatch.tilstand ? `Tilstand: ${winner.dbMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+          image: getIconForCategory(sorting.hjem),
+          homeCategory: sorting.hjem,
+          recyclingCategory: sorting.genbrugsplads,
+          description: `Identificeret ved hjælp af AI-analyse. ${winner.dbMatch.materiale ? `Materiale: ${winner.dbMatch.materiale}. ` : ''}${winner.dbMatch.variation ? `Variation: ${winner.dbMatch.variation}. ` : ''}${winner.dbMatch.tilstand ? `Tilstand: ${winner.dbMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
           confidence: winner.label.score || 0.8,
           timestamp: new Date(),
-          aiThoughtProcess: data.thoughtProcess
+          aiThoughtProcess: thoughtProcess
         };
       }
     }
     
-    // Fallback if no matches found
-    console.log('❌ No database matches found - returning fallback result');
+    // PHASE 1: Use standardized NOT_FOUND_MESSAGE
+    console.log(`❌ No database matches found - returning fallback result with "${NOT_FOUND_MESSAGE}"`);
+    decisionLog.push(`❌ No matches found - returning fallback`);
     
     return {
       id: Math.random().toString(),
-      name: "Ikke fundet i databasen", 
+      name: NOT_FOUND_MESSAGE,
       image: getIconForCategory("Restaffald"),
       homeCategory: "Restaffald",
       recyclingCategory: "Genbrugsstation - generelt affald",
       description: "Genstanden kunne ikke identificeres i vores database. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.",
       confidence: 0,
       timestamp: new Date(),
+      aiThoughtProcess: decisionLog.join('\n')
     };
 
   } catch (error) {
     console.error('❌ Error in identifyWaste:', error);
+    decisionLog.push(`❌ Error: ${error.message}`);
+    
     return {
       id: Math.random().toString(),
-      name: "Ikke fundet i databasen",
+      name: NOT_FOUND_MESSAGE,
       image: getIconForCategory("Restaffald"),
       homeCategory: "Restaffald",  
       recyclingCategory: "Genbrugsstation - generelt affald",
       description: "Der opstod en fejl under analysen. Sortér som restaffald eller kontakt din lokale genbrugsstation for vejledning.",
       confidence: 0,
       timestamp: new Date(),
+      aiThoughtProcess: decisionLog.join('\n')
     };
   }
 };
