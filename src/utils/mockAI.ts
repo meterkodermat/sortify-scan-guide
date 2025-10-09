@@ -512,18 +512,61 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           const genericMatches = await searchWasteInDatabase(genericArray);
           
           if (genericMatches.length > 0) {
-            const bestMatch = genericMatches[0];
-            decisionLog.push(`  ✅ Found match with broader search: "${bestMatch.navn}"`);
-            console.log(`✅ Broader search found: "${bestMatch.navn}"`);
-            
-            // Use the first AI label for scoring
+            // Validate that the match makes sense with AI's material
             const firstLabel = data.labels[0];
-            scoredCandidates.push({
-              label: firstLabel,
-              dbMatch: bestMatch,
-              combinedScore: firstLabel.score * 0.7, // Lower confidence for generic match
-              dbMatchQuality: 0.7
-            });
+            const aiMaterial = (firstLabel.materiale || '').toLowerCase();
+            
+            // Find a match that actually fits the AI's material
+            let bestMatch = null;
+            for (const match of genericMatches.slice(0, 5)) {
+              const dbHome = (match.hjem || '').toLowerCase();
+              const dbMaterial = (match.materiale || '').toLowerCase();
+              
+              // Material validation logic
+              let isValidMatch = false;
+              
+              if (aiMaterial.includes('organisk') || aiMaterial.includes('mad')) {
+                // For organic materials, only accept Madaffald category
+                isValidMatch = dbHome === 'madaffald';
+              } else if (aiMaterial.includes('plast')) {
+                isValidMatch = dbHome === 'plast' || dbMaterial.includes('plast');
+              } else if (aiMaterial.includes('pap')) {
+                isValidMatch = dbHome === 'pap' || dbMaterial.includes('pap');
+              } else if (aiMaterial.includes('papir')) {
+                isValidMatch = dbHome === 'papir' || dbMaterial.includes('papir');
+              } else if (aiMaterial.includes('metal')) {
+                isValidMatch = dbHome === 'metal' || dbMaterial.includes('metal');
+              } else if (aiMaterial.includes('glas')) {
+                isValidMatch = dbHome === 'glas' || dbMaterial.includes('glas');
+              } else if (aiMaterial.includes('tekstil')) {
+                isValidMatch = dbHome === 'tekstilaffald' || dbMaterial.includes('tekstil');
+              } else {
+                // If no specific material from AI, accept any match
+                isValidMatch = true;
+              }
+              
+              if (isValidMatch) {
+                bestMatch = match;
+                decisionLog.push(`  ✅ Found valid match: "${match.navn}" (${match.hjem}) - matches AI material: ${aiMaterial}`);
+                console.log(`✅ Valid match found: "${match.navn}" with home category: ${match.hjem}`);
+                break;
+              } else {
+                decisionLog.push(`  ❌ Rejected "${match.navn}" (${match.hjem}) - doesn't match AI material: ${aiMaterial}`);
+                console.log(`❌ Rejected match: "${match.navn}" - category ${match.hjem} doesn't match AI material ${aiMaterial}`);
+              }
+            }
+            
+            if (bestMatch) {
+              scoredCandidates.push({
+                label: firstLabel,
+                dbMatch: bestMatch,
+                combinedScore: firstLabel.score * 0.7, // Lower confidence for generic match
+                dbMatchQuality: 0.7
+              });
+            } else {
+              decisionLog.push(`  ❌ No valid matches found that match AI material`);
+              console.log('❌ No matches passed material validation');
+            }
           } else {
             decisionLog.push(`  ❌ No matches found even with broader search`);
             console.log('❌ Broader search also found no matches');
