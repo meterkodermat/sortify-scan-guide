@@ -126,19 +126,47 @@ const Index = () => {
 
   if (currentView === 'analyzing') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-8 text-center bg-gradient-card shadow-strong">
-          <div className="space-y-6">
-            <div className="relative">
-              <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center animate-pulse">
-                <Recycle className="h-8 w-8 text-primary-foreground" />
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 sm:p-12 text-center bg-gradient-card shadow-strong border-0 overflow-hidden relative">
+          {/* Animated background gradient */}
+          <div className="absolute inset-0 bg-gradient-accent opacity-20 animate-pulse" />
+          
+          <div className="relative space-y-8">
+            {/* Multi-layered spinner animation */}
+            <div className="relative w-32 h-32 mx-auto">
+              {/* Outer spinning ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" style={{ animationDuration: '2s' }} />
+              
+              {/* Middle pulsing ring */}
+              <div className="absolute inset-2 rounded-full bg-gradient-primary opacity-20 animate-pulse" style={{ animationDuration: '1.5s' }} />
+              
+              {/* Inner spinning ring (reverse direction) */}
+              <div className="absolute inset-4 rounded-full border-4 border-success/20 border-b-success animate-spin" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }} />
+              
+              {/* Center icon with glow */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary blur-xl opacity-50 animate-pulse" />
+                  <div className="relative w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow">
+                    <Recycle className="h-8 w-8 text-primary-foreground animate-spin" style={{ animationDuration: '3s' }} />
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold mb-2">Analyserer billede...</h2>
-              <p className="text-muted-foreground">
+            
+            {/* Animated text */}
+            <div className="space-y-3 animate-fade-in">
+              <h2 className="text-2xl font-bold text-foreground">Analyserer billede...</h2>
+              <p className="text-muted-foreground leading-relaxed">
                 Vores AI identificerer dit affald og finder den bedste sorteringsmetode
               </p>
+              
+              {/* Loading dots */}
+              <div className="flex items-center justify-center space-x-2 pt-2">
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
         </Card>
