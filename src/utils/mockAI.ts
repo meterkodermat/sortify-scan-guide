@@ -528,12 +528,14 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
               if (aiMaterial.includes('organisk') || aiMaterial.includes('mad')) {
                 // For organic materials, only accept Madaffald category
                 isValidMatch = dbHome === 'madaffald';
+              } else if (aiMaterial.includes('papir')) {
+                // Paper (flyers, newspapers) - NOT cardboard
+                isValidMatch = dbHome === 'papir' || dbMaterial.includes('papir');
+              } else if (aiMaterial.includes('pap')) {
+                // Cardboard boxes - NOT paper
+                isValidMatch = dbHome === 'pap' || dbMaterial.includes('pap');
               } else if (aiMaterial.includes('plast')) {
                 isValidMatch = dbHome === 'plast' || dbMaterial.includes('plast');
-              } else if (aiMaterial.includes('pap')) {
-                isValidMatch = dbHome === 'pap' || dbMaterial.includes('pap');
-              } else if (aiMaterial.includes('papir')) {
-                isValidMatch = dbHome === 'papir' || dbMaterial.includes('papir');
               } else if (aiMaterial.includes('metal')) {
                 isValidMatch = dbHome === 'metal' || dbMaterial.includes('metal');
               } else if (aiMaterial.includes('glas')) {
