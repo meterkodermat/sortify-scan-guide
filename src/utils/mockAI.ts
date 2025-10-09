@@ -454,16 +454,37 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         
         // Extract generic terms and materials from AI labels
         for (const label of data.labels.slice(0, 5)) {
-          // Add material if available
+          // Map materials to relevant waste categories
           if (label.materiale) {
             const material = label.materiale.toLowerCase();
-            if (material.includes('plast')) genericSearchTerms.add('plastik');
-            else if (material.includes('pap')) genericSearchTerms.add('pap');
-            else if (material.includes('papir')) genericSearchTerms.add('papir');
-            else if (material.includes('metal')) genericSearchTerms.add('metal');
-            else if (material.includes('glas')) genericSearchTerms.add('glas');
             
-            decisionLog.push(`  Material: ${label.materiale}`);
+            if (material.includes('plast')) {
+              genericSearchTerms.add('plastik');
+              genericSearchTerms.add('emballage');
+            } else if (material.includes('pap')) {
+              genericSearchTerms.add('pap');
+              genericSearchTerms.add('karton');
+              genericSearchTerms.add('emballage');
+            } else if (material.includes('papir')) {
+              genericSearchTerms.add('papir');
+            } else if (material.includes('metal')) {
+              genericSearchTerms.add('metal');
+              genericSearchTerms.add('dåse');
+            } else if (material.includes('glas')) {
+              genericSearchTerms.add('glas');
+              genericSearchTerms.add('flaske');
+            } else if (material.includes('organisk') || material.includes('mad')) {
+              // For organic materials, search for food waste categories
+              genericSearchTerms.add('madaffald');
+              genericSearchTerms.add('organisk');
+              genericSearchTerms.add('mad');
+              genericSearchTerms.add('fødevare');
+            } else if (material.includes('tekstil')) {
+              genericSearchTerms.add('tekstil');
+              genericSearchTerms.add('tøj');
+            }
+            
+            decisionLog.push(`  Material: ${label.materiale} → mapping to categories`);
           }
           
           // Extract generic words from description
@@ -476,14 +497,15 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             
             // Add common waste categories
             if (['plastik', 'plast', 'pap', 'papir', 'metal', 'glas', 'æske', 'kasse', 
-                 'flaske', 'dåse', 'pose', 'emballage', 'karton', 'beholder'].includes(word)) {
+                 'flaske', 'dåse', 'pose', 'emballage', 'karton', 'beholder', 'mad',
+                 'madaffald', 'fødevare'].includes(word)) {
               genericSearchTerms.add(word);
             }
           }
         }
         
         if (genericSearchTerms.size > 0) {
-          const genericArray = Array.from(genericSearchTerms).slice(0, 5);
+          const genericArray = Array.from(genericSearchTerms).slice(0, 8);
           decisionLog.push(`  Broader terms: ${genericArray.join(', ')}`);
           console.log(`🔍 Searching with generic terms: ${genericArray.join(', ')}`);
           
