@@ -445,6 +445,70 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         decisionLog.push(logEntry);
       });
       
+      // Retry with less specific terms if no matches found
+      if (scoredCandidates.length === 0) {
+        console.log('\n🔄 No matches found - attempting broader search...');
+        decisionLog.push('\n🔄 No matches found - retrying with broader terms');
+        
+        const genericSearchTerms = new Set<string>();
+        
+        // Extract generic terms and materials from AI labels
+        for (const label of data.labels.slice(0, 5)) {
+          // Add material if available
+          if (label.materiale) {
+            const material = label.materiale.toLowerCase();
+            if (material.includes('plast')) genericSearchTerms.add('plastik');
+            else if (material.includes('pap')) genericSearchTerms.add('pap');
+            else if (material.includes('papir')) genericSearchTerms.add('papir');
+            else if (material.includes('metal')) genericSearchTerms.add('metal');
+            else if (material.includes('glas')) genericSearchTerms.add('glas');
+            
+            decisionLog.push(`  Material: ${label.materiale}`);
+          }
+          
+          // Extract generic words from description
+          const desc = label.description.toLowerCase();
+          const words = desc.split(/\s+/);
+          
+          for (const word of words) {
+            // Skip very short words
+            if (word.length < 3) continue;
+            
+            // Add common waste categories
+            if (['plastik', 'plast', 'pap', 'papir', 'metal', 'glas', 'æske', 'kasse', 
+                 'flaske', 'dåse', 'pose', 'emballage', 'karton', 'beholder'].includes(word)) {
+              genericSearchTerms.add(word);
+            }
+          }
+        }
+        
+        if (genericSearchTerms.size > 0) {
+          const genericArray = Array.from(genericSearchTerms).slice(0, 5);
+          decisionLog.push(`  Broader terms: ${genericArray.join(', ')}`);
+          console.log(`🔍 Searching with generic terms: ${genericArray.join(', ')}`);
+          
+          const genericMatches = await searchWasteInDatabase(genericArray);
+          
+          if (genericMatches.length > 0) {
+            const bestMatch = genericMatches[0];
+            decisionLog.push(`  ✅ Found match with broader search: "${bestMatch.navn}"`);
+            console.log(`✅ Broader search found: "${bestMatch.navn}"`);
+            
+            // Use the first AI label for scoring
+            const firstLabel = data.labels[0];
+            scoredCandidates.push({
+              label: firstLabel,
+              dbMatch: bestMatch,
+              combinedScore: firstLabel.score * 0.7, // Lower confidence for generic match
+              dbMatchQuality: 0.7
+            });
+          } else {
+            decisionLog.push(`  ❌ No matches found even with broader search`);
+            console.log('❌ Broader search also found no matches');
+          }
+        }
+      }
+      
       if (scoredCandidates.length > 0) {
         const winner = scoredCandidates[0];
         console.log(`\n🎯 Selected winner: "${winner.label.description}" -> "${winner.dbMatch.navn}"`);
