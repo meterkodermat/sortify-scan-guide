@@ -325,6 +325,37 @@ const intelligentMaterialSorting = (
   };
 };
 
+// Alternative search terms mapping
+const getAlternativeSearchTerms = (term: string): string[] => {
+  const lowerTerm = term.toLowerCase();
+  
+  // Common synonyms and alternatives
+  const alternatives: { [key: string]: string[] } = {
+    'gavepapir': ['silkepapir', 'indpakningspapir', 'papir'],
+    'silkepapir': ['gavepapir', 'indpakningspapir', 'papir'],
+    'plastpose': ['bærepose', 'indkøbspose', 'pose'],
+    'bærepose': ['plastpose', 'indkøbspose', 'pose'],
+    'karton': ['pap', 'papkasse', 'emballage'],
+    'papkasse': ['karton', 'pap', 'kasse'],
+    'flaske': ['dunk', 'beholder', 'emballage'],
+    'dåse': ['beholder', 'emballage'],
+    'æske': ['kasse', 'emballage', 'beholder'],
+    'folie': ['plastfolie', 'film', 'indpakning'],
+    'emballage': ['pakning', 'indpakning'],
+    'affaldsspand': ['spand', 'beholder'],
+    'beholder': ['spand', 'container']
+  };
+  
+  // Find alternatives for the term
+  for (const [key, alts] of Object.entries(alternatives)) {
+    if (lowerTerm.includes(key) || key.includes(lowerTerm)) {
+      return alts;
+    }
+  }
+  
+  return [];
+};
+
 // Get icon for waste category
 const getIconForCategory = (category: string): string => {
   const categoryMap: { [key: string]: string } = {
@@ -476,6 +507,54 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           timestamp: new Date(),
           aiThoughtProcess: thoughtProcess
         };
+      }
+      
+      // No matches found - try with alternative search terms
+      console.log('\n🔄 No matches found, trying alternative search terms...');
+      decisionLog.push('\n🔄 Retrying with alternative search terms...');
+      
+      for (let i = 0; i < Math.min(data.labels.length, 3); i++) {
+        const label = data.labels[i];
+        const alternatives = getAlternativeSearchTerms(label.description);
+        
+        if (alternatives.length > 0) {
+          console.log(`🔍 Trying alternatives for "${label.description}": ${alternatives.join(', ')}`);
+          decisionLog.push(`🔍 Alternative terms for "${label.description}": ${alternatives.join(', ')}`);
+          
+          const matches = await searchWasteInDatabase(alternatives, label.materiale);
+          
+          if (matches.length > 0) {
+            const bestMatch = matches[0];
+            console.log(`✅ Found match with alternative term: "${bestMatch.navn}"`);
+            decisionLog.push(`✅ Match found: "${bestMatch.navn}" (Material: ${bestMatch.materiale || 'none'})`);
+            
+            const sorting = intelligentMaterialSorting(
+              bestMatch.materiale,
+              bestMatch.hjem,
+              bestMatch.genbrugsplads,
+              label.materiale,
+              label.description
+            );
+            
+            decisionLog.push(`📋 Categorization (${sorting.source}):`);
+            decisionLog.push(`  Home: ${sorting.hjem}`);
+            decisionLog.push(`  Recycling: ${sorting.genbrugsplads}`);
+            
+            const thoughtProcess = decisionLog.join('\n');
+            
+            return {
+              id: Math.random().toString(),
+              name: bestMatch.navn,
+              image: getIconForCategory(sorting.hjem),
+              homeCategory: sorting.hjem,
+              recyclingCategory: sorting.genbrugsplads,
+              description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.materiale ? `Materiale: ${bestMatch.materiale}. ` : ''}${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
+              confidence: label.score || 0.7,
+              timestamp: new Date(),
+              aiThoughtProcess: thoughtProcess
+            };
+          }
+        }
       }
     }
     
