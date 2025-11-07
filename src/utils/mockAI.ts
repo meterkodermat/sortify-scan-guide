@@ -420,7 +420,17 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         }
         
         // PHASE 4: Pass AI material to database search for material-aware matching
-        const matches = await searchWasteInDatabase(searchTerms, label.materiale);
+        let matches = await searchWasteInDatabase(searchTerms, label.materiale);
+        
+        // If no matches found, try alternative search terms
+        if (matches.length === 0) {
+          const alternatives = getAlternativeSearchTerms(label.description);
+          if (alternatives.length > 0) {
+            console.log(`🔄 No match for "${label.description}", trying alternatives: ${alternatives.join(', ')}`);
+            decisionLog.push(`🔄 Trying alternatives: ${alternatives.join(', ')}`);
+            matches = await searchWasteInDatabase(alternatives, label.materiale);
+          }
+        }
         
         if (matches.length > 0) {
           const bestDbMatch = matches[0];
@@ -507,54 +517,6 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
           timestamp: new Date(),
           aiThoughtProcess: thoughtProcess
         };
-      }
-      
-      // No matches found - try with alternative search terms
-      console.log('\n🔄 No matches found, trying alternative search terms...');
-      decisionLog.push('\n🔄 Retrying with alternative search terms...');
-      
-      for (let i = 0; i < Math.min(data.labels.length, 3); i++) {
-        const label = data.labels[i];
-        const alternatives = getAlternativeSearchTerms(label.description);
-        
-        if (alternatives.length > 0) {
-          console.log(`🔍 Trying alternatives for "${label.description}": ${alternatives.join(', ')}`);
-          decisionLog.push(`🔍 Alternative terms for "${label.description}": ${alternatives.join(', ')}`);
-          
-          const matches = await searchWasteInDatabase(alternatives, label.materiale);
-          
-          if (matches.length > 0) {
-            const bestMatch = matches[0];
-            console.log(`✅ Found match with alternative term: "${bestMatch.navn}"`);
-            decisionLog.push(`✅ Match found: "${bestMatch.navn}" (Material: ${bestMatch.materiale || 'none'})`);
-            
-            const sorting = intelligentMaterialSorting(
-              bestMatch.materiale,
-              bestMatch.hjem,
-              bestMatch.genbrugsplads,
-              label.materiale,
-              label.description
-            );
-            
-            decisionLog.push(`📋 Categorization (${sorting.source}):`);
-            decisionLog.push(`  Home: ${sorting.hjem}`);
-            decisionLog.push(`  Recycling: ${sorting.genbrugsplads}`);
-            
-            const thoughtProcess = decisionLog.join('\n');
-            
-            return {
-              id: Math.random().toString(),
-              name: bestMatch.navn,
-              image: getIconForCategory(sorting.hjem),
-              homeCategory: sorting.hjem,
-              recyclingCategory: sorting.genbrugsplads,
-              description: `Identificeret ved hjælp af AI-analyse. ${bestMatch.materiale ? `Materiale: ${bestMatch.materiale}. ` : ''}${bestMatch.variation ? `Variation: ${bestMatch.variation}. ` : ''}${bestMatch.tilstand ? `Tilstand: ${bestMatch.tilstand}. ` : ''}Sortér som angivet eller kontakt din lokale genbrugsstation for specifik vejledning.`,
-              confidence: label.score || 0.7,
-              timestamp: new Date(),
-              aiThoughtProcess: thoughtProcess
-            };
-          }
-        }
       }
     }
     
