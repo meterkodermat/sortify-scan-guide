@@ -277,6 +277,16 @@ const intelligentMaterialSorting = (
   console.log('  DB:', { material: dbMaterial, home: dbHome, recycling: dbRecycling });
   console.log('  AI:', { material: aiMaterial, description: aiDescription });
   
+  // CRITICAL: If AI identifies hazardous materials but DB has no material info, trust AI
+  if (aiMaterial && !dbMaterial) {
+    const aiMat = aiMaterial.toLowerCase();
+    if (aiMat.includes('elektronik') || aiMat.includes('batteri') || aiMat.includes('farlig')) {
+      console.log('⚠️ AI identified hazardous material but DB has no material info - using AI');
+      const aiSorting = getMaterialSorting(aiMaterial, aiDescription);
+      return { ...aiSorting, source: 'ai-hazardous' };
+    }
+  }
+  
   // Check if database has precise material info (e.g., "Plast - blød" vs just "Plast")
   const dbHasPreciseMaterial = dbMaterial && (
     dbMaterial.includes(' - ') || 
