@@ -62,8 +62,8 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
-        .limit(30);
+        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
+        .limit(50);
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -113,13 +113,13 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
             const aMat = (a.materiale || '').toLowerCase();
             const bMat = (b.materiale || '').toLowerCase();
             
-            // Exact material match gets highest bonus
-            if (aMat === aiMat) aScore += 500;
-            if (bMat === aiMat) bScore += 500;
+            // Exact material match gets bonus (reduced from 500)
+            if (aMat === aiMat) aScore += 200;
+            if (bMat === aiMat) bScore += 200;
             
-            // Partial material match
-            if (aMat.includes(aiMat) || aiMat.includes(aMat)) aScore += 300;
-            if (bMat.includes(aiMat) || aiMat.includes(bMat)) bScore += 300;
+            // Partial material match (reduced from 300)
+            if (aMat.includes(aiMat) || aiMat.includes(aMat)) aScore += 100;
+            if (bMat.includes(aiMat) || aiMat.includes(bMat)) bScore += 100;
             
             // Special plastic handling
             if (aiMat.includes('blød') && aMat.includes('blød')) aScore += 400;
@@ -402,21 +402,26 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log(`\n🔍 Processing label ${i + 1}: "${label.description}" (AI confidence: ${label.score})`);
         decisionLog.push(`🔍 Label ${i + 1}: "${label.description}" (confidence: ${label.score.toFixed(3)}, material: ${label.materiale || 'none'})`);
         
+        // Extract broader search terms - split descriptions into individual words
         let searchTerms = [label.description];
+        
+        // Add individual words from description for broader matching
+        const words = label.description.split(/\s+/).filter(w => w.length > 2);
+        searchTerms.push(...words);
         
         const lowerDesc = label.description.toLowerCase();
         if (lowerDesc.includes('pizza') || lowerDesc.includes('æske') || lowerDesc.includes('box')) {
-          searchTerms = ['kasse', 'pizza', 'æske', 'emballage', 'karton', label.description];
+          searchTerms.push('kasse', 'emballage', 'karton');
         } else if (lowerDesc.includes('cardboard') || lowerDesc.includes('carton') || lowerDesc.includes('container')) {
-          searchTerms = ['kasse', 'emballage', 'pap', 'karton', label.description];
+          searchTerms.push('kasse', 'emballage', 'pap', 'karton');
         } else if (lowerDesc === 'papirark' || lowerDesc === 'papir ark') {
           if (label.materiale?.toLowerCase() === 'pap') {
-            searchTerms = ['bog', 'kasse', 'emballage', label.description];
+            searchTerms.push('bog', 'kasse', 'emballage');
           } else {
-            searchTerms = ['avis', 'bog', 'konvolut', label.description];
+            searchTerms.push('avis', 'bog', 'konvolut');
           }
         } else if (lowerDesc.includes('plastik') || lowerDesc.includes('plastic') || lowerDesc.includes('plast')) {
-          searchTerms = ['plastik', 'plast', 'plastikemballage', 'plastpose', label.description];
+          searchTerms.push('plastik', 'plast', 'emballage', 'pose');
         }
         
         // PHASE 4: Pass AI material to database search for material-aware matching
