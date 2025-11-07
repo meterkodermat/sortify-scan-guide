@@ -62,8 +62,8 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       const { data, error } = await supabase
         .from('demo')
         .select('*')
-        .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
-        .limit(50);
+        .or(`navn.ilike.${cleanTerm},navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%,materiale.ilike.%${cleanTerm}%`)
+        .limit(40);
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
@@ -402,12 +402,8 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         console.log(`\n🔍 Processing label ${i + 1}: "${label.description}" (AI confidence: ${label.score})`);
         decisionLog.push(`🔍 Label ${i + 1}: "${label.description}" (confidence: ${label.score.toFixed(3)}, material: ${label.materiale || 'none'})`);
         
-        // Extract broader search terms - split descriptions into individual words
+        // Search terms with slight broadening
         let searchTerms = [label.description];
-        
-        // Add individual words from description for broader matching
-        const words = label.description.split(/\s+/).filter(w => w.length > 2);
-        searchTerms.push(...words);
         
         const lowerDesc = label.description.toLowerCase();
         if (lowerDesc.includes('pizza') || lowerDesc.includes('æske') || lowerDesc.includes('box')) {
