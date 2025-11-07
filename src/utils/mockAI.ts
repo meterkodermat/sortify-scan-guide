@@ -395,6 +395,37 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
     decisionLog.push(`✅ Received ${data.labels?.length || 0} AI labels from Gemini`);
 
     if (data?.labels && data.labels.length > 0) {
+      // PRIORITY CHECK: If highest confidence label is elektronik/farligt affald, use it directly
+      const topLabel = data.labels[0];
+      if (topLabel.score > 0.80 && topLabel.materiale) {
+        const materialLower = topLabel.materiale.toLowerCase();
+        if (materialLower.includes('elektronik') || materialLower.includes('batteri') || 
+            materialLower.includes('farlig')) {
+          console.log(`⚡ Priority: High confidence ${topLabel.materiale} detected, using AI categorization directly`);
+          decisionLog.push(`⚡ PRIORITY: "${topLabel.description}" identified as ${topLabel.materiale} with ${(topLabel.score * 100).toFixed(1)}% confidence`);
+          decisionLog.push(`⚡ Using direct AI categorization (no database match required for hazardous waste)`);
+          
+          const sorting = getMaterialSorting(topLabel.materiale, topLabel.description);
+          decisionLog.push(`📋 Categorization (AI-direct):`);
+          decisionLog.push(`  Home: ${sorting.hjem}`);
+          decisionLog.push(`  Recycling: ${sorting.genbrugsplads}`);
+          
+          const thoughtProcess = decisionLog.join('\n');
+          
+          return {
+            id: Math.random().toString(),
+            name: topLabel.description,
+            image: getIconForCategory(sorting.hjem),
+            homeCategory: sorting.hjem,
+            recyclingCategory: sorting.genbrugsplads,
+            description: `Identificeret som ${topLabel.materiale}. Dette skal afleveres på en genbrugsstation. Må ikke smides i almindelig affald.`,
+            confidence: topLabel.score,
+            timestamp: new Date(),
+            aiThoughtProcess: thoughtProcess
+          };
+        }
+      }
+      
       const scoredCandidates = [];
       
       for (let i = 0; i < Math.min(data.labels.length, 8); i++) {
