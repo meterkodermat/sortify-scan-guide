@@ -229,7 +229,7 @@ const getMaterialSorting = (materiale: string, description?: string): { hjem: st
   // Then check material classification
   if (material.includes('elektronik') || material.includes('elektronisk')) {
     console.log('✅ Matched electronic material');
-    return { hjem: 'Farligt affald', genbrugsplads: 'Genbrugsstation - elektronik' };
+    return { hjem: 'Storskrald', genbrugsplads: 'Småt elektronik' };
   } else if (material.includes('blød plastik') || material.includes('blød plast') || 
              material.includes('plastpose') || material.includes('plastfolie') || 
              material.includes('plastfilm') || material.includes('plastindpakning')) {
