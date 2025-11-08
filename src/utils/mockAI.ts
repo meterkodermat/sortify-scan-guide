@@ -55,7 +55,8 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       
     for (const term of limitedTerms) {
       const cleanTerm = term.toLowerCase().trim();
-      if (cleanTerm.length < 1) continue;
+      // Require minimum 3 characters to avoid too broad matches
+      if (cleanTerm.length < 3) continue;
 
       console.log(`🔍 Searching database for term: "${cleanTerm}"`);
 
@@ -63,7 +64,7 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
         .from('demo')
         .select('*')
         .or(`navn.ilike.%${cleanTerm}%,synonymer.ilike.%${cleanTerm}%,variation.ilike.%${cleanTerm}%`)
-        .limit(50);
+        .limit(40);
 
       if (error) {
         console.error(`❌ Database error for term "${cleanTerm}":`, error);
