@@ -61,7 +61,7 @@ const Index = () => {
     } catch (error) {
       console.error('Analysis error:', error);
       const errorMessage = error instanceof Error ? error.message : "Kunne ikke analysere billedet. Prøv igen.";
-      toast.error(errorMessage);
+      toast.error(errorMessage, { duration: 5000 });
       setCurrentView('home');
     } finally {
       setIsAnalyzing(false);

@@ -405,12 +405,15 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
         throw new Error('⏱️ Gemini API rate limit nået. Vent 1 minut og prøv igen.');
       }
       
-      throw error;
+      throw new Error('Kunne ikke analysere billedet. Prøv igen.');
     }
     
-    // Check if response indicates rate limiting
-    if (data?.rateLimited || data?.error?.includes('Rate limit')) {
-      throw new Error('⏱️ Gemini API rate limit nået. Vent 1 minut og prøv igen.');
+    // Check if response indicates failure or rate limiting
+    if (!data || data.success === false) {
+      if (data?.rateLimited || data?.error?.includes('Rate limit') || data?.error?.includes('overskredet')) {
+        throw new Error('⏱️ Gemini API rate limit nået. Vent 1 minut og prøv igen.');
+      }
+      throw new Error(data?.error || 'Kunne ikke analysere billedet. Prøv igen.');
     }
 
     console.log('✅ Gemini labels:', data.labels);
