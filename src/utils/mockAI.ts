@@ -399,7 +399,18 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
 
     if (error) {
       console.error('❌ Vision proxy error:', error);
+      
+      // Specific handling for rate limiting
+      if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+        throw new Error('⏱️ Gemini API rate limit nået. Vent 1 minut og prøv igen.');
+      }
+      
       throw error;
+    }
+    
+    // Check if response indicates rate limiting
+    if (data?.rateLimited || data?.error?.includes('Rate limit')) {
+      throw new Error('⏱️ Gemini API rate limit nået. Vent 1 minut og prøv igen.');
     }
 
     console.log('✅ Gemini labels:', data.labels);

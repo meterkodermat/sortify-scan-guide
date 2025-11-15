@@ -59,7 +59,9 @@ const Index = () => {
       setCurrentView('result');
       toast.success("Affald identificeret!");
     } catch (error) {
-      toast.error("Kunne ikke analysere billedet. Prøv igen.");
+      console.error('Analysis error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Kunne ikke analysere billedet. Prøv igen.";
+      toast.error(errorMessage);
       setCurrentView('home');
     } finally {
       setIsAnalyzing(false);
