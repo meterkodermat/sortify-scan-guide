@@ -21,11 +21,16 @@ export type Database = {
           hjem: string | null
           id: number
           materiale: string | null
+          materiale_en: string | null
           navn: string | null
+          navn_en: string | null
           synonymer: string | null
+          synonymer_en: string | null
           tilstand: string | null
+          tilstand_en: string | null
           updated_at: string | null
           variation: string | null
+          variation_en: string | null
         }
         Insert: {
           created_at?: string
@@ -33,11 +38,16 @@ export type Database = {
           hjem?: string | null
           id?: number
           materiale?: string | null
+          materiale_en?: string | null
           navn?: string | null
+          navn_en?: string | null
           synonymer?: string | null
+          synonymer_en?: string | null
           tilstand?: string | null
+          tilstand_en?: string | null
           updated_at?: string | null
           variation?: string | null
+          variation_en?: string | null
         }
         Update: {
           created_at?: string
@@ -45,11 +55,16 @@ export type Database = {
           hjem?: string | null
           id?: number
           materiale?: string | null
+          materiale_en?: string | null
           navn?: string | null
+          navn_en?: string | null
           synonymer?: string | null
+          synonymer_en?: string | null
           tilstand?: string | null
+          tilstand_en?: string | null
           updated_at?: string | null
           variation?: string | null
+          variation_en?: string | null
         }
         Relationships: []
       }
