@@ -458,10 +458,7 @@ export const identifyWaste = async (imageData: string): Promise<WasteItem> => {
             dbMatchQuality = 2.0;
           }
           
-          const specificObjects = ['kasse', 'pizza', 'æske', 'flaske', 'dåse', 'bog', 'avis'];
-          if (specificObjects.some(obj => bestDbMatch.navn?.toLowerCase().includes(obj))) {
-            dbMatchQuality *= 1.5;
-          }
+          // Removed specific object boost - let AI confidence decide
           
           const goodCategories = ['Metal', 'Plast', 'Papir', 'Pap', 'Glas', 'Madaffald', 'Tekstilaffald'];
           if (goodCategories.includes(bestDbMatch.hjem)) {
