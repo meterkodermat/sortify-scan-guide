@@ -244,61 +244,10 @@ serve(async (req) => {
       });
     }
 
-    // Validate API key format
-    const keyValidation = validateGeminiApiKey(geminiApiKey);
-    if (!keyValidation.valid) {
-      console.error('Invalid Gemini API key format:', keyValidation.errors);
-      
-      // Provide detailed feedback about the API key format
-      const currentKey = geminiApiKey.substring(0, 10) + '...';
-      
-      // Still provide fallback to keep app functional
-      const mockLabels = generateMockResponse(base64Data);
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        labels: mockLabels,
-        fallback: true,
-        message: `API key format invalid. Current key: ${currentKey}`,
-        validationErrors: keyValidation.errors,
-        expectedFormat: 'Gemini API keys should start with "AIza" and be 39 characters long',
-        metadata: {
-          imageQuality: 0.8,
-          totalResults: mockLabels.length,
-          model: 'mock-fallback',
-          processingTime: Date.now()
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Skip format validation - let the actual API call validate the key
 
-    // Test API key validity
-    console.log('Testing API key validity...');
-    const keyTest = await testGeminiApiKey(geminiApiKey);
-    if (!keyTest.valid) {
-      console.error('API key test failed:', keyTest.error);
-      
-      // Still provide fallback to keep app functional
-      const mockLabels = generateMockResponse(base64Data);
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        labels: mockLabels,
-        fallback: true,
-        message: `API key test failed: ${keyTest.error}`,
-        metadata: {
-          imageQuality: 0.8,
-          totalResults: mockLabels.length,
-          model: 'mock-fallback',
-          processingTime: Date.now()
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('API key validation successful, proceeding with Gemini API call...');
+    // Skip API key test - it wastes quota. Let the actual call fail if invalid.
+    console.log('Proceeding with Gemini API call...');
 
     // Assess image quality first
     const imageQuality = await assessImageQuality(base64Data);
@@ -346,6 +295,19 @@ serve(async (req) => {
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error('Gemini API error:', errorText);
+      
+      // Specific handling for rate limiting
+      if (geminiResponse.status === 429) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Rate limit overskredet. Vent 1 minut og prøv igen, eller opgrader din Gemini API plan.',
+          rateLimited: true
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       return new Response(JSON.stringify({ 
         success: false, 
         error: `Gemini API error: ${geminiResponse.status}` 
