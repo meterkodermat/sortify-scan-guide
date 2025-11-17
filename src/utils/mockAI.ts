@@ -371,6 +371,8 @@ const getAlternativeSearchTerms = (term: string): string[] => {
     'papirbunke': ['papir', 'printerpapir', 'kopipapir'],
     'papirdokument': ['papir', 'printerpapir', 'dokument'],
     'papirstabel': ['papir', 'printerpapir'],
+    'bunt papir': ['farvet papir', 'papir', 'printerpapir'],
+    'farvet papir': ['bunt papir', 'papir'],
     'plastpose': ['bærepose', 'indkøbspose', 'pose'],
     'bærepose': ['plastpose', 'indkøbspose', 'pose'],
     'karton': ['pap', 'papkasse', 'emballage'],
