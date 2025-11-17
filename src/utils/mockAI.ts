@@ -160,6 +160,30 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       const primaryTerm = searchTerms[0]?.toLowerCase() || '';
       if (!primaryTerm) return 0;
       
+      // NEW: Special handling for gift wrapping paper
+      const descLower = primaryTerm;
+      const aName = (a.navn || '').toLowerCase();
+      const bName = (b.navn || '').toLowerCase();
+      const aSynonyms = (a.synonymer || '').toLowerCase();
+      const bSynonyms = (b.synonymer || '').toLowerCase();
+      
+      const isGiftWrappingQuery = descLower.includes('silke') || descLower.includes('gave') || 
+                                   descLower.includes('indpakning') || descLower.includes('julepapir');
+      
+      if (isGiftWrappingQuery) {
+        // Boost items with "gave" in name or synonyms
+        if (aName.includes('gave') || aSynonyms.includes('gave')) aScore += 500;
+        if (bName.includes('gave') || bSynonyms.includes('gave')) bScore += 500;
+        
+        // Reduce Restaffald penalty for gift-related items
+        if ((aName.includes('gave') || aSynonyms.includes('gave')) && a.hjem === 'Restaffald') {
+          aScore += 150; // Offset the penalty below
+        }
+        if ((bName.includes('gave') || bSynonyms.includes('gave')) && b.hjem === 'Restaffald') {
+          bScore += 150;
+        }
+      }
+      
       // PHASE 4: Add material precision bonus
       if (aiMaterial) {
         const aiMat = aiMaterial.toLowerCase();
@@ -174,16 +198,16 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       }
       
       // Exact name match
-      if (a.navn?.toLowerCase() === primaryTerm) aScore += 1000;
-      if (b.navn?.toLowerCase() === primaryTerm) bScore += 1000;
+      if (aName === primaryTerm) aScore += 1000;
+      if (bName === primaryTerm) bScore += 1000;
       
       // Name contains term
-      if (a.navn?.toLowerCase().includes(primaryTerm)) aScore += 300;
-      if (b.navn?.toLowerCase().includes(primaryTerm)) bScore += 300;
+      if (aName.includes(primaryTerm)) aScore += 300;
+      if (bName.includes(primaryTerm)) bScore += 300;
       
       // Synonym match
-      if (a.synonymer?.toLowerCase().includes(primaryTerm)) aScore += 300;
-      if (b.synonymer?.toLowerCase().includes(primaryTerm)) bScore += 300;
+      if (aSynonyms.includes(primaryTerm)) aScore += 300;
+      if (bSynonyms.includes(primaryTerm)) bScore += 300;
       
       // Condition scoring
       const aCondition = (a.tilstand || '').toLowerCase();
