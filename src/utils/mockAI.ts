@@ -167,13 +167,20 @@ const searchWasteInDatabase = async (searchTerms: string[], aiMaterial?: string)
       const aSynonyms = (a.synonymer || '').toLowerCase();
       const bSynonyms = (b.synonymer || '').toLowerCase();
       
-      const isGiftWrappingQuery = descLower.includes('silke') || descLower.includes('gave') || 
-                                   descLower.includes('indpakning') || descLower.includes('julepapir');
+      // Detect decorative/gift wrapping indicators
+      const decorativeIndicators = ['silke', 'gave', 'indpakning', 'julepapir', 'prikker', 
+                                     'gyldne', 'sølv', 'guld', 'glimmer', 'mønster', 
+                                     'lyserød', 'pink', 'sort papir', 'hvidt papir med'];
+      const isDecorativePaper = decorativeIndicators.some(indicator => descLower.includes(indicator));
       
-      if (isGiftWrappingQuery) {
+      if (isDecorativePaper) {
         // Boost items with "gave" in name or synonyms
-        if (aName.includes('gave') || aSynonyms.includes('gave')) aScore += 500;
-        if (bName.includes('gave') || bSynonyms.includes('gave')) bScore += 500;
+        if (aName.includes('gave') || aSynonyms.includes('gave')) aScore += 800;
+        if (bName.includes('gave') || bSynonyms.includes('gave')) bScore += 800;
+        
+        // Heavily penalize kitchen roll for decorative paper queries
+        if (aName.includes('køkken') || aSynonyms.includes('køkken')) aScore -= 500;
+        if (bName.includes('køkken') || bSynonyms.includes('køkken')) bScore -= 500;
         
         // Reduce Restaffald penalty for gift-related items
         if ((aName.includes('gave') || aSynonyms.includes('gave')) && a.hjem === 'Restaffald') {
@@ -368,6 +375,11 @@ const getAlternativeSearchTerms = (term: string): string[] => {
   const alternatives: { [key: string]: string[] } = {
     'gavepapir': ['silkepapir', 'indpakningspapir', 'papir'],
     'silkepapir': ['gavepapir', 'indpakningspapir', 'papir'],
+    'papir med prikker': ['gavepapir', 'indpakningspapir'],
+    'papir med mønster': ['gavepapir', 'indpakningspapir'],
+    'lyserødt papir': ['gavepapir', 'indpakningspapir'],
+    'sort papir': ['gavepapir', 'indpakningspapir'],
+    'hvidt papir med': ['gavepapir', 'indpakningspapir'],
     'papirbunke': ['papir', 'printerpapir', 'kopipapir'],
     'papirdokument': ['papir', 'printerpapir', 'dokument'],
     'papirstabel': ['papir', 'printerpapir'],
